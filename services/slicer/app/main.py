@@ -1,0 +1,119 @@
+import asyncio
+import json
+import logging
+import os
+import re
+from pathlib import Path
+
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response
+
+from .engine import SliceJob, UploadedModel, default_config, slice_job
+
+
+logger = logging.getLogger("standalone-slicer")
+app = FastAPI(title="Standalone Slicer API", version="1.0.0")
+slice_slots = asyncio.Semaphore(int(os.environ.get("SLICER_CONCURRENCY", "1")))
+
+MAX_FILE_BYTES = int(os.environ.get("SLICER_MAX_FILE_BYTES", str(200 * 1024 * 1024)))
+MAX_MODELS = int(os.environ.get("SLICER_MAX_MODELS", "12"))
+ALLOWED_EXTENSIONS = {".stl", ".step", ".stp"}
+
+
+def _safe_download_name(raw_name: str) -> str:
+    stem = Path(raw_name).stem or "slice"
+    stem = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("._") or "slice"
+    return f"{stem}.gcode"
+
+
+def _parse_manifest(raw_manifest: str, files: list[UploadFile]) -> SliceJob:
+    if len(raw_manifest.encode("utf-8")) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Manifest is too large")
+    try:
+        manifest = json.loads(raw_manifest)
+    except json.JSONDecodeError as error:
+        raise HTTPException(status_code=422, detail=f"Invalid manifest JSON: {error.msg}") from error
+
+    if not isinstance(manifest, dict):
+        raise HTTPException(status_code=422, detail="Manifest must be a JSON object")
+    model_meta = manifest.get("models")
+    if not isinstance(model_meta, list) or len(model_meta) != len(files):
+        raise HTTPException(status_code=422, detail="Manifest models must match uploaded models")
+    if any(not isinstance(model, dict) for model in model_meta):
+        raise HTTPException(status_code=422, detail="Every manifest model must be an object")
+    if not files or len(files) > MAX_MODELS:
+        raise HTTPException(status_code=422, detail=f"Upload between 1 and {MAX_MODELS} models")
+
+    object_fields = ("config", "fileOverrides", "rangeOverrides", "transforms", "startPositions")
+    if any(not isinstance(manifest.get(key, {}), dict) for key in object_fields):
+        raise HTTPException(status_code=422, detail="Config, overrides, transforms, and positions must be objects")
+    if not isinstance(manifest.get("customGcodeForZ", []), list):
+        raise HTTPException(status_code=422, detail="customGcodeForZ must be an array")
+
+    return SliceJob(
+        models=[],
+        config=manifest.get("config") or {},
+        file_overrides=manifest.get("fileOverrides") or {},
+        range_overrides=manifest.get("rangeOverrides") or {},
+        transforms=manifest.get("transforms") or {},
+        custom_gcode_for_z=manifest.get("customGcodeForZ") or [],
+        start_positions=manifest.get("startPositions") or {},
+    )
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+@app.get("/api/default-config")
+def get_default_config():
+    return default_config()
+
+
+@app.post("/api/slice")
+async def slice_models(
+    manifest: str = Form(...),
+    models: list[UploadFile] = File(...),
+):
+    job = _parse_manifest(manifest, models)
+    manifest_data = json.loads(manifest)
+    uploaded_models: list[UploadedModel] = []
+
+    for metadata, upload in zip(manifest_data["models"], models):
+        filename = upload.filename or metadata.get("name") or "model.stl"
+        if Path(filename).suffix.lower() not in ALLOWED_EXTENSIONS:
+            raise HTTPException(status_code=415, detail=f"Unsupported model format: {filename}")
+        data = await upload.read(MAX_FILE_BYTES + 1)
+        if len(data) > MAX_FILE_BYTES:
+            raise HTTPException(status_code=413, detail=f"Model is too large: {filename}")
+        uploaded_models.append(
+            UploadedModel(
+                file_id=str(metadata.get("id") or ""),
+                file_name=filename,
+                data=data,
+            )
+        )
+
+    if any(not model.file_id for model in uploaded_models):
+        raise HTTPException(status_code=422, detail="Every model needs a stable client ID")
+    if len({model.file_id for model in uploaded_models}) != len(uploaded_models):
+        raise HTTPException(status_code=422, detail="Model IDs must be unique")
+
+    job.models = uploaded_models
+    job.__post_init__()
+    try:
+        async with slice_slots:
+            gcode = await asyncio.to_thread(slice_job, job)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except Exception as error:
+        logger.exception("Slice failed")
+        raise HTTPException(status_code=500, detail=str(error)) from error
+
+    download_name = _safe_download_name(uploaded_models[0].file_name)
+    return Response(
+        content=gcode,
+        media_type="text/x-gcode",
+        headers={"Content-Disposition": f'attachment; filename="{download_name}"'},
+    )

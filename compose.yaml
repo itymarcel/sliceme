@@ -1,0 +1,20 @@
+services:
+  slicer-api:
+    build:
+      context: ./services/slicer
+      args:
+        ORCA_RUNTIME_IMAGE: ${ORCA_RUNTIME_IMAGE:-standalone-orca-runtime:local}
+    environment:
+      SLICER_CONCURRENCY: ${SLICER_CONCURRENCY:-1}
+      SLICER_TIMEOUT_SECONDS: ${SLICER_TIMEOUT_SECONDS:-700}
+      SLICER_MAX_FILE_BYTES: ${SLICER_MAX_FILE_BYTES:-209715200}
+    expose:
+      - "8080"
+    init: true
+
+  web:
+    build: ./apps/web
+    depends_on:
+      - slicer-api
+    ports:
+      - "3007:80"

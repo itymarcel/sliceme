@@ -1,0 +1,235 @@
+import { useMemo, useState } from 'react';
+import { RotateCcw, Search } from 'lucide-react';
+
+import type { ConfigBundle, ConfigSection, RangeOverride, SelectedNode } from '../types';
+
+type Field = {
+  key: string;
+  label: string;
+  type?: 'number' | 'checkbox' | 'select' | 'text';
+  step?: number;
+  options?: Array<{ label: string; value: string }>;
+};
+type Group = { label: string; fields: Field[] };
+
+const fields: Record<ConfigSection, Group[]> = {
+  machine_config: [
+    { label: 'Build volume', fields: [
+      { key: 'nozzle_diameter', label: 'Nozzle diameter', type: 'select', options: ['0.2', '0.25', '0.4', '0.6', '0.8', '1.0', '1.2', '1.4', '1.6', '1.8', '2.0'].map((value) => ({ label: `${value} mm`, value })) },
+      { key: 'nozzle_type', label: 'Nozzle type', type: 'select', options: ['undefine', 'hardened_steel', 'stainless_steel', 'brass'].map((value) => ({ label: value.replaceAll('_', ' '), value })) },
+      { key: 'gcode_flavor', label: 'G-code flavor', type: 'select', options: ['marlin', 'klipper', 'reprapfirmware'].map((value) => ({ label: value, value })) },
+      { key: 'printable_height', label: 'Printable height', type: 'number' },
+      { key: 'z_offset', label: 'Z offset', type: 'number', step: 0.01 },
+      { key: 'extruder_clearance_height_to_rod', label: 'Clearance height', type: 'number' },
+    ] },
+    { label: 'Motion limits', fields: [
+      { key: 'machine_max_speed_x', label: 'Maximum X speed', type: 'number' },
+      { key: 'machine_max_speed_y', label: 'Maximum Y speed', type: 'number' },
+      { key: 'machine_max_speed_z', label: 'Maximum Z speed', type: 'number' },
+      { key: 'machine_max_acceleration_extruding', label: 'Maximum acceleration', type: 'number' },
+      { key: 'default_acceleration', label: 'Default acceleration', type: 'number' },
+    ] },
+    { label: 'Machine G-code', fields: [
+      { key: 'machine_start_gcode', label: 'Start G-code', type: 'text' },
+      { key: 'machine_end_gcode', label: 'End G-code', type: 'text' },
+      { key: 'emit_machine_limits_to_gcode', label: 'Emit machine limits', type: 'checkbox' },
+      { key: 'silent_mode', label: 'Silent mode', type: 'checkbox' },
+    ] },
+  ],
+  filament_config: [
+    { label: 'Material', fields: [
+      { key: 'filament_type', label: 'Filament', type: 'select', options: ['PLA', 'PETG', 'ABS', 'ABS-GF', 'ASA', 'ASA-CF', 'PA', 'PA-CF', 'PC', 'PC-CF', 'PETG-CF', 'PP', 'PVA', 'TPU'].map((value) => ({ label: value, value })) },
+      { key: 'filament_diameter', label: 'Diameter', type: 'number', step: 0.05 },
+      { key: 'filament_flow_ratio', label: 'Flow ratio', type: 'number', step: 0.01 },
+      { key: 'filament_max_volumetric_speed', label: 'Maximum volumetric speed', type: 'number' },
+    ] },
+    { label: 'Temperature', fields: [
+      { key: 'nozzle_temperature', label: 'Nozzle temperature', type: 'number' },
+      { key: 'nozzle_temperature_initial_layer', label: 'First-layer nozzle', type: 'number' },
+      { key: 'hot_plate_temp', label: 'Bed temperature', type: 'number' },
+      { key: 'hot_plate_temp_initial_layer', label: 'First-layer bed', type: 'number' },
+    ] },
+    { label: 'Cooling', fields: [
+      { key: 'fan_min_speed', label: 'Minimum fan', type: 'number' },
+      { key: 'fan_max_speed', label: 'Maximum fan', type: 'number' },
+      { key: 'close_fan_the_first_x_layers', label: 'Fan off for first layers', type: 'number' },
+      { key: 'full_fan_speed_layer', label: 'Full fan at layer', type: 'number' },
+      { key: 'additional_cooling_fan_speed', label: 'Additional fan', type: 'number' },
+      { key: 'slow_down_layer_time', label: 'Slow-down layer time', type: 'number' },
+      { key: 'slow_down_for_layer_cooling', label: 'Slow down for cooling', type: 'checkbox' },
+    ] },
+    { label: 'Pressure advance', fields: [
+      { key: 'enable_pressure_advance', label: 'Enable pressure advance', type: 'checkbox' },
+      { key: 'pressure_advance', label: 'Pressure advance', type: 'number', step: 0.001 },
+    ] },
+    { label: 'Retraction', fields: [
+      { key: 'filament_retraction_length', label: 'Retraction length', type: 'number', step: 0.1 },
+      { key: 'filament_retraction_speed', label: 'Retraction speed', type: 'number' },
+      { key: 'filament_retraction_minimum_travel', label: 'Minimum travel', type: 'number' },
+      { key: 'filament_retract_when_changing_layer', label: 'Retract on layer change', type: 'checkbox' },
+    ] },
+    { label: 'Material properties', fields: [
+      { key: 'filament_shrink', label: 'Shrink compensation', type: 'number' },
+      { key: 'temperature_vitrification', label: 'Vitrification temperature', type: 'number' },
+      { key: 'filament_start_gcode', label: 'Filament start G-code', type: 'text' },
+      { key: 'filament_end_gcode', label: 'Filament end G-code', type: 'text' },
+    ] },
+  ],
+  process_config: [
+    { label: 'Quality', fields: [
+      { key: 'layer_height', label: 'Layer height', type: 'number', step: 0.05 },
+      { key: 'initial_layer_print_height', label: 'First-layer height', type: 'number', step: 0.05 },
+      { key: 'line_width', label: 'Line width', type: 'number', step: 0.01 },
+      { key: 'resolution', label: 'Resolution', type: 'number', step: 0.001 },
+      { key: 'seam_position', label: 'Seam position', type: 'select', options: ['aligned', 'nearest', 'random', 'rear'].map((value) => ({ label: value, value })) },
+      { key: 'spiral_mode', label: 'Spiral / vase mode', type: 'checkbox' },
+      { key: 'spiral_mode_smooth', label: 'Smooth spiral', type: 'checkbox' },
+    ] },
+    { label: 'Walls and surfaces', fields: [
+      { key: 'wall_loops', label: 'Wall loops', type: 'number' },
+      { key: 'wall_sequence', label: 'Wall sequence', type: 'select', options: ['inner wall/outer wall', 'outer wall/inner wall', 'inner-outer-inner wall'].map((value) => ({ label: value, value })) },
+      { key: 'wall_generator', label: 'Wall generator', type: 'select', options: [{ label: 'Arachne', value: 'arachne' }, { label: 'Classic', value: 'classic' }] },
+      { key: 'top_shell_layers', label: 'Top layers', type: 'number' },
+      { key: 'bottom_shell_layers', label: 'Bottom layers', type: 'number' },
+      { key: 'detect_thin_wall', label: 'Detect thin walls', type: 'checkbox' },
+      { key: 'precise_outer_wall', label: 'Precise outer wall', type: 'checkbox' },
+      { key: 'top_surface_pattern', label: 'Top pattern', type: 'select', options: ['rectilinear', 'monotonic', 'monotonicline', 'concentric', 'hilbertcurve'].map((value) => ({ label: value, value })) },
+      { key: 'bottom_surface_pattern', label: 'Bottom pattern', type: 'select', options: ['rectilinear', 'monotonic', 'monotonicline', 'concentric'].map((value) => ({ label: value, value })) },
+    ] },
+    { label: 'Infill', fields: [
+      { key: 'sparse_infill_density', label: 'Density', type: 'number', step: 5 },
+      { key: 'sparse_infill_pattern', label: 'Pattern', type: 'select', options: ['rectilinear', 'grid', 'triangles', 'cubic', 'adaptivecubic', 'lightning', 'honeycomb', '3dhoneycomb', 'crosshatch', 'gyroid', 'concentric'].map((value) => ({ label: value, value })) },
+      { key: 'infill_direction', label: 'Direction', type: 'number' },
+    ] },
+    { label: 'Speed', fields: [
+      { key: 'initial_layer_speed', label: 'First layer', type: 'number' },
+      { key: 'outer_wall_speed', label: 'Outer wall', type: 'number' },
+      { key: 'inner_wall_speed', label: 'Inner wall', type: 'number' },
+      { key: 'sparse_infill_speed', label: 'Sparse infill', type: 'number' },
+      { key: 'internal_solid_infill_speed', label: 'Solid infill', type: 'number' },
+      { key: 'top_surface_speed', label: 'Top surface', type: 'number' },
+      { key: 'travel_speed', label: 'Travel', type: 'number' },
+      { key: 'bridge_speed', label: 'Bridge', type: 'number' },
+      { key: 'outer_wall_acceleration', label: 'Outer-wall acceleration', type: 'number' },
+      { key: 'bridge_acceleration', label: 'Bridge acceleration', type: 'number' },
+    ] },
+    { label: 'Support and adhesion', fields: [
+      { key: 'enable_support', label: 'Enable support', type: 'checkbox' },
+      { key: 'support_threshold_angle', label: 'Support threshold', type: 'number' },
+      { key: 'support_type', label: 'Support placement', type: 'select', options: [{ label: 'Normal', value: 'normal(auto)' }, { label: 'Build plate only', value: 'normal(manual)' }, { label: 'Tree', value: 'tree(auto)' }] },
+      { key: 'support_style', label: 'Support style', type: 'select', options: ['default', 'grid', 'snug', 'organic', 'tree_slim', 'tree_strong', 'tree_hybrid'].map((value) => ({ label: value, value })) },
+      { key: 'brim_type', label: 'Brim', type: 'select', options: [{ label: 'None', value: 'no_brim' }, { label: 'Automatic', value: 'auto_brim' }, { label: 'Outer only', value: 'outer_only' }] },
+      { key: 'brim_width', label: 'Brim width', type: 'number' },
+      { key: 'skirt_distance', label: 'Skirt distance', type: 'number' },
+      { key: 'raft_layers', label: 'Raft layers', type: 'number' },
+    ] },
+    { label: 'Surface finish', fields: [
+      { key: 'retraction_length', label: 'Retraction length', type: 'number' },
+      { key: 'z_hop', label: 'Z hop', type: 'number' },
+      { key: 'ironing_type', label: 'Ironing', type: 'select', options: ['no ironing', 'top', 'topmost', 'solid'].map((value) => ({ label: value, value })) },
+      { key: 'elefant_foot_compensation', label: 'Elephant-foot compensation', type: 'number', step: 0.01 },
+      { key: 'bridge_flow', label: 'Bridge flow', type: 'number', step: 0.01 },
+      { key: 'fuzzy_skin', label: 'Fuzzy skin', type: 'select', options: ['none', 'external', 'all', 'allwalls'].map((value) => ({ label: value, value })) },
+      { key: 'fuzzy_skin_thickness', label: 'Fuzzy-skin thickness', type: 'number', step: 0.01 },
+    ] },
+  ],
+};
+
+type Props = {
+  selectedNode: SelectedNode;
+  config: ConfigBundle;
+  fileOverrides: Record<string, Partial<ConfigBundle>>;
+  rangeOverrides: Record<string, RangeOverride[]>;
+  onChange: (section: ConfigSection, key: string, value: unknown) => void;
+  onClear: (section: ConfigSection, key: string) => void;
+  onRangeBoundary: (fileId: string, rangeIndex: number, key: 'min_z' | 'max_z', value: number) => void;
+};
+
+const overrideConfig = (props: Props, section: ConfigSection) => {
+  const { selectedNode, config, fileOverrides, rangeOverrides } = props;
+  if (selectedNode.type === 'scene') return { resolved: config[section], own: config[section] };
+  const file = fileOverrides[selectedNode.fileId]?.[section] ?? {};
+  if (selectedNode.type === 'file') return { resolved: { ...config[section], ...file }, own: file };
+  const range = rangeOverrides[selectedNode.fileId]?.[selectedNode.rangeIndex]?.[section] ?? {};
+  return { resolved: { ...config[section], ...file, ...range }, own: range };
+};
+
+function FieldControl({ field, section, props }: { field: Field; section: ConfigSection; props: Props }) {
+  const { resolved, own } = overrideConfig(props, section);
+  const value = resolved[field.key];
+  const scalarValue = Array.isArray(value) ? value[0] : value;
+  const overridden = props.selectedNode.type !== 'scene' && Object.hasOwn(own, field.key);
+  const globalFromObject = field.key === 'spiral_mode' && props.selectedNode.type === 'file';
+  const update = (raw: string | boolean) => {
+    if (field.type === 'checkbox') props.onChange(section, field.key, raw ? '1' : '0');
+    else if (field.type === 'number' && typeof scalarValue === 'string' && scalarValue.trim().endsWith('%')) props.onChange(section, field.key, `${raw}%`);
+    else props.onChange(section, field.key, raw);
+  };
+  const displayValue = field.type === 'number' && typeof scalarValue === 'string'
+    ? scalarValue.replace(/%$/, '')
+    : scalarValue;
+
+  return (
+    <label className={`setting-row ${overridden ? 'is-overridden' : ''}`}>
+      <span title={globalFromObject ? 'Spiral mode applies to the whole print' : undefined}>
+        {field.label}{globalFromObject ? ' (global)' : ''}
+      </span>
+      <div className="setting-control">
+        {field.type === 'checkbox' ? (
+          <input type="checkbox" checked={displayValue === true || displayValue === '1'} onChange={(event) => update(event.target.checked)} />
+        ) : field.type === 'select' ? (
+          <select value={String(displayValue ?? '')} onChange={(event) => update(event.target.value)}>
+            {field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        ) : field.type === 'text' ? (
+          <textarea rows={3} value={String(displayValue ?? '')} onChange={(event) => update(event.target.value)} />
+        ) : (
+          <input type="number" step={field.step ?? 1} value={String(displayValue ?? '')} onChange={(event) => update(event.target.value)} />
+        )}
+        {overridden && <button className="icon-button" type="button" title="Use inherited value" onClick={() => props.onClear(section, field.key)}><RotateCcw size={13} /></button>}
+      </div>
+    </label>
+  );
+}
+
+export function SlicerSettingsPanel(props: Props) {
+  const [section, setSection] = useState<ConfigSection>(props.selectedNode.type === 'scene' ? 'machine_config' : 'process_config');
+  const [query, setQuery] = useState('');
+  const visibleGroups = useMemo(() => fields[section].map((group) => ({
+    ...group,
+    fields: group.fields.filter((field) => `${group.label} ${field.label}`.toLowerCase().includes(query.toLowerCase())),
+  })).filter((group) => group.fields.length), [query, section]);
+  const rangeSelection = props.selectedNode.type === 'range' ? props.selectedNode : null;
+  const range = rangeSelection ? props.rangeOverrides[rangeSelection.fileId]?.[rangeSelection.rangeIndex] : null;
+
+  return (
+    <section className="settings-panel panel">
+      <div className="panel-heading">
+        <div><span className="eyebrow">Settings</span><strong>{props.selectedNode.type === 'scene' ? 'Global' : props.selectedNode.type === 'file' ? 'Object override' : 'Height-range override'}</strong></div>
+      </div>
+      {range && rangeSelection && (
+        <div className="range-boundaries">
+          <label>From <input type="number" step="0.1" value={range.range.min_z} onChange={(event) => props.onRangeBoundary(rangeSelection.fileId, rangeSelection.rangeIndex, 'min_z', Number(event.target.value))} /></label>
+          <label>To <input type="number" step="0.1" value={range.range.max_z} onChange={(event) => props.onRangeBoundary(rangeSelection.fileId, rangeSelection.rangeIndex, 'max_z', Number(event.target.value))} /></label>
+          <span>mm</span>
+        </div>
+      )}
+      <div className="settings-tabs">
+        {(['machine_config', 'filament_config', 'process_config'] as ConfigSection[]).map((tab) => (
+          <button key={tab} disabled={tab === 'machine_config' && props.selectedNode.type !== 'scene'} className={section === tab ? 'active' : ''} onClick={() => setSection(tab)}>
+            {tab.split('_')[0]}
+          </button>
+        ))}
+      </div>
+      <div className="settings-scroll">
+        {visibleGroups.map((group) => (
+          <div className="settings-group" key={group.label}>
+            <h3>{group.label}</h3>
+            {group.fields.map((field) => <FieldControl key={field.key} field={field} section={section} props={props} />)}
+          </div>
+        ))}
+      </div>
+      <label className="settings-search"><Search size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a setting" /></label>
+    </section>
+  );
+}

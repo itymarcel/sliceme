@@ -1,0 +1,10 @@
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+python-multipart==0.0.20
+trimesh==4.11.5
+scipy==1.18.0
+shapely==2.1.2
+networkx==3.6.1
+rtree==1.4.1
+mapbox-earcut==2.0.0
+cadquery-ocp-novtk==7.9.3.1

@@ -1,0 +1,1 @@
+"""Stateless standalone slicer service."""
