@@ -3,7 +3,7 @@ services:
     build:
       context: ./services/slicer
       args:
-        ORCA_RUNTIME_IMAGE: ${ORCA_RUNTIME_IMAGE:-standalone-orca-runtime:local}
+        ORCA_RUNTIME_IMAGE: ${ORCA_RUNTIME_IMAGE:-ghcr.io/itymarcel/custom-orca:main-arm64}
     environment:
       SLICER_CONCURRENCY: ${SLICER_CONCURRENCY:-1}
       SLICER_TIMEOUT_SECONDS: ${SLICER_TIMEOUT_SECONDS:-700}
@@ -14,6 +14,9 @@ services:
 
   web:
     build: ./apps/web
+    environment:
+      SLICER_API_HOST: ${SLICER_API_HOST:-slicer-api}
+      SLICER_API_PORT: ${SLICER_API_PORT:-8080}
     depends_on:
       - slicer-api
     ports:

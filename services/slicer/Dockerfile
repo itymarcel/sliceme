@@ -1,4 +1,4 @@
-ARG ORCA_RUNTIME_IMAGE=standalone-orca-runtime:local
+ARG ORCA_RUNTIME_IMAGE=ghcr.io/itymarcel/custom-orca:main
 FROM ${ORCA_RUNTIME_IMAGE}
 
 ENV DEBIAN_FRONTEND=noninteractive \
