@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Line } from '@react-three/drei';
 import { parseGeometry } from '../lib/geometryParserClient';
 import { Box3, BufferGeometry, BufferAttribute, DirectionalLight, DoubleSide, Euler, Matrix4, Plane, Vector2, Vector3, Raycaster } from 'three';
 import type { SlicerModel } from '../types';
 import { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
+import { closestSnapCandidate, type MeasurementPoint } from '../lib/measurement';
 
 const DEG2RAD = Math.PI / 180;
 const GROUND_PLANE = new Plane(new Vector3(0, 0, 1), 0);
@@ -68,10 +69,14 @@ type SlicerStlMeshProps = {
   setOrbitEnabled: (enabled: boolean) => void;
   onGeometryLoaded: (fileId: string, geometry: BufferGeometry) => void;
   seamPickActive?: boolean;
+  measurementActive?: boolean;
+  onMeasurementPoint?: (point: MeasurementPoint) => void;
+  onSnapHover?: (point: MeasurementPoint | null) => void;
 };
 
 const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
-  file, selected, position, rotation, buildVolume, onSelect, onDragStart, onPositionChange, setOrbitEnabled, onGeometryLoaded, seamPickActive = false,
+  file, selected, position, rotation, buildVolume, onSelect, onDragStart, onPositionChange, setOrbitEnabled, onGeometryLoaded,
+  seamPickActive = false, measurementActive = false, onMeasurementPoint, onSnapHover,
 }) => {
   const [geometry, setGeometry] = useState<BufferGeometry | undefined>(undefined);
   const { camera, gl, invalidate } = useThree();
@@ -124,6 +129,23 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
     return ray.ray.intersectPlane(GROUND_PLANE, target) ? target : null;
   };
 
+  const getSnapPoint = <T extends MouseEvent | PointerEvent>(e: ThreeEvent<T>): MeasurementPoint | null => {
+    if (!e.face) return null;
+    const rect = gl.domElement.getBoundingClientRect();
+    const positions = geometry.getAttribute('position');
+    const candidates = [e.face.a, e.face.b, e.face.c].map((index) => {
+      const point = new Vector3().fromBufferAttribute(positions, index);
+      e.object.localToWorld(point);
+      const projected = point.clone().project(camera);
+      return {
+        point: { x: point.x, y: point.y, z: point.z },
+        screenX: rect.left + (projected.x + 1) * rect.width / 2,
+        screenY: rect.top + (1 - projected.y) * rect.height / 2,
+      };
+    });
+    return closestSnapCandidate(candidates, e.nativeEvent.clientX, e.nativeEvent.clientY, 12)?.point ?? null;
+  };
+
   return (
     <mesh
       geometry={geometry}
@@ -138,7 +160,7 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
         // If unselected, orbit controls handle the drag naturally (they receive
         // the DOM event regardless of R3F stopPropagation). onPointerUp below
         // handles click-to-select using a distance check.
-        if (!selected || seamPickActive) return;
+        if (!selected || seamPickActive || measurementActive) return;
         const hit = getPlaneHit(e.clientX, e.clientY);
         if (!hit) return;
         onDragStart();
@@ -147,6 +169,10 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
         setOrbitEnabled(false);
       }}
       onPointerMove={(e) => {
+        if (measurementActive) {
+          e.stopPropagation();
+          onSnapHover?.(getSnapPoint(e));
+        }
         if (!dragState.current.active) return;
         pointerMoved.current = true;
         const hit = getPlaneHit(e.clientX, e.clientY);
@@ -157,6 +183,7 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
         invalidate();
       }}
       onPointerUp={(e) => {
+        if (measurementActive) return;
         if (dragState.current.active) {
           dragState.current.active = false;
           (e.target as Element).releasePointerCapture(e.pointerId);
@@ -172,6 +199,15 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
           if (dx * dx + dy * dy < 25) onSelect(); // < 5 px
         }
       }}
+      onClick={(e) => {
+        if (!measurementActive || !pointerDownClient.current) return;
+        const dx = e.clientX - pointerDownClient.current.x;
+        const dy = e.clientY - pointerDownClient.current.y;
+        if (dx * dx + dy * dy >= 25) return;
+        e.stopPropagation();
+        onMeasurementPoint?.(getSnapPoint(e) ?? { x: e.point.x, y: e.point.y, z: e.point.z });
+      }}
+      onPointerOut={() => { if (measurementActive) onSnapHover?.(null); }}
     >
       <meshStandardMaterial
         color={selected ? '#5eead4' : '#8090a3'}
@@ -270,6 +306,33 @@ const StartPositionMarkers: React.FC<{ positions: Record<string, StartPosition> 
   </>
 );
 
+const MeasurementOverlay: React.FC<{ points: MeasurementPoint[]; snapHover: MeasurementPoint | null }> = ({ points, snapHover }) => (
+  <>
+    {points.map((point, index) => (
+      <mesh key={`${index}-${point.x}-${point.y}-${point.z}`} position={[point.x, point.y, point.z]} renderOrder={20} raycast={() => null}>
+        <sphereGeometry args={[1.6, 16, 16]} />
+        <meshBasicMaterial color="#fbbf24" depthTest={false} />
+      </mesh>
+    ))}
+    {points.length === 2 && (
+      <Line
+        points={points.map((point) => [point.x, point.y, point.z] as [number, number, number])}
+        color="#fbbf24"
+        lineWidth={2}
+        depthTest={false}
+        renderOrder={19}
+        raycast={() => null}
+      />
+    )}
+    {snapHover && (
+      <mesh position={[snapHover.x, snapHover.y, snapHover.z]} renderOrder={21} raycast={() => null}>
+        <sphereGeometry args={[2.3, 16, 16]} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.9} depthTest={false} wireframe />
+      </mesh>
+    )}
+  </>
+);
+
 type ModelViewportProps = {
   stlFiles: SlicerModel[];
   buildVolume?: BuildVolume;
@@ -285,6 +348,9 @@ type ModelViewportProps = {
   startPositionPickTarget?: string | null;
   onStartPositionPick?: (x: number, y: number) => void;
   onStartPositionPickCancel?: () => void;
+  measurementActive?: boolean;
+  measurementPoints?: MeasurementPoint[];
+  onMeasurementPoint?: (point: MeasurementPoint) => void;
 };
 
 export type ModelViewportHandle = {
@@ -302,9 +368,19 @@ const CameraBridge: React.FC<{ cameraRef: React.MutableRefObject<any> }> = ({ ca
 const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>(({ 
   stlFiles, buildVolume = DEFAULT_BUILD_VOLUME, selectedFileId, fileRotations, filePositions, activeRange, onSelectFile, onSelectScene, onDragStart, onPositionChange,
   startPositions = {}, startPositionPickTarget, onStartPositionPick, onStartPositionPickCancel,
+  measurementActive = false, measurementPoints = [], onMeasurementPoint,
 }, ref) => {
   const cameraRef = useRef<any>(null);
   const orbitControlsRef = useRef<OrbitControlsImpl | null>(null);
+  const [snapHover, setSnapHover] = useState<MeasurementPoint | null>(null);
+
+  useEffect(() => {
+    if (!measurementActive) setSnapHover(null);
+  }, [measurementActive]);
+
+  useEffect(() => {
+    setSnapHover(null);
+  }, [stlFiles, filePositions, fileRotations]);
 
   // Living refs so callbacks don't capture stale closures
   const stlFilesRef = useRef(stlFiles);
@@ -409,11 +485,11 @@ const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>(({
   return (
     <Canvas
       camera={{ position: [buildVolume.x / 2, -Math.max(220, buildVolume.y + 10), Math.max(180, buildVolume.z * 1.8)], fov: 45, up: [0, 0, 1], near: 0.1, far: 100000 }}
-      style={{ height: '100%', width: '100%' }}
+      style={{ height: '100%', width: '100%', cursor: measurementActive ? 'crosshair' : undefined }}
       frameloop="demand"
       dpr={1}
       shadows="soft"
-      onPointerMissed={() => { if (!startPositionPickTargetRef.current) onSelectScene?.(); }}
+      onPointerMissed={() => { if (!startPositionPickTargetRef.current && !measurementActive) onSelectScene?.(); }}
     >
       <CameraBridge cameraRef={cameraRef} />
       <ZUpCamera buildVolume={buildVolume} />
@@ -440,6 +516,9 @@ const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>(({
             setOrbitEnabled={setOrbitEnabled}
             onGeometryLoaded={handleGeometryLoaded}
             seamPickActive={!!startPositionPickTarget}
+            measurementActive={measurementActive}
+            onMeasurementPoint={onMeasurementPoint}
+            onSnapHover={setSnapHover}
           />
         );
       })}
@@ -450,6 +529,7 @@ const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>(({
         onCancel={onStartPositionPickCancel ?? (() => {})}
       />
       <StartPositionMarkers positions={startPositions} />
+      <MeasurementOverlay points={measurementPoints} snapHover={snapHover} />
     </Canvas>
   );
 });

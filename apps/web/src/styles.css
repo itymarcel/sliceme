@@ -111,6 +111,20 @@ button { color: inherit; }
 .camera-controls > svg { margin: 0 5px; }
 .camera-controls button { height: 27px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: #8799aa; display: inline-flex; gap: 4px; align-items: center; font-size: 10px; cursor: pointer; }
 .camera-controls button:hover { color: var(--accent); background: #17222d; }
+.measurement-panel { position: absolute; left: 14px; top: 14px; z-index: 10; overflow: hidden; }
+.measurement-toggle { height: 34px; padding: 0 11px; border: 0; background: transparent; color: #8799aa; display: flex; align-items: center; gap: 7px; font-size: 10px; font-weight: 700; cursor: pointer; }
+.measurement-toggle:disabled { opacity: .45; cursor: default; }
+.measurement-hint { padding: 0 11px 9px; color: #607386; font-size: 9px; }
+.measurement-panel.active .measurement-toggle { color: #fbbf24; background: rgba(251,191,36,.08); }
+.measurement-readout { width: 190px; padding: 9px 11px 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; }
+.measurement-snap-note { margin-bottom: 7px; color: #71859a; font-size: 9px; }
+.measurement-heading { display: flex; align-items: center; justify-content: space-between; color: var(--text); font-weight: 700; }
+.measurement-heading button { width: 22px; height: 22px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.measurement-heading button:hover { color: var(--text); background: #17222d; }
+.measurement-readout dl { margin: 8px 0 0; display: grid; gap: 5px; }
+.measurement-readout dl div { display: flex; justify-content: space-between; gap: 12px; }
+.measurement-readout dt { color: #71859a; }
+.measurement-readout dd { margin: 0; color: #fbbf24; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .axis-legend { position: absolute; right: 14px; bottom: 14px; z-index: 10; display: flex; gap: 5px; padding: 5px; border: 1px solid var(--border); border-radius: 8px; background: rgba(12, 18, 25, 0.88); box-shadow: var(--shadow); font: 700 10px/22px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .axis-legend span { width: 22px; height: 22px; border-radius: 5px; text-align: center; background: #17222d; }
 .axis-legend .axis-x { color: #ff5d68; }
