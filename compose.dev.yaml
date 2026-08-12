@@ -1,0 +1,5 @@
+services:
+  slicer-api:
+    build:
+      args:
+        ORCA_RUNTIME_IMAGE: ${ORCA_RUNTIME_IMAGE:-ghcr.io/itymarcel/custom-orca:dev-arm64}
