@@ -206,7 +206,7 @@ export function GcodePreview({ result, buildVolume }: { result: GcodeResult; bui
       canvas,
       buildVolume,
       backgroundColor: '#090d12',
-      extrusionColor: ['#a3e635', '#60a5fa', '#c084fc'],
+      extrusionColor: ['#5fe547', '#60a5fa', '#c084fc'],
       topLayerColor: '#ecfccb',
       lastSegmentColor: '#ffffff',
       travelColor: '#fb7185',
@@ -284,7 +284,7 @@ export function GcodePreview({ result, buildVolume }: { result: GcodeResult; bui
           <button className={mode === 'preview' ? 'active' : ''} onClick={() => setMode('preview')}><Layers3 size={14} /> Preview</button>
           <button className={mode === 'source' ? 'active' : ''} onClick={() => setMode('source')}><Code2 size={14} /> Source</button>
         </div>
-        <span>{mode === 'preview' && layerCount > 0 ? `Layer ${layerIndex + 1}/${layerCount} · Z ${visibleZ.toFixed(2)} mm` : result.fileName}</span>
+        <span className="preview-meta">{mode === 'preview' && layerCount > 0 ? `Layer ${layerIndex + 1}/${layerCount} · Z ${visibleZ.toFixed(2)} mm` : result.fileName}</span>
       </div>
 
       <div className={`gcode-viewport ${mode === 'source' ? 'is-hidden' : ''}`}>

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { RotateCcw, Search } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Code2, RotateCcw, Search, X } from 'lucide-react';
 
 import type { ConfigBundle, ConfigSection, RangeOverride, SelectedNode } from '../types';
 
@@ -154,7 +154,9 @@ const overrideConfig = (props: Props, section: ConfigSection) => {
   return { resolved: { ...config[section], ...file, ...range }, own: range };
 };
 
-function FieldControl({ field, section, props }: { field: Field; section: ConfigSection; props: Props }) {
+type GcodeEditor = { section: ConfigSection; key: string; label: string; value: string };
+
+function FieldControl({ field, section, props, onEditGcode }: { field: Field; section: ConfigSection; props: Props; onEditGcode: (editor: GcodeEditor) => void }) {
   const { resolved, own } = overrideConfig(props, section);
   const value = resolved[field.key];
   const scalarValue = Array.isArray(value) ? value[0] : value;
@@ -170,37 +172,59 @@ function FieldControl({ field, section, props }: { field: Field; section: Config
     : scalarValue;
 
   return (
-    <label className={`setting-row ${overridden ? 'is-overridden' : ''}`}>
-      <span title={globalFromObject ? 'Spiral mode applies to the whole print' : undefined}>
+    <div className={`setting-row ${overridden ? 'is-overridden' : ''}`}>
+      <span id={`setting-${field.key}`} title={globalFromObject ? 'Spiral mode applies to the whole print' : undefined}>
         {field.label}{globalFromObject ? ' (global)' : ''}
       </span>
       <div className="setting-control">
         {field.type === 'checkbox' ? (
-          <input type="checkbox" checked={displayValue === true || displayValue === '1'} onChange={(event) => update(event.target.checked)} />
+          <input aria-labelledby={`setting-${field.key}`} type="checkbox" checked={displayValue === true || displayValue === '1'} onChange={(event) => update(event.target.checked)} />
         ) : field.type === 'select' ? (
-          <select value={String(displayValue ?? '')} onChange={(event) => update(event.target.value)}>
+          <select aria-labelledby={`setting-${field.key}`} value={String(displayValue ?? '')} onChange={(event) => update(event.target.value)}>
             {field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         ) : field.type === 'text' ? (
-          <textarea rows={3} value={String(displayValue ?? '')} onChange={(event) => update(event.target.value)} />
+          <button className="gcode-edit-button" type="button" aria-label={`Edit ${field.label}`} onClick={() => onEditGcode({ section, key: field.key, label: field.label, value: String(displayValue ?? '') })}>
+            <Code2 size={13} /> Edit
+          </button>
         ) : (
-          <input type="number" step={field.step ?? 1} value={String(displayValue ?? '')} onChange={(event) => update(event.target.value)} />
+          <input aria-labelledby={`setting-${field.key}`} type="number" step={field.step ?? 1} value={String(displayValue ?? '')} onChange={(event) => update(event.target.value)} />
         )}
         {overridden && <button className="icon-button" type="button" title="Use inherited value" onClick={() => props.onClear(section, field.key)}><RotateCcw size={13} /></button>}
       </div>
-    </label>
+    </div>
   );
 }
 
 export function SlicerSettingsPanel(props: Props) {
   const [section, setSection] = useState<ConfigSection>(props.selectedNode.type === 'scene' ? 'machine_config' : 'process_config');
   const [query, setQuery] = useState('');
+  const [editor, setEditor] = useState<GcodeEditor | null>(null);
+  const [gcodeDraft, setGcodeDraft] = useState('');
   const visibleGroups = useMemo(() => fields[section].map((group) => ({
     ...group,
     fields: group.fields.filter((field) => `${group.label} ${field.label}`.toLowerCase().includes(query.toLowerCase())),
   })).filter((group) => group.fields.length), [query, section]);
   const rangeSelection = props.selectedNode.type === 'range' ? props.selectedNode : null;
   const range = rangeSelection ? props.rangeOverrides[rangeSelection.fileId]?.[rangeSelection.rangeIndex] : null;
+
+  const openEditor = (nextEditor: GcodeEditor) => {
+    setEditor(nextEditor);
+    setGcodeDraft(nextEditor.value);
+  };
+  const closeEditor = () => setEditor(null);
+  const saveEditor = () => {
+    if (!editor) return;
+    props.onChange(editor.section, editor.key, gcodeDraft);
+    closeEditor();
+  };
+
+  useEffect(() => {
+    if (!editor) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') closeEditor(); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [editor]);
 
   return (
     <section className="settings-panel panel">
@@ -225,11 +249,26 @@ export function SlicerSettingsPanel(props: Props) {
         {visibleGroups.map((group) => (
           <div className="settings-group" key={group.label}>
             <h3>{group.label}</h3>
-            {group.fields.map((field) => <FieldControl key={field.key} field={field} section={section} props={props} />)}
+            {group.fields.map((field) => <FieldControl key={field.key} field={field} section={section} props={props} onEditGcode={openEditor} />)}
           </div>
         ))}
       </div>
       <label className="settings-search"><Search size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a setting" /></label>
+      {editor && (
+        <div className="gcode-editor-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) closeEditor(); }}>
+          <section className="gcode-editor panel" role="dialog" aria-modal="true" aria-labelledby="gcode-editor-title">
+            <header>
+              <div><span className="eyebrow">G-code editor</span><strong id="gcode-editor-title">{editor.label}</strong></div>
+              <button className="icon-button" type="button" aria-label="Close G-code editor" onClick={closeEditor}><X size={16} /></button>
+            </header>
+            <textarea autoFocus aria-label={editor.label} spellCheck={false} value={gcodeDraft} onChange={(event) => setGcodeDraft(event.target.value)} />
+            <footer>
+              <button className="button ghost" type="button" onClick={closeEditor}>Cancel</button>
+              <button className="button primary" type="button" aria-label="Save G-code" onClick={saveEditor}>Save</button>
+            </footer>
+          </section>
+        </div>
+      )}
     </section>
   );
 }
