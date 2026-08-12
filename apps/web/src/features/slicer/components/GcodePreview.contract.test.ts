@@ -11,6 +11,7 @@ describe('G-code toolbar presentation', () => {
     expect(component).toContain('BroomSparkles');
     expect(component).toContain('className="segmented preview-mode-selector"');
     expect(component).toMatch(/<BroomSparkles size=\{14\} \/> Enhance/);
+    expect(component).toMatch(/applied \? <Check size=\{14\} \/> : <BroomSparkles size=\{13\} \/>/);
     expect(styles).toMatch(/\.preview-mode-selector\s*\{[^}]*padding:/s);
     expect(styles).toMatch(/\.preview-mode-selector\s*\{[^}]*border:/s);
     expect(styles).toMatch(/\.preview-mode-selector\s*\{[^}]*background:/s);

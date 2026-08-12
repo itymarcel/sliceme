@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box3, Color, ConeGeometry, Group, MathUtils, Mesh, MeshBasicMaterial, Vector3 } from 'three';
-import { BroomSparkles, Check, Code2, Layers3, LoaderCircle, Plane, Printer, Route, Sparkles } from 'lucide-react';
+import { BroomSparkles, Check, Code2, Layers3, LoaderCircle, Plane, Printer, Route } from 'lucide-react';
 
 import { CameraPresetControls } from './CameraPresetControls';
 import { init, type WebGLPreview } from '../lib/gcode-preview/gcode-preview';
@@ -348,7 +348,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
                 return (
                   <button key={option.id} type="button" disabled={applied || enhancing !== null} onClick={() => onEnhance(option.id)}>
                     <span>{option.label}<small>{option.description}</small></span>
-                    {pending ? <LoaderCircle className="spin" size={14} /> : applied ? <Check size={14} /> : <Sparkles size={13} />}
+                    {pending ? <LoaderCircle className="spin" size={14} /> : applied ? <Check size={14} /> : <BroomSparkles size={13} />}
                   </button>
                 );
               })}
