@@ -16,3 +16,4 @@ Changes are grouped into one consolidated summary per calendar day.
 - Added compact header links for Buy Me a Coffee and the SliceMe and Custom Orca source repositories.
 - Added the README credit “Perimeter Echo by Sam Beany.”
 - Fixed AI settings prefill so explicitly requested nozzle diameters survive server post-processing when OpenAI returns qualified override keys.
+- Reframed the README as a standalone SliceMe project without legacy product provenance.
