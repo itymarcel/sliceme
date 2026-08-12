@@ -5,7 +5,7 @@ import { Check, Code2, Layers3, LoaderCircle, Plane, Printer, Route, Sparkles } 
 import { CameraPresetControls } from './CameraPresetControls';
 import { init, type WebGLPreview } from '../lib/gcode-preview/gcode-preview';
 import type { GCodeCommand, Layer } from '../lib/gcode-preview/gcode-parser';
-import type { BuildVolume, GcodeEnhancement, GcodeResult } from '../types';
+import type { BuildVolume, GcodeEnhancement, GcodePreviewUiState, GcodeResult } from '../types';
 
 type CameraPreset = 'top' | 'front' | 'right' | 'fit';
 type PrinterPosition = { x: number; y: number; z: number };
@@ -104,27 +104,25 @@ function PreviewToggle({ checked, icon, label, onChange }: {
   );
 }
 
-export function GcodePreview({ result, buildVolume, enhancing, onEnhance }: {
+export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, onUiChange }: {
   result: GcodeResult;
   buildVolume: BuildVolume;
   enhancing: GcodeEnhancement | null;
   onEnhance: (operation: GcodeEnhancement) => void;
+  ui: GcodePreviewUiState;
+  onUiChange: (ui: GcodePreviewUiState) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewRef = useRef<WebGLPreview>();
   const toolheadRef = useRef<Group>();
   const [source, setSource] = useState('');
-  const [mode, setMode] = useState<'preview' | 'source'>('preview');
   const [layerCount, setLayerCount] = useState(0);
-  const [layerIndex, setLayerIndex] = useState(0);
-  const [moveCount, setMoveCount] = useState(0);
   const [movesInLayer, setMovesInLayer] = useState(0);
   const [toolhead, setToolhead] = useState<PrinterPosition | null>(null);
-  const [showTravel, setShowTravel] = useState(true);
-  const [showGrid, setShowGrid] = useState(true);
-  const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [enhanceOpen, setEnhanceOpen] = useState(false);
+  const { mode, layerIndex, moveCount, showTravel, showGrid, showPrintPreview } = ui;
+  const updateUi = (patch: Partial<GcodePreviewUiState>) => onUiChange({ ...ui, ...patch });
 
   const stats = useMemo(() => ({
     time: metadataValue(source, /^;\s*estimated printing time \(normal mode\)\s*=\s*(.+)$/im),
@@ -219,7 +217,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance }: {
       canvas,
       buildVolume,
       backgroundColor: '#090d12',
-      extrusionColor: ['#5fe547', '#60a5fa', '#c084fc'],
+      extrusionColor: ['#eeee45', '#60a5fa', '#c084fc'],
       topLayerColor: '#ecfccb',
       lastSegmentColor: '#ffffff',
       travelColor: '#fb7185',
@@ -237,11 +235,12 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance }: {
     preview.processGCode(source);
     const count = preview.parser.layers.length;
     const lastLayer = Math.max(0, count - 1);
-    const lastLayerMoves = layerMoveCount(preview.parser.layers[lastLayer]);
+    const restoredLayer = ui.layerIndex < 0 ? lastLayer : Math.min(ui.layerIndex, lastLayer);
+    const restoredLayerMoves = layerMoveCount(preview.parser.layers[restoredLayer]);
+    const restoredMove = ui.moveCount < 0 ? restoredLayerMoves : Math.min(ui.moveCount, restoredLayerMoves);
     setLayerCount(count);
-    setLayerIndex(lastLayer);
-    setMovesInLayer(lastLayerMoves);
-    setMoveCount(lastLayerMoves);
+    setMovesInLayer(restoredLayerMoves);
+    updateUi({ layerIndex: restoredLayer, moveCount: restoredMove });
     applyGridVisibility(preview, showGrid);
     setLoading(false);
 
@@ -281,9 +280,8 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance }: {
     const preview = previewRef.current;
     const bounded = Math.max(0, Math.min(layerCount - 1, nextLayer));
     const count = layerMoveCount(preview?.parser.layers[bounded]);
-    setLayerIndex(bounded);
     setMovesInLayer(count);
-    setMoveCount(count);
+    updateUi({ layerIndex: bounded, moveCount: count });
   };
 
   const visibleZ = previewRef.current?.parser.layers[layerIndex]?.height
@@ -294,8 +292,8 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance }: {
     <section className="gcode-preview">
       <div className="preview-toolbar">
         <div className="segmented">
-          <button className={mode === 'preview' ? 'active' : ''} onClick={() => setMode('preview')}><Layers3 size={14} /> Preview</button>
-          <button className={mode === 'source' ? 'active' : ''} onClick={() => setMode('source')}><Code2 size={14} /> Source</button>
+          <button className={mode === 'preview' ? 'active' : ''} onClick={() => updateUi({ mode: 'preview' })}><Layers3 size={14} /> Preview</button>
+          <button className={mode === 'source' ? 'active' : ''} onClick={() => updateUi({ mode: 'source' })}><Code2 size={14} /> Source</button>
         </div>
         <span className="preview-meta">{mode === 'preview' && layerCount > 0 ? `Layer ${layerIndex + 1}/${layerCount} · Z ${visibleZ.toFixed(2)} mm` : result.fileName}</span>
       </div>
@@ -305,9 +303,9 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance }: {
         {loading && <div className="gcode-loading"><Layers3 size={22} /><span>Building 3D toolpath…</span></div>}
 
         <div className="gcode-view-controls">
-          <PreviewToggle checked={showPrintPreview} icon={<Printer size={14} />} label="Print preview" onChange={() => setShowPrintPreview((value) => !value)} />
-          <PreviewToggle checked={showGrid} icon={<Plane size={14} />} label="Grid" onChange={() => setShowGrid((value) => !value)} />
-          <PreviewToggle checked={showTravel} icon={<Route size={14} />} label="Travel" onChange={() => setShowTravel((value) => !value)} />
+          <PreviewToggle checked={showPrintPreview} icon={<Printer size={14} />} label="Print preview" onChange={() => updateUi({ showPrintPreview: !showPrintPreview })} />
+          <PreviewToggle checked={showGrid} icon={<Plane size={14} />} label="Grid" onChange={() => updateUi({ showGrid: !showGrid })} />
+          <PreviewToggle checked={showTravel} icon={<Route size={14} />} label="Travel" onChange={() => updateUi({ showTravel: !showTravel })} />
         </div>
 
         <div className="gcode-stats panel">
@@ -334,7 +332,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance }: {
             <label className="gcode-slider panel">
               <span>M</span>
               <strong>{moveCount}</strong>
-              <input aria-label="Visible moves in layer" type="range" min="0" max={Math.max(0, movesInLayer)} value={moveCount} onChange={(event) => setMoveCount(Number(event.target.value))} />
+              <input aria-label="Visible moves in layer" type="range" min="0" max={Math.max(0, movesInLayer)} value={moveCount} onChange={(event) => updateUi({ moveCount: Number(event.target.value) })} />
               <small>{movesInLayer}</small>
             </label>
           </div>
@@ -343,7 +341,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance }: {
         <div className="enhance-menu">
           {enhanceOpen && (
             <div className="enhance-popover panel">
-              <header><Sparkles size={14} /><div><strong>Enhance G-code</strong><span>Applied to this browser-session file</span></div></header>
+              <header><Sparkles size={14} /><div><strong>Enhance G-code</strong><span>Applied to the locally saved file</span></div></header>
               {enhancementOptions.map((option) => {
                 const applied = result.enhancements.includes(option.id);
                 const pending = enhancing === option.id;

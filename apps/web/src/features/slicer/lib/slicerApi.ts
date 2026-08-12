@@ -1,4 +1,4 @@
-import type { ConfigBundle, GcodeEnhancement, GcodeResult, SliceManifest, SlicerModel } from '../types';
+import type { ConfigBundle, GcodeEnhancement, GcodeResult, SlicerRecommendation, SliceManifest, SlicerModel } from '../types';
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? '';
 
@@ -13,6 +13,17 @@ const readError = async (response: Response) => {
 
 export async function loadDefaultConfig(signal?: AbortSignal): Promise<ConfigBundle> {
   const response = await fetch(`${apiBase}/api/default-config`, { signal });
+  if (!response.ok) throw new Error(await readError(response));
+  return response.json();
+}
+
+export async function requestSettingsPrefill(description: string, config: ConfigBundle, signal?: AbortSignal): Promise<SlicerRecommendation> {
+  const response = await fetch(`${apiBase}/api/prefill-settings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ description, config }),
+    signal,
+  });
   if (!response.ok) throw new Error(await readError(response));
   return response.json();
 }

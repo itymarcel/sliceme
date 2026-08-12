@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Download, Eraser, FileUp, LoaderCircle, OctagonX, Scissors, ShieldCheck } from 'lucide-react';
 
 import { GcodePreview } from './components/GcodePreview';
+import { AiPrefillPanel } from './components/AiPrefillPanel';
 import ModelViewport, { type ModelViewportHandle } from './components/ModelViewport';
 import { CameraPresetControls } from './components/CameraPresetControls';
 import { ObjectTree } from './components/ObjectTree';
@@ -16,7 +17,11 @@ export function SlicerWorkspace() {
   const fileInput = useRef<HTMLInputElement>(null);
   const viewport = useRef<ModelViewportHandle>(null);
   const [dragging, setDragging] = useState(false);
-  const [measurementActive, setMeasurementActive] = useState(false);
+  const measurementActive = workspace.ui.measurementActive;
+  const setMeasurementActive = (value: boolean | ((current: boolean) => boolean)) => workspace.setUi((current) => ({
+    ...current,
+    measurementActive: typeof value === 'function' ? value(current.measurementActive) : value,
+  }));
   const [measurementPoints, setMeasurementPoints] = useState<MeasurementPoint[]>([]);
   const selectedFileId = workspace.selectedNode.type === 'scene' ? undefined : workspace.selectedNode.fileId;
   const activeRange = workspace.selectedNode.type === 'range'
@@ -43,7 +48,7 @@ export function SlicerWorkspace() {
     <div className="app-shell" onDragEnter={(event) => { event.preventDefault(); setDragging(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { if (event.currentTarget === event.target) setDragging(false); }} onDrop={(event) => { event.preventDefault(); setDragging(false); receiveFiles(event.dataTransfer.files); }}>
       <input ref={fileInput} hidden type="file" multiple accept=".stl,.step,.stp" onChange={(event) => { receiveFiles(event.target.files); event.target.value = ''; }} />
       <header className="app-header">
-        <div className="privacy-note"><ShieldCheck size={14} /> Nothing is saved after this browser session</div>
+        <div className="privacy-note"><ShieldCheck size={14} /> Saved locally in this browser</div>
         <div className="header-actions">
           <button className="button secondary" onClick={openFilePicker}><FileUp size={15} /> Add model</button>
           <button className="button ghost danger" disabled={!workspace.models.length} onClick={workspace.clear}><Eraser size={15} /> Clear</button>
@@ -55,7 +60,8 @@ export function SlicerWorkspace() {
       <div className="workspace-layout">
         <aside className="sidebar">
           <ObjectTree models={workspace.models} ranges={workspace.rangeOverrides} selected={workspace.selectedNode} onSelect={workspace.setSelectedNode} onAddModels={openFilePicker} onRemoveModel={workspace.removeModel} onAddRange={workspace.addRange} onRemoveRange={workspace.removeRange} />
-          <SlicerSettingsPanel selectedNode={workspace.selectedNode} config={workspace.config} fileOverrides={workspace.fileOverrides} rangeOverrides={workspace.rangeOverrides} onChange={workspace.setSetting} onClear={workspace.clearSetting} onRangeBoundary={workspace.setRangeBoundary} />
+          <SlicerSettingsPanel selectedNode={workspace.selectedNode} config={workspace.config} fileOverrides={workspace.fileOverrides} rangeOverrides={workspace.rangeOverrides} onChange={workspace.setSetting} onClear={workspace.clearSetting} onRangeBoundary={workspace.setRangeBoundary} section={workspace.ui.settingsSection} query={workspace.ui.settingsQuery} onSectionChange={(settingsSection) => workspace.setUi((current) => ({ ...current, settingsSection }))} onQueryChange={(settingsQuery) => workspace.setUi((current) => ({ ...current, settingsQuery }))} highlightedFields={workspace.ui.aiHighlightedFields} onFieldInteract={workspace.clearAiFieldHighlight} />
+          <AiPrefillPanel description={workspace.ui.prefillDescription} loading={workspace.prefilling || workspace.status === 'slicing'} onDescriptionChange={(prefillDescription) => workspace.setUi((current) => ({ ...current, prefillDescription }))} onPrefill={workspace.prefillSettings} />
         </aside>
 
         <main className={`work-area ${workspace.gcode ? 'with-gcode' : ''}`}>
@@ -74,7 +80,7 @@ export function SlicerWorkspace() {
             {selectedModel && selectedFileId && <TransformPanel position={workspace.positions[selectedFileId] ?? { x: workspace.buildVolume.x / 2, y: workspace.buildVolume.y / 2 }} rotation={workspace.rotations[selectedFileId] ?? { x: 0, y: 0, z: 0 }} onPosition={(position) => workspace.setPositions((current) => ({ ...current, [selectedFileId]: position }))} onRotation={(rotation) => workspace.setRotations((current) => ({ ...current, [selectedFileId]: rotation }))} />}
             {workspace.status === 'slicing' && <div className="slicing-overlay"><LoaderCircle size={28} className="spin" /><strong>OrcaSlicer is working</strong><span>This request remains temporary.</span></div>}
           </section>
-          {workspace.gcode && <GcodePreview result={workspace.gcode} buildVolume={workspace.buildVolume} enhancing={workspace.enhancing} onEnhance={workspace.enhanceGcode} />}
+          {workspace.gcode && <GcodePreview result={workspace.gcode} buildVolume={workspace.buildVolume} enhancing={workspace.enhancing} onEnhance={workspace.enhanceGcode} ui={workspace.ui.gcodePreview} onUiChange={(gcodePreview) => workspace.setUi((current) => ({ ...current, gcodePreview }))} />}
         </main>
       </div>
 

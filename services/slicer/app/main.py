@@ -1,13 +1,19 @@
 import asyncio
+from collections import defaultdict, deque
 import json
 import logging
 import os
 import re
+import time
 from pathlib import Path
+from typing import Any
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+import httpx
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
+from pydantic import BaseModel, Field
 
+from .ai_prefill import generate_slicer_recommendation
 from .engine import SliceJob, UploadedModel, default_config, slice_job
 from .gcode_enhancements import ENHANCEMENTS, apply_enhancement
 
@@ -15,11 +21,41 @@ from .gcode_enhancements import ENHANCEMENTS, apply_enhancement
 logger = logging.getLogger("standalone-slicer")
 app = FastAPI(title="Standalone Slicer API", version="1.0.0")
 slice_slots = asyncio.Semaphore(int(os.environ.get("SLICER_CONCURRENCY", "1")))
+prefill_slots = asyncio.Semaphore(int(os.environ.get("OPENAI_PREFILL_CONCURRENCY", "2")))
+prefill_rate_events: dict[str, deque[float]] = defaultdict(deque)
+prefill_rate_lock = asyncio.Lock()
 
 MAX_FILE_BYTES = int(os.environ.get("SLICER_MAX_FILE_BYTES", str(200 * 1024 * 1024)))
 MAX_MODELS = int(os.environ.get("SLICER_MAX_MODELS", "12"))
 MAX_GCODE_BYTES = int(os.environ.get("SLICER_MAX_GCODE_BYTES", str(100 * 1024 * 1024)))
 ALLOWED_EXTENSIONS = {".stl", ".step", ".stp"}
+PREFILL_RATE_LIMIT = int(os.environ.get("OPENAI_PREFILL_RATE_LIMIT", "10"))
+PREFILL_RATE_WINDOW_SECONDS = int(os.environ.get("OPENAI_PREFILL_RATE_WINDOW_SECONDS", "600"))
+
+
+class PrefillSettingsRequest(BaseModel):
+    description: str = Field(min_length=1, max_length=2000)
+    config: dict[str, dict[str, Any]]
+
+
+async def _enforce_prefill_rate_limit(request: Request) -> None:
+    if PREFILL_RATE_LIMIT <= 0:
+        return
+    client_id = request.headers.get("x-real-ip") or (request.client.host if request.client else "unknown")
+    now = time.monotonic()
+    cutoff = now - PREFILL_RATE_WINDOW_SECONDS
+    async with prefill_rate_lock:
+        events = prefill_rate_events[client_id]
+        while events and events[0] <= cutoff:
+            events.popleft()
+        if len(events) >= PREFILL_RATE_LIMIT:
+            retry_after = max(1, int(events[0] + PREFILL_RATE_WINDOW_SECONDS - now))
+            raise HTTPException(
+                status_code=429,
+                detail="Too many AI prefill requests. Please try again later.",
+                headers={"Retry-After": str(retry_after)},
+            )
+        events.append(now)
 
 
 def _safe_download_name(raw_name: str) -> str:
@@ -76,6 +112,29 @@ def get_default_config():
 @app.get("/api/enhancements")
 def get_enhancements():
     return {"operations": list(ENHANCEMENTS)}
+
+
+@app.post("/api/prefill-settings")
+async def prefill_settings(payload: PrefillSettingsRequest, request: Request):
+    if not payload.description.strip():
+        raise HTTPException(status_code=422, detail="Description is required")
+    await _enforce_prefill_rate_limit(request)
+    try:
+        async with prefill_slots:
+            return await generate_slicer_recommendation(payload.description, payload.config)
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    except (ValueError, json.JSONDecodeError) as error:
+        logger.warning("Invalid OpenAI slicer recommendation: %s", error)
+        raise HTTPException(status_code=502, detail="OpenAI returned an invalid slicer recommendation") from error
+    except httpx.TimeoutException as error:
+        raise HTTPException(status_code=504, detail="OpenAI did not respond in time") from error
+    except httpx.HTTPStatusError as error:
+        logger.warning("OpenAI slicer recommendation failed with status %s", error.response.status_code)
+        raise HTTPException(status_code=502, detail="OpenAI could not generate slicer settings") from error
+    except httpx.RequestError as error:
+        logger.warning("Could not reach OpenAI: %s", type(error).__name__)
+        raise HTTPException(status_code=502, detail="OpenAI could not be reached") from error
 
 
 @app.post("/api/enhance")

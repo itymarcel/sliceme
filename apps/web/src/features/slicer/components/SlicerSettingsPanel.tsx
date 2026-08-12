@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Code2, RotateCcw, Search, X } from 'lucide-react';
+import { Code2, RotateCcw, Search, Sparkles, X } from 'lucide-react';
 
-import type { ConfigBundle, ConfigSection, RangeOverride, SelectedNode } from '../types';
+import type { AiHighlightedFields, ConfigBundle, ConfigSection, RangeOverride, SelectedNode } from '../types';
 
 type Field = {
   key: string;
@@ -143,6 +143,12 @@ type Props = {
   onChange: (section: ConfigSection, key: string, value: unknown) => void;
   onClear: (section: ConfigSection, key: string) => void;
   onRangeBoundary: (fileId: string, rangeIndex: number, key: 'min_z' | 'max_z', value: number) => void;
+  section: ConfigSection;
+  query: string;
+  onSectionChange: (section: ConfigSection) => void;
+  onQueryChange: (query: string) => void;
+  highlightedFields: AiHighlightedFields;
+  onFieldInteract: (section: ConfigSection, key: string) => void;
 };
 
 const overrideConfig = (props: Props, section: ConfigSection) => {
@@ -162,7 +168,9 @@ function FieldControl({ field, section, props, onEditGcode }: { field: Field; se
   const scalarValue = Array.isArray(value) ? value[0] : value;
   const overridden = props.selectedNode.type !== 'scene' && Object.hasOwn(own, field.key);
   const globalFromObject = field.key === 'spiral_mode' && props.selectedNode.type === 'file';
+  const aiRecommended = props.selectedNode.type === 'scene' && props.highlightedFields[section]?.includes(field.key);
   const update = (raw: string | boolean) => {
+    props.onFieldInteract(section, field.key);
     if (field.type === 'checkbox') props.onChange(section, field.key, raw ? '1' : '0');
     else if (field.type === 'number' && typeof scalarValue === 'string' && scalarValue.trim().endsWith('%')) props.onChange(section, field.key, `${raw}%`);
     else props.onChange(section, field.key, raw);
@@ -172,9 +180,10 @@ function FieldControl({ field, section, props, onEditGcode }: { field: Field; se
     : scalarValue;
 
   return (
-    <div className={`setting-row ${overridden ? 'is-overridden' : ''}`}>
+    <div className={`setting-row ${overridden ? 'is-overridden' : ''} ${aiRecommended ? 'ai-recommended' : ''}`}>
       <span id={`setting-${field.key}`} title={globalFromObject ? 'Spiral mode applies to the whole print' : undefined}>
         {field.label}{globalFromObject ? ' (global)' : ''}
+        {aiRecommended && <Sparkles className="ai-recommended-icon" size={11} aria-label="AI recommended" />}
       </span>
       <div className="setting-control">
         {field.type === 'checkbox' ? (
@@ -190,15 +199,14 @@ function FieldControl({ field, section, props, onEditGcode }: { field: Field; se
         ) : (
           <input aria-labelledby={`setting-${field.key}`} type="number" step={field.step ?? 1} value={String(displayValue ?? '')} onChange={(event) => update(event.target.value)} />
         )}
-        {overridden && <button className="icon-button" type="button" title="Use inherited value" onClick={() => props.onClear(section, field.key)}><RotateCcw size={13} /></button>}
+        {overridden && <button className="icon-button" type="button" title="Use inherited value" onClick={() => { props.onFieldInteract(section, field.key); props.onClear(section, field.key); }}><RotateCcw size={13} /></button>}
       </div>
     </div>
   );
 }
 
 export function SlicerSettingsPanel(props: Props) {
-  const [section, setSection] = useState<ConfigSection>(props.selectedNode.type === 'scene' ? 'machine_config' : 'process_config');
-  const [query, setQuery] = useState('');
+  const { section, query } = props;
   const [editor, setEditor] = useState<GcodeEditor | null>(null);
   const [gcodeDraft, setGcodeDraft] = useState('');
   const visibleGroups = useMemo(() => fields[section].map((group) => ({
@@ -226,6 +234,10 @@ export function SlicerSettingsPanel(props: Props) {
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [editor]);
 
+  useEffect(() => {
+    if (props.selectedNode.type !== 'scene' && section === 'machine_config') props.onSectionChange('process_config');
+  }, [props, section]);
+
   return (
     <section className="settings-panel panel">
       <div className="panel-heading">
@@ -240,7 +252,7 @@ export function SlicerSettingsPanel(props: Props) {
       )}
       <div className="settings-tabs">
         {(['machine_config', 'filament_config', 'process_config'] as ConfigSection[]).map((tab) => (
-          <button key={tab} disabled={tab === 'machine_config' && props.selectedNode.type !== 'scene'} className={section === tab ? 'active' : ''} onClick={() => setSection(tab)}>
+          <button key={tab} disabled={tab === 'machine_config' && props.selectedNode.type !== 'scene'} className={section === tab ? 'active' : ''} onClick={() => props.onSectionChange(tab)}>
             {tab.split('_')[0]}
           </button>
         ))}
@@ -253,7 +265,7 @@ export function SlicerSettingsPanel(props: Props) {
           </div>
         ))}
       </div>
-      <label className="settings-search"><Search size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a setting" /></label>
+      <label className="settings-search"><Search size={14} /><input value={query} onChange={(event) => props.onQueryChange(event.target.value)} placeholder="Find a setting" /></label>
       {editor && (
         <div className="gcode-editor-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) closeEditor(); }}>
           <section className="gcode-editor panel" role="dialog" aria-modal="true" aria-labelledby="gcode-editor-title">

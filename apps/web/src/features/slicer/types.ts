@@ -39,3 +39,33 @@ export type SliceManifest = {
 export type GcodeEnhancement = 'perimeter_echo' | 'smooth_vase_transition' | 'coast_final_layer' | 'slow_motion_80';
 export type GcodeResult = { blob: Blob; fileName: string; url: string; enhancements: GcodeEnhancement[] };
 export type SliceStatus = 'idle' | 'slicing' | 'done' | 'error';
+export type AiHighlightedFields = Partial<Record<ConfigSection, string[]>>;
+
+export type SlicerRecommendation = {
+  intent_summary: string;
+  confidence: number;
+  assumptions: string[];
+  process_config: Record<string, unknown>;
+  filament_config: Record<string, unknown>;
+  machine_config: Record<string, unknown>;
+  warnings: string[];
+  user_specified_overrides: string[];
+};
+
+export type GcodePreviewUiState = {
+  mode: 'preview' | 'source';
+  layerIndex: number;
+  moveCount: number;
+  showTravel: boolean;
+  showGrid: boolean;
+  showPrintPreview: boolean;
+};
+
+export type WorkspaceUiState = {
+  settingsSection: ConfigSection;
+  settingsQuery: string;
+  prefillDescription: string;
+  aiHighlightedFields: AiHighlightedFields;
+  measurementActive: boolean;
+  gcodePreview: GcodePreviewUiState;
+};

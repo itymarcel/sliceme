@@ -90,7 +90,7 @@ const parseGeometryOnMainThread = async (
 const getGeometryWorker = () => {
   if (geometryWorker) return geometryWorker;
 
-  geometryWorker = new Worker(new URL('./geometryParser.worker.ts', import.meta.url));
+  geometryWorker = new Worker(new URL('./geometryParser.worker.ts', import.meta.url), { type: 'module' });
   geometryWorker.onmessage = (event: MessageEvent<WorkerResponse>) => {
     const response = event.data;
     const pending = pendingParses.get(response.id);

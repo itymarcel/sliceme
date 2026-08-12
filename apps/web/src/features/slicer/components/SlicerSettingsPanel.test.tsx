@@ -24,11 +24,28 @@ const props = () => ({
   onChange: vi.fn(),
   onClear: vi.fn(),
   onRangeBoundary: vi.fn(),
+  section: 'machine_config' as const,
+  query: '',
+  onSectionChange: vi.fn(),
+  onQueryChange: vi.fn(),
+  highlightedFields: {},
+  onFieldInteract: vi.fn(),
 });
 
 afterEach(cleanup);
 
 describe('G-code setting editor', () => {
+  it('marks AI recommendations with an icon and clears the marker on interaction', async () => {
+    const user = userEvent.setup();
+    const panelProps = props();
+    panelProps.highlightedFields = { machine_config: ['nozzle_type'] };
+    render(<SlicerSettingsPanel {...panelProps} />);
+
+    expect(screen.getByLabelText('AI recommended')).toBeTruthy();
+    await user.selectOptions(screen.getByLabelText('Nozzle type'), 'brass');
+    expect(panelProps.onFieldInteract).toHaveBeenCalledWith('machine_config', 'nozzle_type');
+  });
+
   it('opens an overlay and saves the edited G-code explicitly', async () => {
     const user = userEvent.setup();
     const panelProps = props();

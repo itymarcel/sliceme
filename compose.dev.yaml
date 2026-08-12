@@ -3,3 +3,20 @@ services:
     build:
       args:
         ORCA_RUNTIME_IMAGE: ${ORCA_RUNTIME_IMAGE:-ghcr.io/itymarcel/custom-orca:dev-arm64}
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile.dev
+    command: npm run dev -- --host 0.0.0.0 --port 3007
+    environment:
+      SLICER_API_URL: http://slicer-api:8080
+      CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
+    volumes:
+      - ./apps/web:/app
+      - web_node_modules:/app/node_modules
+    ports: !override
+      - "3007:3007"
+
+volumes:
+  web_node_modules:

@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { loadDefaultConfig, requestEnhancement, requestSlice } from '../lib/slicerApi';
+import { loadDefaultConfig, requestEnhancement, requestSettingsPrefill, requestSlice } from '../lib/slicerApi';
 import { createClientId } from '../lib/createClientId';
+import {
+  clearPersistedWorkspace,
+  loadPersistedWorkspace,
+  persistGcode,
+  persistModels,
+  persistWorkspace,
+  requestDurableStorage,
+} from '../lib/workspacePersistence';
+import { defaultWorkspaceUi } from '../lib/workspaceUi';
 import type {
   BuildVolume,
   ConfigBundle,
@@ -14,6 +23,7 @@ import type {
   SelectedNode,
   SlicerModel,
   SliceStatus,
+  WorkspaceUiState,
 } from '../types';
 
 const emptyConfig = (): ConfigBundle => ({ machine_config: {}, process_config: {}, filament_config: {} });
@@ -87,16 +97,22 @@ export function useSlicerWorkspace() {
   const [rangeOverrides, setRangeOverrides] = useState<Record<string, RangeOverride[]>>({});
   const [positions, setPositions] = useState<Record<string, Position>>({});
   const [rotations, setRotations] = useState<Record<string, Rotation>>({});
-  const [startPositions] = useState<Record<string, Position>>({});
+  const [startPositions, setStartPositions] = useState<Record<string, Position>>({});
   const [selectedNode, setSelectedNode] = useState<SelectedNode>({ type: 'scene' });
+  const [ui, setUi] = useState<WorkspaceUiState>(defaultWorkspaceUi);
   const [gcode, setGcode] = useState<GcodeResult | null>(null);
   const [status, setStatus] = useState<SliceStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [defaultsLoading, setDefaultsLoading] = useState(true);
   const [enhancing, setEnhancing] = useState<GcodeEnhancement | null>(null);
+  const [prefilling, setPrefilling] = useState(false);
+  const [persistenceReady, setPersistenceReady] = useState(false);
   const sliceController = useRef<AbortController | null>(null);
+  const prefillController = useRef<AbortController | null>(null);
   const modelUrls = useRef(new Set<string>());
   const gcodeUrl = useRef<string | null>(null);
+  const defaultConfigRef = useRef<ConfigBundle | null>(null);
+  const persistenceErrorShown = useRef(false);
 
   const buildVolume: BuildVolume = useMemo(() => {
     const machine = config.machine_config;
@@ -113,19 +129,96 @@ export function useSlicerWorkspace() {
 
   useEffect(() => {
     const controller = new AbortController();
-    loadDefaultConfig(controller.signal)
-      .then(setConfig)
-      .catch((loadError) => {
-        if (loadError.name !== 'AbortError') setError(loadError.message);
-      })
-      .finally(() => setDefaultsLoading(false));
-    return () => controller.abort();
+    let cancelled = false;
+    Promise.allSettled([loadDefaultConfig(controller.signal), loadPersistedWorkspace()]).then(([defaultsResult, persistedResult]) => {
+      if (cancelled) return;
+      const defaults = defaultsResult.status === 'fulfilled' ? defaultsResult.value : null;
+      const persisted = persistedResult.status === 'fulfilled' ? persistedResult.value : null;
+      defaultConfigRef.current = defaults;
+
+      if (persisted?.snapshot) {
+        const snapshot = persisted.snapshot;
+        setConfig(snapshot.config);
+        setFileOverrides(snapshot.fileOverrides);
+        setRangeOverrides(snapshot.rangeOverrides);
+        setPositions(snapshot.positions);
+        setRotations(snapshot.rotations);
+        setStartPositions(snapshot.startPositions);
+        setSelectedNode(snapshot.selectedNode);
+        setUi({ ...defaultWorkspaceUi(), ...snapshot.ui, gcodePreview: { ...defaultWorkspaceUi().gcodePreview, ...snapshot.ui?.gcodePreview } });
+
+        const order = new Map(snapshot.modelOrder.map((fileId, index) => [fileId, index]));
+        const restoredModels = persisted.models
+          .sort((left, right) => (order.get(left.fileId) ?? Number.MAX_SAFE_INTEGER) - (order.get(right.fileId) ?? Number.MAX_SAFE_INTEGER))
+          .map((stored) => {
+            const file = new File([stored.blob], stored.fileName, { type: stored.fileType, lastModified: stored.lastModified });
+            const objectUrl = URL.createObjectURL(file);
+            modelUrls.current.add(objectUrl);
+            return { fileId: stored.fileId, fileName: stored.fileName, fileSize: stored.fileSize, objectUrl, file };
+          });
+        setModels(restoredModels);
+        if (persisted.gcode) {
+          const url = URL.createObjectURL(persisted.gcode.blob);
+          gcodeUrl.current = url;
+          setGcode({ ...persisted.gcode, url });
+          setStatus('done');
+        }
+      } else if (defaults) {
+        setConfig(defaults);
+      }
+
+      if (!persisted && persistedResult.status === 'rejected') {
+        setError(`Browser storage could not be opened: ${persistedResult.reason instanceof Error ? persistedResult.reason.message : 'unknown error'}`);
+      } else if (!defaults && defaultsResult.status === 'rejected' && !persisted?.snapshot) {
+        const reason = defaultsResult.reason;
+        if ((reason as Error).name !== 'AbortError') setError((reason as Error).message);
+      }
+      setPersistenceReady(true);
+      setDefaultsLoading(false);
+      void requestDurableStorage().catch(() => undefined);
+    });
+    return () => { cancelled = true; controller.abort(); };
   }, []);
+
+  const reportPersistenceError = useCallback((storageError: unknown) => {
+    if (persistenceErrorShown.current) return;
+    persistenceErrorShown.current = true;
+    const message = storageError instanceof Error ? storageError.message : 'unknown browser storage error';
+    setError(`Changes could not be saved in this browser: ${message}`);
+  }, []);
+
+  useEffect(() => {
+    if (!persistenceReady) return;
+    const timeout = window.setTimeout(() => {
+      void persistWorkspace({
+        version: 1,
+        modelOrder: models.map((model) => model.fileId),
+        config,
+        fileOverrides,
+        rangeOverrides,
+        positions,
+        rotations,
+        startPositions,
+        selectedNode,
+        ui,
+      }).catch(reportPersistenceError);
+    }, 150);
+    return () => window.clearTimeout(timeout);
+  }, [config, fileOverrides, models, persistenceReady, positions, rangeOverrides, reportPersistenceError, rotations, selectedNode, startPositions, ui]);
+
+  useEffect(() => {
+    if (persistenceReady) void persistModels(models).catch(reportPersistenceError);
+  }, [models, persistenceReady, reportPersistenceError]);
+
+  useEffect(() => {
+    if (persistenceReady) void persistGcode(gcode ? { fileName: gcode.fileName, blob: gcode.blob, enhancements: gcode.enhancements } : null).catch(reportPersistenceError);
+  }, [gcode, persistenceReady, reportPersistenceError]);
 
   useEffect(() => () => {
     modelUrls.current.forEach(URL.revokeObjectURL);
     if (gcodeUrl.current) URL.revokeObjectURL(gcodeUrl.current);
     sliceController.current?.abort();
+    prefillController.current?.abort();
   }, []);
 
   const replaceGcode = useCallback((next: GcodeResult | null) => {
@@ -272,6 +365,7 @@ export function useSlicerWorkspace() {
         startPositions,
       }, models, controller.signal);
       replaceGcode(result);
+      setUi((current) => ({ ...current, gcodePreview: defaultWorkspaceUi().gcodePreview }));
       setStatus('done');
     } catch (sliceError) {
       if ((sliceError as Error).name === 'AbortError') setStatus('idle');
@@ -294,19 +388,70 @@ export function useSlicerWorkspace() {
       setEnhancing(null);
     }
   }, [enhancing, gcode, replaceGcode]);
+  const prefillSettings = useCallback(async () => {
+    const description = ui.prefillDescription.trim();
+    if (!description || prefilling) return;
+    prefillController.current?.abort();
+    const controller = new AbortController();
+    prefillController.current = controller;
+    setPrefilling(true);
+    setError(null);
+    try {
+      const recommendation = await requestSettingsPrefill(description, config, controller.signal);
+      const processConfig = { ...recommendation.process_config };
+      if (isEnabled(processConfig.spiral_mode)) Object.assign(processConfig, spiralModeSettings);
+      const filamentConfig = Object.fromEntries(Object.entries(recommendation.filament_config).filter(
+        ([key]) => key !== 'filament_type' && key !== 'filament_diameter',
+      ));
+      const machineConfig = recommendation.machine_config.nozzle_diameter === undefined
+        ? {}
+        : { nozzle_diameter: recommendation.machine_config.nozzle_diameter };
+      setConfig((current) => ({
+        machine_config: { ...current.machine_config, ...machineConfig },
+        process_config: { ...current.process_config, ...processConfig },
+        filament_config: { ...current.filament_config, ...filamentConfig },
+      }));
+      setSelectedNode({ type: 'scene' });
+      setUi((current) => ({
+        ...current,
+        aiHighlightedFields: {
+          machine_config: Object.keys(machineConfig),
+          process_config: Object.keys(processConfig),
+          filament_config: Object.keys(filamentConfig),
+        },
+      }));
+    } catch (prefillError) {
+      if ((prefillError as Error).name !== 'AbortError') setError((prefillError as Error).message);
+    } finally {
+      setPrefilling(false);
+    }
+  }, [config, prefilling, ui.prefillDescription]);
+  const clearAiFieldHighlight = useCallback((section: ConfigSection, key: string) => {
+    setUi((current) => ({
+      ...current,
+      aiHighlightedFields: {
+        ...current.aiHighlightedFields,
+        [section]: (current.aiHighlightedFields[section] ?? []).filter((field) => field !== key),
+      },
+    }));
+  }, []);
   const dismissError = useCallback(() => setError(null), []);
   const clear = useCallback(() => {
     sliceController.current?.abort();
+    prefillController.current?.abort();
     modelUrls.current.forEach(URL.revokeObjectURL);
     modelUrls.current.clear();
-    setModels([]); setFileOverrides({}); setRangeOverrides({}); setPositions({}); setRotations({});
-    setSelectedNode({ type: 'scene' }); setError(null); setStatus('idle'); replaceGcode(null);
-  }, [replaceGcode]);
+    setModels([]); setFileOverrides({}); setRangeOverrides({}); setPositions({}); setRotations({}); setStartPositions({});
+    setConfig(defaultConfigRef.current ?? emptyConfig()); setSelectedNode({ type: 'scene' }); setUi(defaultWorkspaceUi());
+    setError(null); setStatus('idle'); replaceGcode(null);
+    void clearPersistedWorkspace().catch(reportPersistenceError);
+  }, [replaceGcode, reportPersistenceError]);
 
   return {
     models, config, fileOverrides, rangeOverrides, positions, rotations, selectedNode, gcode,
-    status, error, defaultsLoading, buildVolume, startPositions, enhancing,
+    status, error, defaultsLoading, buildVolume, startPositions, enhancing, prefilling, ui, setUi,
     setSelectedNode, addModels, removeModel, setSetting, clearSetting, addRange, removeRange,
-    setRangeBoundary, setPositions, setRotations, slice, cancelSlice, enhanceGcode, dismissError, clear,
+    setRangeBoundary, setPositions, setRotations, slice, cancelSlice, enhanceGcode, prefillSettings,
+    clearAiFieldHighlight, dismissError, clear,
   };
 }

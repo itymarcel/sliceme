@@ -2,11 +2,11 @@ import io
 import json
 import struct
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import app, prefill_rate_events
 
 
 def triangle_stl() -> bytes:
@@ -76,6 +76,42 @@ class ApiTest(unittest.TestCase):
             files={"gcode": ("part.gcode", b"; source\n", "text/x-gcode")},
         )
         self.assertEqual(response.status_code, 422)
+
+    @patch("app.main.generate_slicer_recommendation", new_callable=AsyncMock)
+    def test_prefill_settings_stays_behind_api(self, mocked_recommendation):
+        mocked_recommendation.return_value = {
+            "intent_summary": "Strong bracket",
+            "confidence": 0.9,
+            "assumptions": [],
+            "process_config": {"layer_height": "0.2"},
+            "filament_config": {"nozzle_temperature": "245"},
+            "machine_config": {"nozzle_diameter": "0.6"},
+            "warnings": [],
+            "user_specified_overrides": [],
+        }
+        config = {"machine_config": {"nozzle_diameter": ["0.6"]}, "process_config": {}, "filament_config": {"filament_type": ["PETG"]}}
+        response = self.client.post("/api/prefill-settings", json={"description": "Strong bracket", "config": config})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["process_config"]["layer_height"], "0.2")
+        mocked_recommendation.assert_awaited_once_with("Strong bracket", config)
+
+    def test_prefill_rejects_blank_and_oversized_descriptions(self):
+        config = {"machine_config": {}, "process_config": {}, "filament_config": {}}
+        self.assertEqual(self.client.post("/api/prefill-settings", json={"description": "   ", "config": config}).status_code, 422)
+        self.assertEqual(self.client.post("/api/prefill-settings", json={"description": "x" * 2001, "config": config}).status_code, 422)
+
+    @patch("app.main.PREFILL_RATE_LIMIT", 1)
+    @patch("app.main.generate_slicer_recommendation", new_callable=AsyncMock, return_value={})
+    def test_prefill_rate_limits_api_spend(self, mocked_recommendation):
+        prefill_rate_events.clear()
+        config = {"machine_config": {}, "process_config": {}, "filament_config": {}}
+        payload = {"description": "A bracket", "config": config}
+        self.assertEqual(self.client.post("/api/prefill-settings", json=payload).status_code, 200)
+        response = self.client.post("/api/prefill-settings", json=payload)
+        self.assertEqual(response.status_code, 429)
+        self.assertIn("retry-after", response.headers)
+        mocked_recommendation.assert_awaited_once()
+        prefill_rate_events.clear()
 
 
 if __name__ == "__main__":

@@ -6,5 +6,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   worker: { format: 'es' },
-  server: { port: 3007, proxy: { '/api': 'http://localhost:8080' } },
+  server: {
+    port: 3007,
+    proxy: { '/api': process.env.SLICER_API_URL ?? 'http://localhost:8080' },
+  },
 });

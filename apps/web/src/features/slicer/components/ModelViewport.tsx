@@ -111,7 +111,9 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
         onGeometryLoaded(file.fileId, geo);
         invalidate();
       })
-      .catch(() => { });
+      .catch((error) => {
+        console.error(`Could not render preview for ${file.fileName}`, error);
+      });
     return () => { cancelled = true; };
   }, [file.objectUrl]);
 
@@ -210,7 +212,7 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
       onPointerOut={() => { if (measurementActive) onSnapHover?.(null); }}
     >
       <meshStandardMaterial
-        color={selected ? '#5fe547' : '#8090a3'}
+        color={selected ? '#eeee45' : '#8090a3'}
         roughness={0.6}
         metalness={0.1}
       />
@@ -300,7 +302,7 @@ const StartPositionMarkers: React.FC<{ positions: Record<string, StartPosition> 
     {Object.entries(positions).map(([fileId, pos]) => (
       <mesh key={fileId} position={[pos.x, pos.y, 2]}>
         <sphereGeometry args={[2.5, 10, 10]} />
-        <meshBasicMaterial color="#5fe547" transparent opacity={0.9} depthTest={false} />
+        <meshBasicMaterial color="#eeee45" transparent opacity={0.9} depthTest={false} />
       </mesh>
     ))}
   </>
