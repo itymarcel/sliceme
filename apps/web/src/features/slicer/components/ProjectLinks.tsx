@@ -1,4 +1,4 @@
-import { Coffee, Github } from 'lucide-react';
+import { CodeXml, Coffee } from 'lucide-react';
 
 const externalLinkProps = {
   target: '_blank',
@@ -13,11 +13,11 @@ export function ProjectLinks() {
         <span>Buy Me a Coffee</span>
       </a>
       <a className="project-link" aria-label="SliceMe repository" href="https://github.com/itymarcel/sliceme" {...externalLinkProps}>
-        <Github size={14} />
+        <CodeXml size={14} />
         <span>SliceMe</span>
       </a>
       <a className="project-link" aria-label="Custom Orca repository" href="https://github.com/itymarcel/custom-orca" {...externalLinkProps}>
-        <Github size={14} />
+        <CodeXml size={14} />
         <span>Custom Orca</span>
       </a>
     </nav>

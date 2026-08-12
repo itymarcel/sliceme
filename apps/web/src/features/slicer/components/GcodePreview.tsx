@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box3, Color, ConeGeometry, Group, MathUtils, Mesh, MeshBasicMaterial, Vector3 } from 'three';
-import { Check, Code2, Layers3, LoaderCircle, Plane, Printer, Route, Sparkles } from 'lucide-react';
+import { BroomSparkles, Check, Code2, Layers3, LoaderCircle, Plane, Printer, Route, Sparkles } from 'lucide-react';
 
 import { CameraPresetControls } from './CameraPresetControls';
 import { init, type WebGLPreview } from '../lib/gcode-preview/gcode-preview';
@@ -291,7 +291,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
   return (
     <section className="gcode-preview">
       <div className="preview-toolbar">
-        <div className="segmented">
+        <div className="segmented preview-mode-selector">
           <button className={mode === 'preview' ? 'active' : ''} onClick={() => updateUi({ mode: 'preview' })}><Layers3 size={14} /> Preview</button>
           <button className={mode === 'source' ? 'active' : ''} onClick={() => updateUi({ mode: 'source' })}><Code2 size={14} /> Source</button>
         </div>
@@ -341,7 +341,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
         <div className="enhance-menu">
           {enhanceOpen && (
             <div className="enhance-popover panel">
-              <header><Sparkles size={14} /><div><strong>Enhance G-code</strong><span>Applied to the locally saved file</span></div></header>
+              <header><BroomSparkles size={14} /><div><strong>Enhance G-code</strong><span>Applied to the locally saved file</span></div></header>
               {enhancementOptions.map((option) => {
                 const applied = result.enhancements.includes(option.id);
                 const pending = enhancing === option.id;
@@ -355,7 +355,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
             </div>
           )}
           <button className={`enhance-trigger ${enhanceOpen ? 'active' : ''}`} type="button" aria-expanded={enhanceOpen} onClick={() => setEnhanceOpen((open) => !open)}>
-            <Sparkles size={14} /> Enhance
+            <BroomSparkles size={14} /> Enhance
             {result.enhancements.length > 0 && <span>{result.enhancements.length}</span>}
           </button>
         </div>

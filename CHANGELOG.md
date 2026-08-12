@@ -17,3 +17,4 @@ Changes are grouped into one consolidated summary per calendar day.
 - Added the README credit “Perimeter Echo by Sam Beany.”
 - Fixed AI settings prefill so explicitly requested nozzle diameters survive server post-processing when OpenAI returns qualified override keys.
 - Reframed the README as a standalone SliceMe project without legacy product provenance.
+- Boxed and aligned the G-code Preview/Source selector, changed Enhance to the Broom Sparkles icon, and removed upward button movement on hover.
