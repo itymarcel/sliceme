@@ -27,6 +27,22 @@ class AiPrefillTest(unittest.TestCase):
         self.assertEqual(result["process_config"]["top_shell_layers"], "0")
         self.assertEqual(result["process_config"]["brim_type"], "no_brim")
 
+    def test_postprocess_preserves_explicit_nozzle_with_qualified_override_key(self):
+        recommendation = {
+            "machine_config": {"nozzle_diameter": "1.4"},
+            "process_config": {"layer_height": "0.8", "spiral_mode": "0", "brim_width": "0", "brim_type": "no_brim"},
+            "user_specified_overrides": ["machine_config.nozzle_diameter"],
+        }
+
+        result = _postprocess(
+            recommendation,
+            "thick layers, continuous print, 1.4mm nozzle, no brim",
+            {"machine_config": {"nozzle_diameter": ["0.6"]}},
+        )
+
+        self.assertEqual(result["machine_config"]["nozzle_diameter"], "1.4")
+        self.assertLessEqual(float(result["process_config"]["layer_height"]), 1.4)
+
     def test_extracts_structured_output_text(self):
         source = {"output": [{"type": "message", "content": [{"type": "output_text", "text": '{"ok":true}'}]}]}
         self.assertEqual(_output_text(source), '{"ok":true}')

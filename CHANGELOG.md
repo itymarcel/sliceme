@@ -15,3 +15,4 @@ Changes are grouped into one consolidated summary per calendar day.
 - Added post-slice G-code enhancements, including Perimeter Echo, smooth vase transitions, final-layer coasting, and slower detailed moves.
 - Added compact header links for Buy Me a Coffee and the SliceMe and Custom Orca source repositories.
 - Added the README credit “Perimeter Echo by Sam Beany.”
+- Fixed AI settings prefill so explicitly requested nozzle diameters survive server post-processing when OpenAI returns qualified override keys.

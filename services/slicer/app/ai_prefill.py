@@ -146,7 +146,11 @@ def _output_text(response: dict[str, Any]) -> str:
 def _postprocess(recommendation: dict[str, Any], description: str, config: dict[str, Any]) -> dict[str, Any]:
     process = recommendation["process_config"]
     machine = recommendation["machine_config"]
-    overrides = set(recommendation.get("user_specified_overrides", []))
+    overrides = {
+        key.rsplit(".", 1)[-1]
+        for key in recommendation.get("user_specified_overrides", [])
+        if isinstance(key, str)
+    }
     current_nozzle = _scalar(config.get("machine_config", {}).get("nozzle_diameter"))
     if current_nozzle is not None and "nozzle_diameter" not in overrides:
         machine["nozzle_diameter"] = str(current_nozzle)
