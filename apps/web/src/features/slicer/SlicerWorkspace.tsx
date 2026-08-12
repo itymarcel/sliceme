@@ -74,11 +74,11 @@ export function SlicerWorkspace() {
             {selectedModel && selectedFileId && <TransformPanel position={workspace.positions[selectedFileId] ?? { x: workspace.buildVolume.x / 2, y: workspace.buildVolume.y / 2 }} rotation={workspace.rotations[selectedFileId] ?? { x: 0, y: 0, z: 0 }} onPosition={(position) => workspace.setPositions((current) => ({ ...current, [selectedFileId]: position }))} onRotation={(rotation) => workspace.setRotations((current) => ({ ...current, [selectedFileId]: rotation }))} />}
             {workspace.status === 'slicing' && <div className="slicing-overlay"><LoaderCircle size={28} className="spin" /><strong>OrcaSlicer is working</strong><span>This request remains temporary.</span></div>}
           </section>
-          {workspace.gcode && <GcodePreview result={workspace.gcode} buildVolume={workspace.buildVolume} />}
+          {workspace.gcode && <GcodePreview result={workspace.gcode} buildVolume={workspace.buildVolume} enhancing={workspace.enhancing} onEnhance={workspace.enhanceGcode} />}
         </main>
       </div>
 
-      {workspace.error && <div className="error-toast"><OctagonX size={17} /><div><strong>Slicing error</strong><span>{workspace.error}</span></div><button onClick={workspace.dismissError}>Dismiss</button></div>}
+      {workspace.error && <div className="error-toast"><OctagonX size={17} /><div><strong>Could not complete</strong><span>{workspace.error}</span></div><button onClick={workspace.dismissError}>Dismiss</button></div>}
       {dragging && <div className="drop-overlay"><FileUp size={34} /><strong>Drop models to add them</strong><span>STL, STEP, or STP</span></div>}
     </div>
   );

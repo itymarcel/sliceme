@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { loadDefaultConfig, requestSlice } from '../lib/slicerApi';
+import { loadDefaultConfig, requestEnhancement, requestSlice } from '../lib/slicerApi';
 import { createClientId } from '../lib/createClientId';
 import type {
   BuildVolume,
   ConfigBundle,
   ConfigSection,
   GcodeResult,
+  GcodeEnhancement,
   Position,
   RangeOverride,
   Rotation,
@@ -92,6 +93,7 @@ export function useSlicerWorkspace() {
   const [status, setStatus] = useState<SliceStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [defaultsLoading, setDefaultsLoading] = useState(true);
+  const [enhancing, setEnhancing] = useState<GcodeEnhancement | null>(null);
   const sliceController = useRef<AbortController | null>(null);
   const modelUrls = useRef(new Set<string>());
   const gcodeUrl = useRef<string | null>(null);
@@ -278,6 +280,20 @@ export function useSlicerWorkspace() {
   }, [buildVolume, config, fileOverrides, models, positions, rangeOverrides, replaceGcode, rotations, startPositions]);
 
   const cancelSlice = useCallback(() => sliceController.current?.abort(), []);
+  const enhanceGcode = useCallback(async (operation: GcodeEnhancement) => {
+    if (!gcode || enhancing) return;
+    const controller = new AbortController();
+    sliceController.current = controller;
+    setEnhancing(operation);
+    setError(null);
+    try {
+      replaceGcode(await requestEnhancement(gcode, operation, controller.signal));
+    } catch (enhanceError) {
+      if ((enhanceError as Error).name !== 'AbortError') setError((enhanceError as Error).message);
+    } finally {
+      setEnhancing(null);
+    }
+  }, [enhancing, gcode, replaceGcode]);
   const dismissError = useCallback(() => setError(null), []);
   const clear = useCallback(() => {
     sliceController.current?.abort();
@@ -289,8 +305,8 @@ export function useSlicerWorkspace() {
 
   return {
     models, config, fileOverrides, rangeOverrides, positions, rotations, selectedNode, gcode,
-    status, error, defaultsLoading, buildVolume, startPositions,
+    status, error, defaultsLoading, buildVolume, startPositions, enhancing,
     setSelectedNode, addModels, removeModel, setSetting, clearSetting, addRange, removeRange,
-    setRangeBoundary, setPositions, setRotations, slice, cancelSlice, dismissError, clear,
+    setRangeBoundary, setPositions, setRotations, slice, cancelSlice, enhanceGcode, dismissError, clear,
   };
 }

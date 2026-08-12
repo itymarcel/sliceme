@@ -36,5 +36,6 @@ export type SliceManifest = {
   startPositions: Record<string, Position>;
 };
 
-export type GcodeResult = { blob: Blob; fileName: string; url: string };
+export type GcodeEnhancement = 'perimeter_echo' | 'smooth_vase_transition' | 'coast_final_layer' | 'slow_motion_80';
+export type GcodeResult = { blob: Blob; fileName: string; url: string; enhancements: GcodeEnhancement[] };
 export type SliceStatus = 'idle' | 'slicing' | 'done' | 'error';

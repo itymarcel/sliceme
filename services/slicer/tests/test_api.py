@@ -57,6 +57,26 @@ class ApiTest(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 415)
 
+    @patch("app.main.apply_enhancement", return_value="; enhanced\n")
+    def test_enhance_returns_session_gcode_attachment(self, mocked_enhance):
+        response = self.client.post(
+            "/api/enhance",
+            data={"operation": "coast_final_layer"},
+            files={"gcode": ("part.gcode", b"; source\n", "text/x-gcode")},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b"; enhanced\n")
+        self.assertIn("part.gcode", response.headers["content-disposition"])
+        mocked_enhance.assert_called_once_with("; source\n", "coast_final_layer")
+
+    def test_enhance_rejects_unknown_operation(self):
+        response = self.client.post(
+            "/api/enhance",
+            data={"operation": "unknown"},
+            files={"gcode": ("part.gcode", b"; source\n", "text/x-gcode")},
+        )
+        self.assertEqual(response.status_code, 422)
+
 
 if __name__ == "__main__":
     unittest.main()

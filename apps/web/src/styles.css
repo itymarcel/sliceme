@@ -178,7 +178,21 @@ button { color: inherit; }
 .gcode-slider > strong { color: #aab9c7; font-size: 8px; }
 .gcode-slider > small { color: #526578; font-size: 8px; }
 .gcode-slider input { min-height: 0; width: 14px; flex: 1; margin: 0; accent-color: var(--accent); cursor: ns-resize; writing-mode: vertical-lr; direction: rtl; }
-.gcode-orbit-hint { position: absolute; right: 101px; bottom: 14px; z-index: 4; display: flex; align-items: center; gap: 5px; color: #53677b; font-size: 8px; pointer-events: none; }
+.enhance-menu { position: absolute; right: 101px; bottom: 14px; z-index: 8; }
+.enhance-trigger { height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(14,20,28,.9); color: #8fa1b2; display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; cursor: pointer; backdrop-filter: blur(8px); }
+.enhance-trigger:hover, .enhance-trigger.active { border-color: rgba(95,229,71,.42); color: var(--accent); }
+.enhance-trigger > span { min-width: 16px; height: 16px; padding: 0 4px; border-radius: 99px; background: rgba(95,229,71,.14); display: grid; place-items: center; font-size: 8px; }
+.enhance-popover { position: absolute; right: 0; bottom: 39px; width: 285px; padding: 7px; background: rgba(14,20,28,.97); backdrop-filter: blur(12px); box-shadow: 0 22px 64px rgba(0,0,0,.48); }
+.enhance-popover header { padding: 7px 8px 10px; display: flex; align-items: flex-start; gap: 8px; color: var(--accent); border-bottom: 1px solid var(--line-soft); }
+.enhance-popover header > div { display: flex; flex-direction: column; gap: 2px; }
+.enhance-popover header strong { color: var(--text); font-size: 11px; }
+.enhance-popover header span { color: var(--muted); font-size: 8px; }
+.enhance-popover > button { width: 100%; min-height: 48px; padding: 7px 8px; border: 0; border-radius: 7px; background: transparent; color: #8fa1b2; display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; cursor: pointer; }
+.enhance-popover > button:hover:not(:disabled) { background: #17222d; color: var(--accent); }
+.enhance-popover > button:disabled { cursor: default; opacity: .55; }
+.enhance-popover > button > span { display: flex; flex-direction: column; gap: 3px; font-size: 10px; font-weight: 700; }
+.enhance-popover small { color: #617488; font-size: 8px; font-weight: 400; line-height: 1.3; }
+.enhance-popover > button > svg { flex: 0 0 auto; color: var(--accent); }
 .slicing-overlay { position: absolute; inset: 0; background: rgba(6,9,13,.78); backdrop-filter: blur(5px); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; }
 .slicing-overlay svg { color: var(--accent); margin-bottom: 12px; }
 .slicing-overlay strong { font-size: 14px; }

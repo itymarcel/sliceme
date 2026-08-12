@@ -9,6 +9,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 
 from .engine import SliceJob, UploadedModel, default_config, slice_job
+from .gcode_enhancements import ENHANCEMENTS, apply_enhancement
 
 
 logger = logging.getLogger("standalone-slicer")
@@ -17,6 +18,7 @@ slice_slots = asyncio.Semaphore(int(os.environ.get("SLICER_CONCURRENCY", "1")))
 
 MAX_FILE_BYTES = int(os.environ.get("SLICER_MAX_FILE_BYTES", str(200 * 1024 * 1024)))
 MAX_MODELS = int(os.environ.get("SLICER_MAX_MODELS", "12"))
+MAX_GCODE_BYTES = int(os.environ.get("SLICER_MAX_GCODE_BYTES", str(100 * 1024 * 1024)))
 ALLOWED_EXTENSIONS = {".stl", ".step", ".stp"}
 
 
@@ -69,6 +71,33 @@ def health():
 @app.get("/api/default-config")
 def get_default_config():
     return default_config()
+
+
+@app.get("/api/enhancements")
+def get_enhancements():
+    return {"operations": list(ENHANCEMENTS)}
+
+
+@app.post("/api/enhance")
+async def enhance_gcode(operation: str = Form(...), gcode: UploadFile = File(...)):
+    if operation not in ENHANCEMENTS:
+        raise HTTPException(status_code=422, detail=f"Unknown G-code enhancement: {operation}")
+    data = await gcode.read(MAX_GCODE_BYTES + 1)
+    if len(data) > MAX_GCODE_BYTES:
+        raise HTTPException(status_code=413, detail="G-code is too large")
+    try:
+        source = data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise HTTPException(status_code=422, detail="G-code must be UTF-8 text") from error
+    try:
+        enhanced = await asyncio.to_thread(apply_enhancement, source, operation)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return Response(
+        content=enhanced.encode("utf-8"),
+        media_type="text/x-gcode",
+        headers={"Content-Disposition": f'attachment; filename="{_safe_download_name(gcode.filename or "slice.gcode")}"'},
+    )
 
 
 @app.post("/api/slice")

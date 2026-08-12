@@ -3,7 +3,7 @@ services:
     build:
       context: ./services/slicer
       args:
-        ORCA_RUNTIME_IMAGE: ${ORCA_RUNTIME_IMAGE:-ghcr.io/itymarcel/custom-orca:main-arm64}
+        ORCA_RUNTIME_IMAGE: ${ORCA_RUNTIME_IMAGE:-ghcr.io/itymarcel/custom-orca:dev-arm64}
     environment:
       SLICER_CONCURRENCY: ${SLICER_CONCURRENCY:-1}
       SLICER_TIMEOUT_SECONDS: ${SLICER_TIMEOUT_SECONDS:-700}

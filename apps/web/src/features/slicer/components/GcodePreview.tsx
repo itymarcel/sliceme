@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box3, Color, ConeGeometry, Group, MathUtils, Mesh, MeshBasicMaterial, Vector3 } from 'three';
-import { Code2, Eye, Layers3, Plane, Printer, Route } from 'lucide-react';
+import { Check, Code2, Layers3, LoaderCircle, Plane, Printer, Route, Sparkles } from 'lucide-react';
 
 import { CameraPresetControls } from './CameraPresetControls';
 import { init, type WebGLPreview } from '../lib/gcode-preview/gcode-preview';
 import type { GCodeCommand, Layer } from '../lib/gcode-preview/gcode-parser';
-import type { BuildVolume, GcodeResult } from '../types';
+import type { BuildVolume, GcodeEnhancement, GcodeResult } from '../types';
 
 type CameraPreset = 'top' | 'front' | 'right' | 'fit';
 type PrinterPosition = { x: number; y: number; z: number };
+
+const enhancementOptions: Array<{ id: GcodeEnhancement; label: string; description: string }> = [
+  { id: 'perimeter_echo', label: 'Perimeter echo', description: 'Blend the end of the first outer perimeter into its beginning.' },
+  { id: 'smooth_vase_transition', label: 'Smooth vase transition', description: 'Ease extrusion where standard layers change into spiral motion.' },
+  { id: 'coast_final_layer', label: 'Coast final layer', description: 'Gradually reduce extrusion across the final printed layer.' },
+  { id: 'slow_motion_80', label: 'Slow detailed moves', description: 'Reduce printing feedrates below 3000 mm/min to 80%.' },
+];
 
 const moveCodes = new Set(['g0', 'g00', 'g1', 'g01', 'g2', 'g02', 'g3', 'g03']);
 const commandParams = (command: GCodeCommand) => (command.params ?? {}) as Record<string, number | undefined>;
@@ -97,7 +104,12 @@ function PreviewToggle({ checked, icon, label, onChange }: {
   );
 }
 
-export function GcodePreview({ result, buildVolume }: { result: GcodeResult; buildVolume: BuildVolume }) {
+export function GcodePreview({ result, buildVolume, enhancing, onEnhance }: {
+  result: GcodeResult;
+  buildVolume: BuildVolume;
+  enhancing: GcodeEnhancement | null;
+  onEnhance: (operation: GcodeEnhancement) => void;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewRef = useRef<WebGLPreview>();
   const toolheadRef = useRef<Group>();
@@ -112,6 +124,7 @@ export function GcodePreview({ result, buildVolume }: { result: GcodeResult; bui
   const [showGrid, setShowGrid] = useState(true);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [enhanceOpen, setEnhanceOpen] = useState(false);
 
   const stats = useMemo(() => ({
     time: metadataValue(source, /^;\s*estimated printing time \(normal mode\)\s*=\s*(.+)$/im),
@@ -327,7 +340,27 @@ export function GcodePreview({ result, buildVolume }: { result: GcodeResult; bui
           </div>
         )}
 
-        <div className="gcode-orbit-hint"><Eye size={13} /> Drag to rotate · scroll to zoom · right-drag to pan</div>
+        <div className="enhance-menu">
+          {enhanceOpen && (
+            <div className="enhance-popover panel">
+              <header><Sparkles size={14} /><div><strong>Enhance G-code</strong><span>Applied to this browser-session file</span></div></header>
+              {enhancementOptions.map((option) => {
+                const applied = result.enhancements.includes(option.id);
+                const pending = enhancing === option.id;
+                return (
+                  <button key={option.id} type="button" disabled={applied || enhancing !== null} onClick={() => onEnhance(option.id)}>
+                    <span>{option.label}<small>{option.description}</small></span>
+                    {pending ? <LoaderCircle className="spin" size={14} /> : applied ? <Check size={14} /> : <Sparkles size={13} />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <button className={`enhance-trigger ${enhanceOpen ? 'active' : ''}`} type="button" aria-expanded={enhanceOpen} onClick={() => setEnhanceOpen((open) => !open)}>
+            <Sparkles size={14} /> Enhance
+            {result.enhancements.length > 0 && <span>{result.enhancements.length}</span>}
+          </button>
+        </div>
       </div>
 
       {mode === 'source' && <pre>{source}</pre>}

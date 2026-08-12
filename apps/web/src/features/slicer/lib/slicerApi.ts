@@ -1,4 +1,4 @@
-import type { ConfigBundle, GcodeResult, SliceManifest, SlicerModel } from '../types';
+import type { ConfigBundle, GcodeEnhancement, GcodeResult, SliceManifest, SlicerModel } from '../types';
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? '';
 
@@ -30,5 +30,24 @@ export async function requestSlice(
   const blob = await response.blob();
   const disposition = response.headers.get('content-disposition') ?? '';
   const fileName = disposition.match(/filename="?([^";]+)"?/i)?.[1] ?? 'slice.gcode';
-  return { blob, fileName, url: URL.createObjectURL(blob) };
+  return { blob, fileName, url: URL.createObjectURL(blob), enhancements: [] };
+}
+
+export async function requestEnhancement(
+  result: GcodeResult,
+  operation: GcodeEnhancement,
+  signal?: AbortSignal,
+): Promise<GcodeResult> {
+  const body = new FormData();
+  body.append('operation', operation);
+  body.append('gcode', result.blob, result.fileName);
+  const response = await fetch(`${apiBase}/api/enhance`, { method: 'POST', body, signal });
+  if (!response.ok) throw new Error(await readError(response));
+  const blob = await response.blob();
+  return {
+    blob,
+    fileName: result.fileName,
+    url: URL.createObjectURL(blob),
+    enhancements: [...result.enhancements, operation],
+  };
 }
