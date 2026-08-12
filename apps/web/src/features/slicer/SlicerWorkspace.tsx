@@ -9,6 +9,7 @@ import { ObjectTree } from './components/ObjectTree';
 import { SlicerSettingsPanel } from './components/SlicerSettingsPanel';
 import { TransformPanel } from './components/TransformPanel';
 import { MeasurementPanel } from './components/MeasurementPanel';
+import { ProjectLinks } from './components/ProjectLinks';
 import { useSlicerWorkspace } from './hooks/useSlicerWorkspace';
 import { addMeasurementPoint, type MeasurementPoint } from './lib/measurement';
 
@@ -49,6 +50,7 @@ export function SlicerWorkspace() {
       <input ref={fileInput} hidden type="file" multiple accept=".stl,.step,.stp" onChange={(event) => { receiveFiles(event.target.files); event.target.value = ''; }} />
       <header className="app-header">
         <div className="privacy-note"><ShieldCheck size={14} /> Saved locally in this browser</div>
+        <ProjectLinks />
         <div className="header-actions">
           <button className="button secondary" onClick={openFilePicker}><FileUp size={15} /> Add model</button>
           <button className="button ghost danger" disabled={!workspace.models.length} onClick={workspace.clear}><Eraser size={15} /> Clear</button>

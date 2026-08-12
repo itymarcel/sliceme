@@ -11,3 +11,7 @@ Changes are grouped into one consolidated summary per calendar day.
 - Refined the interface with the `#5FE547` highlight accent, removed the visible application title, and expanded the active Measure header highlight.
 - Simplified the G-code header by removing the shared Preview/Source container and placing layer/Z metadata in its own compact panel.
 - Replaced inline G-code textareas with explicit Edit buttons and a focused overlay editor with Save, Cancel, backdrop-dismiss, and Escape-dismiss behavior.
+- Added local IndexedDB workspace persistence, Docker/Vite hot reload, and server-side AI settings prefill.
+- Added post-slice G-code enhancements, including Perimeter Echo, smooth vase transitions, final-layer coasting, and slower detailed moves.
+- Added compact header links for Buy Me a Coffee and the SliceMe and Custom Orca source repositories.
+- Credited Sam Beany for Perimeter Echo in the README.
