@@ -43,7 +43,6 @@ export function SlicerWorkspace() {
     <div className="app-shell" onDragEnter={(event) => { event.preventDefault(); setDragging(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { if (event.currentTarget === event.target) setDragging(false); }} onDrop={(event) => { event.preventDefault(); setDragging(false); receiveFiles(event.dataTransfer.files); }}>
       <input ref={fileInput} hidden type="file" multiple accept=".stl,.step,.stp" onChange={(event) => { receiveFiles(event.target.files); event.target.value = ''; }} />
       <header className="app-header">
-        <div className="brand"><strong>Standalone Slicer</strong></div>
         <div className="privacy-note"><ShieldCheck size={14} /> Nothing is saved after this browser session</div>
         <div className="header-actions">
           <button className="button secondary" onClick={openFilePicker}><FileUp size={15} /> Add model</button>

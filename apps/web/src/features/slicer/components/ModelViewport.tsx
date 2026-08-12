@@ -210,7 +210,7 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
       onPointerOut={() => { if (measurementActive) onSnapHover?.(null); }}
     >
       <meshStandardMaterial
-        color={selected ? '#5eead4' : '#8090a3'}
+        color={selected ? '#a3e635' : '#8090a3'}
         roughness={0.6}
         metalness={0.1}
       />
@@ -300,7 +300,7 @@ const StartPositionMarkers: React.FC<{ positions: Record<string, StartPosition> 
     {Object.entries(positions).map(([fileId, pos]) => (
       <mesh key={fileId} position={[pos.x, pos.y, 2]}>
         <sphereGeometry args={[2.5, 10, 10]} />
-        <meshBasicMaterial color="#5eead4" transparent opacity={0.9} depthTest={false} />
+        <meshBasicMaterial color="#a3e635" transparent opacity={0.9} depthTest={false} />
       </mesh>
     ))}
   </>
