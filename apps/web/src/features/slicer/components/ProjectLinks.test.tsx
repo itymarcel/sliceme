@@ -8,21 +8,21 @@ import { ProjectLinks } from './ProjectLinks';
 afterEach(cleanup);
 
 describe('ProjectLinks', () => {
-  it('renders support and source links as safe external links', () => {
+  it('renders every destination as a named safe external link', () => {
     render(<ProjectLinks />);
 
-    expect(screen.getByRole('link', { name: 'Buy Me a Coffee' })).toMatchObject({
-      href: 'https://buymeacoffee.com/slicemeweb',
-      target: '_blank',
-      rel: 'noreferrer',
+    const destinations = [
+      ['Support SliceMe on Buy Me a Coffee', 'https://buymeacoffee.com/slicemeweb'],
+      ['SliceMe repository', 'https://github.com/itymarcel/sliceme'],
+      ['Custom Orca repository', 'https://github.com/itymarcel/custom-orca'],
+    ] as const;
+
+    destinations.forEach(([name, href]) => {
+      expect(screen.getByRole('link', { name })).toMatchObject({
+        href,
+        target: '_blank',
+        rel: 'noreferrer',
+      });
     });
-    expect(screen.getByRole('link', { name: 'SliceMe repository' })).toHaveProperty(
-      'href',
-      'https://github.com/itymarcel/sliceme',
-    );
-    expect(screen.getByRole('link', { name: 'Custom Orca repository' })).toHaveProperty(
-      'href',
-      'https://github.com/itymarcel/custom-orca',
-    );
   });
 });

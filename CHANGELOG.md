@@ -14,4 +14,4 @@ Changes are grouped into one consolidated summary per calendar day.
 - Added local IndexedDB workspace persistence, Docker/Vite hot reload, and server-side AI settings prefill.
 - Added post-slice G-code enhancements, including Perimeter Echo, smooth vase transitions, final-layer coasting, and slower detailed moves.
 - Added compact header links for Buy Me a Coffee and the SliceMe and Custom Orca source repositories.
-- Credited Sam Beany for Perimeter Echo in the README.
+- Added the README credit “Perimeter Echo by Sam Beany.”

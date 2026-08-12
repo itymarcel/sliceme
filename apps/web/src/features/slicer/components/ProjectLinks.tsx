@@ -8,7 +8,7 @@ const externalLinkProps = {
 export function ProjectLinks() {
   return (
     <nav className="project-links" aria-label="Project links">
-      <a className="project-link support-link" href="https://buymeacoffee.com/slicemeweb" {...externalLinkProps}>
+      <a className="project-link support-link" aria-label="Support SliceMe on Buy Me a Coffee" href="https://buymeacoffee.com/slicemeweb" {...externalLinkProps}>
         <Coffee size={14} />
         <span>Buy Me a Coffee</span>
       </a>
