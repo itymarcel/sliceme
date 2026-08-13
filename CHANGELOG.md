@@ -11,6 +11,7 @@ Changes are grouped into one consolidated summary per calendar day.
 - Replaced inconsistent per-override revert buttons with bounded workspace setting Undo/Redo controls centered in the navbar, including Ctrl/Cmd+Z and Ctrl/Cmd+Y shortcuts for global, object, and height-range setting changes; history persists with the local browser session and restores after reload.
 - Consolidated model/project actions and GitHub links under a three-dot navbar disclosure while retaining Buy Me a Coffee on the left, clarified the local-session storage badge, generalized the slicing overlay copy to “Slicer engine,” and moved project/error notifications below the top navbar; the disclosure restores trigger focus on Escape and workspace history shortcuts preserve native editing inside form controls.
 - Added automatic restart policies for the web and slicer API containers so Pi or Docker daemon restarts do not leave the frontend serving 502 responses with its API stopped.
+- Added a Toolpaths dropdown to G-code preview that detects Orca `TYPE` markers and provides independent Logic-style Mute and Solo controls per toolpath class, with persisted visibility state and a one-click M/S reset.
 
 ## 2026-08-12
 

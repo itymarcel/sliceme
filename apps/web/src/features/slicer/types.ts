@@ -59,6 +59,8 @@ export type GcodePreviewUiState = {
   showTravel: boolean;
   showGrid: boolean;
   showPrintPreview: boolean;
+  mutedToolpaths: string[];
+  soloedToolpaths: string[];
 };
 
 export type WorkspaceUiState = {

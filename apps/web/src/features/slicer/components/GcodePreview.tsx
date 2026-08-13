@@ -3,9 +3,11 @@ import { Box3, Color, ConeGeometry, Group, MathUtils, Mesh, MeshBasicMaterial, V
 import { BroomSparkles, Check, Code2, Layers3, LoaderCircle, Plane, Printer, Route } from 'lucide-react';
 
 import { CameraPresetControls } from './CameraPresetControls';
+import { ToolpathControls } from './ToolpathControls';
 import { init, type WebGLPreview } from '../lib/gcode-preview/gcode-preview';
 import type { GCodeCommand, Layer } from '../lib/gcode-preview/gcode-parser';
 import type { BuildVolume, GcodeEnhancement, GcodePreviewUiState, GcodeResult } from '../types';
+import { isToolpathVisible, toolpathTypesFromLayers } from '../lib/toolpathVisibility';
 
 type CameraPreset = 'top' | 'front' | 'right' | 'fit';
 type PrinterPosition = { x: number; y: number; z: number };
@@ -121,7 +123,8 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
   const [toolhead, setToolhead] = useState<PrinterPosition | null>(null);
   const [loading, setLoading] = useState(true);
   const [enhanceOpen, setEnhanceOpen] = useState(false);
-  const { mode, layerIndex, moveCount, showTravel, showGrid, showPrintPreview } = ui;
+  const [toolpathTypes, setToolpathTypes] = useState<string[]>([]);
+  const { mode, layerIndex, moveCount, showTravel, showGrid, showPrintPreview, mutedToolpaths = [], soloedToolpaths = [] } = ui;
   const updateUi = (patch: Partial<GcodePreviewUiState>) => onUiChange({ ...ui, ...patch });
 
   const stats = useMemo(() => ({
@@ -234,6 +237,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
     preview.camera.updateProjectionMatrix();
     preview.processGCode(source);
     const count = preview.parser.layers.length;
+    setToolpathTypes(toolpathTypesFromLayers(preview.parser.layers));
     const lastLayer = Math.max(0, count - 1);
     const restoredLayer = ui.layerIndex < 0 ? lastLayer : Math.min(ui.layerIndex, lastLayer);
     const restoredLayerMoves = layerMoveCount(preview.parser.layers[restoredLayer]);
@@ -270,11 +274,12 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
     preview.endLayer = layerIndex + 2; // renderer layer zero is the G-code preamble
     preview.renderTravel = showTravel;
     preview.renderTubes = showPrintPreview;
+    preview.toolpathVisible = (type) => isToolpathVisible(type, mutedToolpaths, soloedToolpaths);
     preview.render();
     layer.commands = originalCommands;
     applyGridVisibility(preview, showGrid);
     addToolhead(preview, toolheadAt(preview, layerIndex, moveCount));
-  }, [addToolhead, applyGridVisibility, layerCount, layerIndex, moveCount, showGrid, showPrintPreview, showTravel]);
+  }, [addToolhead, applyGridVisibility, layerCount, layerIndex, moveCount, mutedToolpaths, showGrid, showPrintPreview, showTravel, soloedToolpaths]);
 
   const selectLayer = (nextLayer: number) => {
     const preview = previewRef.current;
@@ -306,6 +311,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
           <PreviewToggle checked={showPrintPreview} icon={<Printer size={14} />} label="Print preview" onChange={() => updateUi({ showPrintPreview: !showPrintPreview })} />
           <PreviewToggle checked={showGrid} icon={<Plane size={14} />} label="Grid" onChange={() => updateUi({ showGrid: !showGrid })} />
           <PreviewToggle checked={showTravel} icon={<Route size={14} />} label="Travel" onChange={() => updateUi({ showTravel: !showTravel })} />
+          <ToolpathControls types={toolpathTypes} muted={mutedToolpaths} soloed={soloedToolpaths} onMutedChange={(types) => updateUi({ mutedToolpaths: types })} onSoloedChange={(types) => updateUi({ soloedToolpaths: types })} />
         </div>
 
         <div className="gcode-stats panel">

@@ -126,6 +126,7 @@ export class WebGLPreview {
   renderExtrusion = true;
   renderTravel = false;
   renderTubes = false;
+  toolpathVisible: (type: string | undefined) => boolean = () => true;
   extrusionWidth = 0.6;
   lineWidth?: number;
   lineHeight?: number;
@@ -557,7 +558,8 @@ export class WebGLPreview {
             this._tubeLastE = newE;
           }
 
-          if (moving && eDelta > 0 && this.renderTubes && this.renderExtrusion) {
+          const toolpathVisible = this.toolpathVisible(cmd.toolpathType);
+          if (moving && eDelta > 0 && this.renderTubes && this.renderExtrusion && toolpathVisible) {
             // Actual forward extrusion — radius = sqrt(ΔE / distance), matching gcode-viewer
             const p1 = new Vector3(this.state.x, this.state.y, this.state.z);
             const distance = p1.distanceTo(new Vector3(next.x, next.y, next.z));
@@ -571,7 +573,7 @@ export class WebGLPreview {
             if (this.renderTubes && this._tubeLine) {
               this.finalizeTubes();
             }
-            if ((extrude && this.renderExtrusion) || (!extrude && this.renderTravel)) {
+            if ((extrude && this.renderExtrusion && toolpathVisible) || (!extrude && this.renderTravel)) {
               if (cmd.gcode == 'g2' || cmd.gcode == 'g3' || cmd.gcode == 'g02' || cmd.gcode == 'g03') {
                 this.addArcSegment(currentLayer, this.state, next, extrude, cmd.gcode == 'g2' || cmd.gcode == 'g02');
               } else {

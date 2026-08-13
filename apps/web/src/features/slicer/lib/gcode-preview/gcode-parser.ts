@@ -61,6 +61,7 @@ type MoveCommandParams = {
   [key in MoveCommandParamName]?: number;
 };
 export class GCodeCommand {
+  toolpathType?: string;
   constructor(
     public src: string,
     public gcode: string,
@@ -223,8 +224,13 @@ export class Parser {
   }
 
   private groupIntoLayers(commands: GCodeCommand[]): Layer[] {
+    let toolpathType: string | undefined;
     for (let lineNumber = 0; lineNumber < commands.length; lineNumber++) {
       const cmd = commands[lineNumber];
+
+      const typeMatch = cmd.comment?.trim().match(/^TYPE:\s*(.+)$/i);
+      if (typeMatch) toolpathType = typeMatch[1].trim();
+      cmd.toolpathType = toolpathType;
 
       if (cmd instanceof MoveCommand) {
         const params = cmd.params;
