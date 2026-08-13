@@ -2,6 +2,12 @@
 
 Changes are grouped into one consolidated summary per calendar day.
 
+## 2026-08-13
+
+- Added click-to-open information icons for every slicer, range, position, and rotation parameter, with Orca-source-audited explanations and parameter-specific vector diagrams for genuinely geometric concepts; popovers open beside the click pointer, flip at viewport edges, and close on outside click or Escape.
+- Added validated OrcaSlicer 3MF project import/export with embedded model geometry, build transforms, standard units, supported global printer/process/filament settings, explicit unsupported-setting notices, correct imported STL facet normals, and native Orca round-trip verification.
+- Corrected OrcaSlicer 3MF export so object-level process overrides are attached to the object rather than its mesh volume, preserving settings such as layer height after import; added explicit global/object layer-height validation against nozzle diameter and verified object overrides with Orca-generated 0.4 mm layer transitions.
+
 ## 2026-08-12
 
 - Added an ARM64 Docker Compose development environment for running and testing the complete application on the Raspberry Pi against a prebuilt OrcaSlicer runtime.

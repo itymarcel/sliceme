@@ -35,6 +35,63 @@ const props = () => ({
 afterEach(cleanup);
 
 describe('G-code setting editor', () => {
+  it('opens parameter help on click and closes it outside or with Escape', async () => {
+    const user = userEvent.setup();
+    render(<SlicerSettingsPanel {...props()} />);
+
+    const info = screen.getByRole('button', { name: 'About Nozzle diameter' });
+    expect(screen.getByRole('combobox', { name: 'Nozzle diameter' })).toBeTruthy();
+    await user.click(info);
+    expect(screen.getByRole('dialog', { name: 'Nozzle diameter information' })).toBeTruthy();
+    expect(info.getAttribute('aria-expanded')).toBe('true');
+
+    await user.click(screen.getByRole('heading', { name: 'Build volume' }));
+    expect(screen.queryByRole('dialog', { name: 'Nozzle diameter information' })).toBeNull();
+
+    await user.click(info);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Nozzle diameter information' })).toBeNull();
+  });
+
+  it('keeps range help outside explicitly associated input labels', () => {
+    const panelProps = {
+      ...props(),
+      selectedNode: { type: 'range' as const, fileId: 'model-1', rangeIndex: 0 },
+      section: 'process_config' as const,
+      rangeOverrides: { 'model-1': [{
+        range: { min_z: 2, max_z: 8 },
+        machine_config: {},
+        filament_config: {},
+        process_config: {},
+      }] },
+    };
+    render(<SlicerSettingsPanel {...panelProps} />);
+
+    expect(screen.getByRole('spinbutton', { name: 'From' })).toBeTruthy();
+    expect(screen.getByRole('spinbutton', { name: 'To' })).toBeTruthy();
+    expect(document.querySelector('label button.parameter-help-trigger')).toBeNull();
+  });
+
+  it('uses Orca support type names rather than a false placement label', () => {
+    render(<SlicerSettingsPanel {...props()} section="process_config" />);
+    expect(screen.getByLabelText('Support type')).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Normal (manual)' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Tree (manual)' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: 'Build plate only' })).toBeNull();
+  });
+
+  it('exposes Orca brim and fuzzy-skin values with their real meanings', () => {
+    render(<SlicerSettingsPanel {...props()} section="process_config" />);
+    for (const label of ['Automatic', 'Mouse ear', 'Painted', 'Outer only', 'Inner only', 'Outer and inner', 'None']) {
+      expect(screen.getByRole('option', { name: label })).toBeTruthy();
+    }
+    for (const label of ['Painted only', 'Contour', 'Hole', 'Contour and hole', 'All walls', 'Disabled']) {
+      expect(screen.getByRole('option', { name: label })).toBeTruthy();
+    }
+    expect(screen.getByRole('option', { name: 'Painted only' }).getAttribute('value')).toBe('none');
+    expect(screen.getByRole('option', { name: 'Disabled' }).getAttribute('value')).toBe('disabled_fuzzy');
+  });
+
   it('marks AI recommendations with an icon and clears the marker on interaction', async () => {
     const user = userEvent.setup();
     const panelProps = props();

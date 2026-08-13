@@ -48,9 +48,9 @@ PROCESS_PROPERTIES: dict[str, Any] = {
     "bridge_acceleration": _string(),
     "enable_support": _enum("0", "1"),
     "support_threshold_angle": _string(),
-    "support_type": _enum("normal(auto)", "normal(manual)", "tree(auto)"),
+    "support_type": _enum("normal(auto)", "tree(auto)", "normal(manual)", "tree(manual)"),
     "support_style": _enum("default", "grid", "snug", "organic", "tree_slim", "tree_strong", "tree_hybrid"),
-    "brim_type": _enum("no_brim", "auto_brim", "outer_only"),
+    "brim_type": _enum("auto_brim", "brim_ears", "painted", "outer_only", "inner_only", "outer_and_inner", "no_brim"),
     "brim_width": _string(),
     "skirt_distance": _string(),
     "raft_layers": _string(),
@@ -59,7 +59,7 @@ PROCESS_PROPERTIES: dict[str, Any] = {
     "ironing_type": _enum("no ironing", "top", "topmost", "solid"),
     "elefant_foot_compensation": _string(),
     "bridge_flow": _string(),
-    "fuzzy_skin": _enum("none", "external", "all", "allwalls"),
+    "fuzzy_skin": _enum("none", "external", "hole", "all", "allwalls", "disabled_fuzzy"),
     "fuzzy_skin_thickness": _string(),
 }
 

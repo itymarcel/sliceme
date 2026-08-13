@@ -1,9 +1,22 @@
 import unittest
 
+from app import ai_prefill
 from app.ai_prefill import _context, _output_text, _postprocess
 
 
 class AiPrefillTest(unittest.TestCase):
+    def test_orca_enum_schema_includes_all_exposed_support_brim_and_fuzzy_values(self):
+        process = ai_prefill.PROCESS_PROPERTIES
+        self.assertIn("tree(manual)", process["support_type"]["enum"])
+        self.assertEqual(
+            process["brim_type"]["enum"],
+            ["auto_brim", "brim_ears", "painted", "outer_only", "inner_only", "outer_and_inner", "no_brim"],
+        )
+        self.assertEqual(
+            process["fuzzy_skin"]["enum"],
+            ["none", "external", "hole", "all", "allwalls", "disabled_fuzzy"],
+        )
+
     def test_context_only_sends_relevant_printer_material_values(self):
         context = _context({
             "machine_config": {"nozzle_diameter": ["0.6"], "machine_start_gcode": "secret custom commands"},

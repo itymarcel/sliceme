@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Code2, RotateCcw, Search, Sparkles, X } from 'lucide-react';
 
 import type { AiHighlightedFields, ConfigBundle, ConfigSection, RangeOverride, SelectedNode } from '../types';
+import { rangeHelp, settingHelp } from '../lib/settingHelp';
+import { ParameterHelp } from './ParameterHelp';
 
 type Field = {
   key: string;
@@ -116,9 +118,9 @@ const fields: Record<ConfigSection, Group[]> = {
     { label: 'Support and adhesion', fields: [
       { key: 'enable_support', label: 'Enable support', type: 'checkbox' },
       { key: 'support_threshold_angle', label: 'Support threshold', type: 'number' },
-      { key: 'support_type', label: 'Support placement', type: 'select', options: [{ label: 'Normal', value: 'normal(auto)' }, { label: 'Build plate only', value: 'normal(manual)' }, { label: 'Tree', value: 'tree(auto)' }] },
+      { key: 'support_type', label: 'Support type', type: 'select', options: [{ label: 'Normal (auto)', value: 'normal(auto)' }, { label: 'Tree (auto)', value: 'tree(auto)' }, { label: 'Normal (manual)', value: 'normal(manual)' }, { label: 'Tree (manual)', value: 'tree(manual)' }] },
       { key: 'support_style', label: 'Support style', type: 'select', options: ['default', 'grid', 'snug', 'organic', 'tree_slim', 'tree_strong', 'tree_hybrid'].map((value) => ({ label: value, value })) },
-      { key: 'brim_type', label: 'Brim', type: 'select', options: [{ label: 'None', value: 'no_brim' }, { label: 'Automatic', value: 'auto_brim' }, { label: 'Outer only', value: 'outer_only' }] },
+      { key: 'brim_type', label: 'Brim', type: 'select', options: [{ label: 'Automatic', value: 'auto_brim' }, { label: 'Mouse ear', value: 'brim_ears' }, { label: 'Painted', value: 'painted' }, { label: 'Outer only', value: 'outer_only' }, { label: 'Inner only', value: 'inner_only' }, { label: 'Outer and inner', value: 'outer_and_inner' }, { label: 'None', value: 'no_brim' }] },
       { key: 'brim_width', label: 'Brim width', type: 'number' },
       { key: 'skirt_distance', label: 'Skirt distance', type: 'number' },
       { key: 'raft_layers', label: 'Raft layers', type: 'number' },
@@ -129,7 +131,7 @@ const fields: Record<ConfigSection, Group[]> = {
       { key: 'ironing_type', label: 'Ironing', type: 'select', options: ['no ironing', 'top', 'topmost', 'solid'].map((value) => ({ label: value, value })) },
       { key: 'elefant_foot_compensation', label: 'Elephant-foot compensation', type: 'number', step: 0.01 },
       { key: 'bridge_flow', label: 'Bridge flow', type: 'number', step: 0.01 },
-      { key: 'fuzzy_skin', label: 'Fuzzy skin', type: 'select', options: ['none', 'external', 'all', 'allwalls'].map((value) => ({ label: value, value })) },
+      { key: 'fuzzy_skin', label: 'Fuzzy skin', type: 'select', options: [{ label: 'Painted only', value: 'none' }, { label: 'Contour', value: 'external' }, { label: 'Hole', value: 'hole' }, { label: 'Contour and hole', value: 'all' }, { label: 'All walls', value: 'allwalls' }, { label: 'Disabled', value: 'disabled_fuzzy' }] },
       { key: 'fuzzy_skin_thickness', label: 'Fuzzy-skin thickness', type: 'number', step: 0.01 },
     ] },
   ],
@@ -178,11 +180,13 @@ function FieldControl({ field, section, props, onEditGcode }: { field: Field; se
   const displayValue = field.type === 'number' && typeof scalarValue === 'string'
     ? scalarValue.replace(/%$/, '')
     : scalarValue;
+  const help = settingHelp[field.key] ?? { text: `Controls the ${field.label.toLowerCase()} used by the slicer.` };
 
   return (
     <div className={`setting-row ${overridden ? 'is-overridden' : ''} ${aiRecommended ? 'ai-recommended' : ''}`}>
-      <span id={`setting-${field.key}`} title={globalFromObject ? 'Spiral mode applies to the whole print' : undefined}>
-        {field.label}{globalFromObject ? ' (global)' : ''}
+      <span title={globalFromObject ? 'Spiral mode applies to the whole print' : undefined}>
+        <span id={`setting-${field.key}`}>{field.label}{globalFromObject ? ' (global)' : ''}</span>
+        <ParameterHelp label={field.label} text={help.text} diagram={help.diagram} />
         {aiRecommended && <Sparkles className="ai-recommended-icon" size={11} aria-label="AI recommended" />}
       </span>
       <div className="setting-control">
@@ -245,8 +249,8 @@ export function SlicerSettingsPanel(props: Props) {
       </div>
       {range && rangeSelection && (
         <div className="range-boundaries">
-          <label>From <input type="number" step="0.1" value={range.range.min_z} onChange={(event) => props.onRangeBoundary(rangeSelection.fileId, rangeSelection.rangeIndex, 'min_z', Number(event.target.value))} /></label>
-          <label>To <input type="number" step="0.1" value={range.range.max_z} onChange={(event) => props.onRangeBoundary(rangeSelection.fileId, rangeSelection.rangeIndex, 'max_z', Number(event.target.value))} /></label>
+          <div className="range-field"><span><label htmlFor="range-min-z">From</label><ParameterHelp label="Range start" text={rangeHelp.min_z.text} diagram={rangeHelp.min_z.diagram} /></span><input id="range-min-z" type="number" step="0.1" value={range.range.min_z} onChange={(event) => props.onRangeBoundary(rangeSelection.fileId, rangeSelection.rangeIndex, 'min_z', Number(event.target.value))} /></div>
+          <div className="range-field"><span><label htmlFor="range-max-z">To</label><ParameterHelp label="Range end" text={rangeHelp.max_z.text} diagram={rangeHelp.max_z.diagram} /></span><input id="range-max-z" type="number" step="0.1" value={range.range.max_z} onChange={(event) => props.onRangeBoundary(rangeSelection.fileId, rangeSelection.rangeIndex, 'max_z', Number(event.target.value))} /></div>
           <span>mm</span>
         </div>
       )}
