@@ -9,7 +9,7 @@ Changes are grouped into one consolidated summary per calendar day.
 - Corrected OrcaSlicer 3MF export so object-level process overrides are attached to the object rather than its mesh volume, preserving settings such as layer height after import; added explicit global/object layer-height validation against nozzle diameter and verified object overrides with Orca-generated 0.4 mm layer transitions.
 - Added distinct setting-specific diagrams for brim placement modes, brim-width measurement, skirt loops/distance, spiral mode, top and bottom shell layers, printable height, and Z offset; exposed Skirt loops as the skirt enable control, where zero disables the skirt and positive values select the loop count.
 - Replaced inconsistent per-override revert buttons with bounded workspace setting Undo/Redo controls centered in the navbar, including Ctrl/Cmd+Z and Ctrl/Cmd+Y shortcuts for global, object, and height-range setting changes; history persists with the local browser session and restores after reload.
-- Consolidated model/project actions and GitHub links under a three-dot navbar menu while retaining Buy Me a Coffee on the left, clarified the local-session storage badge, generalized the slicing overlay copy to “Slicer engine,” and moved project/error notifications below the top navbar.
+- Consolidated model/project actions and GitHub links under a three-dot navbar disclosure while retaining Buy Me a Coffee on the left, clarified the local-session storage badge, generalized the slicing overlay copy to “Slicer engine,” and moved project/error notifications below the top navbar; the disclosure restores trigger focus on Escape and workspace history shortcuts preserve native editing inside form controls.
 
 ## 2026-08-12
 

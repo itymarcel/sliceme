@@ -13,6 +13,7 @@ import { HeaderMoreMenu } from './components/HeaderMoreMenu';
 import { SupportLink } from './components/ProjectLinks';
 import { useSlicerWorkspace } from './hooks/useSlicerWorkspace';
 import { addMeasurementPoint, type MeasurementPoint } from './lib/measurement';
+import { isEditableShortcutTarget } from './lib/historyShortcuts';
 
 export function SlicerWorkspace() {
   const workspace = useSlicerWorkspace();
@@ -47,8 +48,7 @@ export function SlicerWorkspace() {
   useEffect(() => {
     const onHistoryShortcut = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
-      const target = event.target as HTMLElement | null;
-      if (target?.matches('textarea, input[type="text"], [contenteditable="true"]')) return;
+      if (isEditableShortcutTarget(event.target)) return;
       if (event.key.toLowerCase() === 'z') {
         event.preventDefault();
         workspace.undo();
