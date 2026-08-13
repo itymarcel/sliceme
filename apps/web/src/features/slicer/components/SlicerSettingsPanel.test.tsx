@@ -118,6 +118,11 @@ describe('G-code setting editor', () => {
     expect(widthSvg?.innerHTML).not.toBe(brimMarkup);
   });
 
+  it('does not render per-setting inherited-value buttons', () => {
+    render(<SlicerSettingsPanel {...props()} section="process_config" />);
+    expect(screen.queryByTitle('Use inherited value')).toBeNull();
+  });
+
   it('marks AI recommendations with an icon and clears the marker on interaction', async () => {
     const user = userEvent.setup();
     const panelProps = props();

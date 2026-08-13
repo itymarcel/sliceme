@@ -29,6 +29,11 @@ function Diagram({ type }: { type: HelpDiagram }) {
       {type === 'z-hop' && <><path {...common} d="M18 40h30m25 0h29M48 40v-15h25v15" /><path {...common} d="m44 29 4-4 4 4m17 0 4-4 4 4" /><path {...common} d="M21 17h18l-4-6h-10z" /></>}
       {type === 'motion' && <><rect {...common} x="28" y="13" width="42" height="28" rx="4" /><path {...common} d="M18 27h72m-5-5 5 5-5 5M49 47V7m-5 5 5-5 5 5" /><path {...common} d="M76 14c12 5 18 12 18 21" strokeDasharray="3 3" /></>}
       {type === 'rotation' && <><path {...common} d="M42 39a20 20 0 1 1 29-1" /><path {...common} d="m67 31 4 7 8-2" /><path {...common} d="M58 27V9m0 18 15 9m-15-9-14 10" /></>}
+      {type === 'spiral' && <><path {...common} d="M35 44c-15-5-15-15 0-20 18-6 51-2 51 8 0 8-23 12-39 7-11-4-8-11 4-14 12-3 28 0 28 6 0 5-13 7-22 5-7-2-6-6 1-8" /><path {...common} d="M86 36V9m-4 5 4-5 4 5" /></>}
+      {type === 'top-layers' && <><path {...common} d="M28 44h64V12H28zM33 38h54M33 32h54" strokeDasharray="4 3" /><path {...common} d="M28 12h64M28 17h64M28 22h64" strokeWidth="3" /></>}
+      {type === 'bottom-layers' && <><path {...common} d="M28 42h64V10H28zM33 16h54M33 22h54" strokeDasharray="4 3" /><path {...common} d="M28 32h64M28 37h64M18 46h84" strokeWidth="3" /></>}
+      {type === 'printable-height' && <><path {...common} d="M23 45h74M35 41h37l-6-25H41zM91 45V8m-5 5 5-5 5 5m-10 27 5 5 5-5" /></>}
+      {type === 'z-offset' && <><path {...common} d="M18 43h84M42 31h36l-6-17H48z" /><path {...common} d="M90 14v29m-4-24 4-5 4 5m-8 19 4 5 4-5" /><path {...common} d="M31 34h50" strokeDasharray="4 3" /></>}
     </svg>
   );
 }

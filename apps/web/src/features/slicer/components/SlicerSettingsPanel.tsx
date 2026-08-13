@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Code2, RotateCcw, Search, Sparkles, X } from 'lucide-react';
+import { Code2, Search, Sparkles, X } from 'lucide-react';
 
 import type { AiHighlightedFields, ConfigBundle, ConfigSection, RangeOverride, SelectedNode } from '../types';
 import { rangeHelp, settingHelp } from '../lib/settingHelp';
@@ -146,7 +146,7 @@ type Props = {
   fileOverrides: Record<string, Partial<ConfigBundle>>;
   rangeOverrides: Record<string, RangeOverride[]>;
   onChange: (section: ConfigSection, key: string, value: unknown) => void;
-  onClear: (section: ConfigSection, key: string) => void;
+
   onRangeBoundary: (fileId: string, rangeIndex: number, key: 'min_z' | 'max_z', value: number) => void;
   section: ConfigSection;
   query: string;
@@ -206,7 +206,7 @@ function FieldControl({ field, section, props, onEditGcode }: { field: Field; se
         ) : (
           <input aria-labelledby={`setting-${field.key}`} type="number" step={field.step ?? 1} min={field.min} max={field.max} value={String(displayValue ?? '')} onChange={(event) => update(event.target.value)} />
         )}
-        {overridden && <button className="icon-button" type="button" title="Use inherited value" onClick={() => { props.onFieldInteract(section, field.key); props.onClear(section, field.key); }}><RotateCcw size={13} /></button>}
+
       </div>
     </div>
   );

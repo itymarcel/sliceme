@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Download, Eraser, FileArchive, FileUp, LoaderCircle, OctagonX, PackageOpen, Scissors, ShieldCheck } from 'lucide-react';
+import { Box, Download, Eraser, FileUp, LoaderCircle, OctagonX, Redo2, Scissors, ShieldCheck, Undo2 } from 'lucide-react';
 
 import { GcodePreview } from './components/GcodePreview';
 import { AiPrefillPanel } from './components/AiPrefillPanel';
@@ -9,7 +9,8 @@ import { ObjectTree } from './components/ObjectTree';
 import { SlicerSettingsPanel } from './components/SlicerSettingsPanel';
 import { TransformPanel } from './components/TransformPanel';
 import { MeasurementPanel } from './components/MeasurementPanel';
-import { ProjectLinks } from './components/ProjectLinks';
+import { HeaderMoreMenu } from './components/HeaderMoreMenu';
+import { SupportLink } from './components/ProjectLinks';
 import { useSlicerWorkspace } from './hooks/useSlicerWorkspace';
 import { addMeasurementPoint, type MeasurementPoint } from './lib/measurement';
 
@@ -43,6 +44,23 @@ export function SlicerWorkspace() {
     setMeasurementPoints([]);
   }, [modelIds, workspace.positions, workspace.rotations]);
 
+  useEffect(() => {
+    const onHistoryShortcut = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.matches('textarea, input[type="text"], [contenteditable="true"]')) return;
+      if (event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        workspace.undo();
+      } else if (event.key.toLowerCase() === 'y') {
+        event.preventDefault();
+        workspace.redo();
+      }
+    };
+    window.addEventListener('keydown', onHistoryShortcut);
+    return () => window.removeEventListener('keydown', onHistoryShortcut);
+  }, [workspace.redo, workspace.undo]);
+
   const openFilePicker = () => fileInput.current?.click();
   const openProjectPicker = () => projectInput.current?.click();
   const receiveFiles = (files: FileList | null) => { if (files?.length) workspace.addModels(files); };
@@ -52,12 +70,13 @@ export function SlicerWorkspace() {
       <input ref={fileInput} hidden type="file" multiple accept=".stl,.step,.stp" onChange={(event) => { receiveFiles(event.target.files); event.target.value = ''; }} />
       <input ref={projectInput} hidden type="file" accept=".3mf" onChange={(event) => { const project = event.target.files?.[0]; if (project) void workspace.importProject(project); event.target.value = ''; }} />
       <header className="app-header">
-        <div className="privacy-note"><ShieldCheck size={14} /> Saved locally in this browser</div>
-        <ProjectLinks />
+        <div className="header-left"><div className="privacy-note"><ShieldCheck size={14} /> Session saved locally in browser storage</div><SupportLink /></div>
+        <div className="header-history" aria-label="Edit history">
+          <button className="icon-button" type="button" aria-label="Undo" title="Undo (Ctrl/Cmd+Z)" disabled={!workspace.canUndo} onClick={workspace.undo}><Undo2 size={16} /></button>
+          <button className="icon-button" type="button" aria-label="Redo" title="Redo (Ctrl/Cmd+Y)" disabled={!workspace.canRedo} onClick={workspace.redo}><Redo2 size={16} /></button>
+        </div>
         <div className="header-actions">
-          <button className="button secondary" onClick={openFilePicker}><FileUp size={15} /> Add model</button>
-          <button className="button secondary" disabled={workspace.projectBusy !== null} onClick={openProjectPicker}><PackageOpen size={15} /> Import *.3mf</button>
-          <button className="button secondary" disabled={!workspace.models.length || workspace.projectBusy !== null} onClick={() => void workspace.exportProject()}><FileArchive size={15} /> Export 3MF</button>
+          <HeaderMoreMenu onAddModel={openFilePicker} onImportProject={openProjectPicker} onExportProject={() => void workspace.exportProject()} importingDisabled={workspace.projectBusy !== null} exportingDisabled={!workspace.models.length || workspace.projectBusy !== null} />
           <button className="button ghost danger" disabled={!workspace.models.length} onClick={workspace.clear}><Eraser size={15} /> Clear</button>
           {workspace.status === 'slicing' ? <button className="button danger" onClick={workspace.cancelSlice}><OctagonX size={15} /> Cancel</button> : <button className="button primary" disabled={!workspace.models.length || workspace.defaultsLoading} onClick={workspace.slice}><Scissors size={15} /> Slice</button>}
           {workspace.gcode && <a className="button primary download" href={workspace.gcode.url} download={workspace.gcode.fileName}><Download size={15} /> Download</a>}
@@ -67,7 +86,7 @@ export function SlicerWorkspace() {
       <div className="workspace-layout">
         <aside className="sidebar">
           <ObjectTree models={workspace.models} ranges={workspace.rangeOverrides} selected={workspace.selectedNode} onSelect={workspace.setSelectedNode} onAddModels={openFilePicker} onRemoveModel={workspace.removeModel} onAddRange={workspace.addRange} onRemoveRange={workspace.removeRange} />
-          <SlicerSettingsPanel selectedNode={workspace.selectedNode} config={workspace.config} fileOverrides={workspace.fileOverrides} rangeOverrides={workspace.rangeOverrides} onChange={workspace.setSetting} onClear={workspace.clearSetting} onRangeBoundary={workspace.setRangeBoundary} section={workspace.ui.settingsSection} query={workspace.ui.settingsQuery} onSectionChange={(settingsSection) => workspace.setUi((current) => ({ ...current, settingsSection }))} onQueryChange={(settingsQuery) => workspace.setUi((current) => ({ ...current, settingsQuery }))} highlightedFields={workspace.ui.aiHighlightedFields} onFieldInteract={workspace.clearAiFieldHighlight} />
+          <SlicerSettingsPanel selectedNode={workspace.selectedNode} config={workspace.config} fileOverrides={workspace.fileOverrides} rangeOverrides={workspace.rangeOverrides} onChange={workspace.setSetting} onRangeBoundary={workspace.setRangeBoundary} section={workspace.ui.settingsSection} query={workspace.ui.settingsQuery} onSectionChange={(settingsSection) => workspace.setUi((current) => ({ ...current, settingsSection }))} onQueryChange={(settingsQuery) => workspace.setUi((current) => ({ ...current, settingsQuery }))} highlightedFields={workspace.ui.aiHighlightedFields} onFieldInteract={workspace.clearAiFieldHighlight} />
           <AiPrefillPanel description={workspace.ui.prefillDescription} loading={workspace.prefilling || workspace.status === 'slicing'} onDescriptionChange={(prefillDescription) => workspace.setUi((current) => ({ ...current, prefillDescription }))} onPrefill={workspace.prefillSettings} />
         </aside>
 
@@ -85,7 +104,7 @@ export function SlicerWorkspace() {
               setMeasurementActive((active) => !active);
             }} onClear={() => setMeasurementPoints([])} />
             {selectedModel && selectedFileId && <TransformPanel position={workspace.positions[selectedFileId] ?? { x: workspace.buildVolume.x / 2, y: workspace.buildVolume.y / 2 }} rotation={workspace.rotations[selectedFileId] ?? { x: 0, y: 0, z: 0 }} onPosition={(position) => workspace.setPositions((current) => ({ ...current, [selectedFileId]: position }))} onRotation={(rotation) => workspace.setRotations((current) => ({ ...current, [selectedFileId]: rotation }))} />}
-            {workspace.status === 'slicing' && <div className="slicing-overlay"><LoaderCircle size={28} className="spin" /><strong>OrcaSlicer is working</strong><span>This request remains temporary.</span></div>}
+            {workspace.status === 'slicing' && <div className="slicing-overlay"><LoaderCircle size={28} className="spin" /><strong>Slicer engine is working</strong><span>This request remains temporary.</span></div>}
           </section>
           {workspace.gcode && <GcodePreview result={workspace.gcode} buildVolume={workspace.buildVolume} enhancing={workspace.enhancing} onEnhance={workspace.enhanceGcode} ui={workspace.ui.gcodePreview} onUiChange={(gcodePreview) => workspace.setUi((current) => ({ ...current, gcodePreview }))} />}
         </main>

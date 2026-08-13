@@ -1,12 +1,12 @@
-export type HelpDiagram = 'nozzle' | 'layers' | 'first-layer' | 'width' | 'walls' | 'infill' | 'infill-density' | 'support-enable' | 'support-angle' | 'brim-type' | 'brim' | 'skirt' | 'raft' | 'z-hop' | 'motion' | 'rotation';
+export type HelpDiagram = 'nozzle' | 'layers' | 'first-layer' | 'width' | 'walls' | 'infill' | 'infill-density' | 'support-enable' | 'support-angle' | 'brim-type' | 'brim' | 'skirt' | 'raft' | 'z-hop' | 'motion' | 'rotation' | 'spiral' | 'top-layers' | 'bottom-layers' | 'printable-height' | 'z-offset';
 export type SettingHelp = { text: string; diagram?: HelpDiagram };
 
 export const settingHelp: Record<string, SettingHelp> = {
   nozzle_diameter: { text: 'Diameter of the physical nozzle opening. It constrains practical line widths and achievable detail.', diagram: 'nozzle' },
   nozzle_type: { text: 'Nozzle material affects wear resistance and suitable filament types. Abrasive composites usually need hardened steel.' },
   gcode_flavor: { text: 'Selects the command dialect expected by the printer firmware.' },
-  printable_height: { text: 'Maximum Z height the printer mechanism can reach and print.' },
-  z_offset: { text: 'Value added to every output G-code Z coordinate. Negative values move commanded Z closer to the bed; positive values move it farther away.' },
+  printable_height: { text: 'Maximum Z height the printer mechanism can reach and print.', diagram: 'printable-height' },
+  z_offset: { text: 'Value added to every output G-code Z coordinate. Negative values move commanded Z closer to the bed; positive values move it farther away.', diagram: 'z-offset' },
   extruder_clearance_height_to_rod: { text: 'Distance from the nozzle tip to the lower toolhead rod. Orca uses it for collision checks in by-object printing.' },
   machine_max_speed_x: { text: 'Firmware maximum X-axis feed rate used for machine-limit output and time estimation, not normal print speed.' },
   machine_max_speed_y: { text: 'Firmware maximum Y-axis feed rate used for machine-limit output and time estimation, not normal print speed.' },
@@ -49,13 +49,13 @@ export const settingHelp: Record<string, SettingHelp> = {
   line_width: { text: 'Default extrusion width used when a feature-specific line width is zero. Percentage values are calculated from nozzle diameter.', diagram: 'width' },
   resolution: { text: 'Maximum contour simplification tolerance in millimeters. Lower values retain more points and create larger G-code; zero disables simplification.' },
   seam_position: { text: 'Controls the starting point of each outer wall, which determines where the visible seam appears.' },
-  spiral_mode: { text: 'Continuously raises Z along the outer contour, turning a solid model into a seamless single-wall print with solid bottom layers.' },
+  spiral_mode: { text: 'Continuously raises Z along the outer contour, turning a solid model into a seamless single-wall print with solid bottom layers.', diagram: 'spiral' },
   spiral_mode_smooth: { text: 'Smooths X/Y movement as well as Z during spiral printing, reducing abrupt direction changes on uneven vase contours.' },
   wall_loops: { text: 'Number of perimeter lines around the model. More loops increase wall strength and thickness.', diagram: 'walls' },
   wall_sequence: { text: 'Wall printing order. Inner/Outer favors overhang support; Inner/Outer/Inner favors finish and accuracy but requires at least three walls; Outer/Inner can make seams less consistent.' },
   wall_generator: { text: 'Arachne varies line width to fit thin features; Classic uses more uniform line widths.' },
-  top_shell_layers: { text: 'Number of solid top-shell layers, including the visible top surface. Orca may add layers to satisfy a configured minimum top thickness.' },
-  bottom_shell_layers: { text: 'Number of solid bottom-shell layers, including the bottom surface. Orca may add layers to satisfy a configured minimum bottom thickness.' },
+  top_shell_layers: { text: 'Number of solid top-shell layers, including the visible top surface. Orca may add layers to satisfy a configured minimum top thickness.', diagram: 'top-layers' },
+  bottom_shell_layers: { text: 'Number of solid bottom-shell layers, including the bottom surface. Orca may add layers to satisfy a configured minimum bottom thickness.', diagram: 'bottom-layers' },
   detect_thin_wall: { text: 'With the Classic wall generator, prints walls too narrow for two normal lines as one potentially open extrusion line.' },
   precise_outer_wall: { text: 'Adjusts outer-wall spacing to improve shell dimensions and layer consistency. Ignored for outer-inner and inner-outer-inner wall sequences.' },
   top_surface_pattern: { text: 'Line pattern used for visible top-surface solid infill.' },

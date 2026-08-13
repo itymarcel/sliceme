@@ -11,6 +11,7 @@ import {
   requestDurableStorage,
 } from '../lib/workspacePersistence';
 import { defaultWorkspaceUi } from '../lib/workspaceUi';
+import { createWorkspaceHistory, recordWorkspaceChange, redoWorkspaceChange, undoWorkspaceChange, type WorkspaceSettingsSnapshot } from '../lib/workspaceHistory';
 import type {
   BuildVolume,
   ConfigBundle,
@@ -110,6 +111,7 @@ export function useSlicerWorkspace() {
   const [projectBusy, setProjectBusy] = useState<'importing' | 'exporting' | null>(null);
   const [projectNotice, setProjectNotice] = useState<string | null>(null);
   const [persistenceReady, setPersistenceReady] = useState(false);
+  const [history, setHistory] = useState(createWorkspaceHistory);
   const sliceController = useRef<AbortController | null>(null);
   const prefillController = useRef<AbortController | null>(null);
   const modelUrls = useRef(new Set<string>());
@@ -130,6 +132,29 @@ export function useSlicerWorkspace() {
     };
   }, [config.machine_config]);
 
+  const settingsSnapshot = useCallback((): WorkspaceSettingsSnapshot => ({ config, fileOverrides, rangeOverrides, selectedNode }), [config, fileOverrides, rangeOverrides, selectedNode]);
+  const recordSettingsChange = useCallback(() => setHistory((current) => recordWorkspaceChange(current, settingsSnapshot())), [settingsSnapshot]);
+  const applySettingsSnapshot = useCallback((snapshot: WorkspaceSettingsSnapshot) => {
+    setConfig(snapshot.config);
+    setFileOverrides(snapshot.fileOverrides);
+    setRangeOverrides(snapshot.rangeOverrides);
+    setSelectedNode(snapshot.selectedNode);
+  }, []);
+  const undo = useCallback(() => {
+    setHistory((current) => {
+      const result = undoWorkspaceChange(current, settingsSnapshot());
+      if (result.snapshot) applySettingsSnapshot(result.snapshot);
+      return result.history;
+    });
+  }, [applySettingsSnapshot, settingsSnapshot]);
+  const redo = useCallback(() => {
+    setHistory((current) => {
+      const result = redoWorkspaceChange(current, settingsSnapshot());
+      if (result.snapshot) applySettingsSnapshot(result.snapshot);
+      return result.history;
+    });
+  }, [applySettingsSnapshot, settingsSnapshot]);
+
   useEffect(() => {
     const controller = new AbortController();
     let cancelled = false;
@@ -144,6 +169,7 @@ export function useSlicerWorkspace() {
         setConfig(snapshot.config);
         setFileOverrides(snapshot.fileOverrides);
         setRangeOverrides(snapshot.rangeOverrides);
+        setHistory(snapshot.history ?? createWorkspaceHistory());
         setPositions(snapshot.positions);
         setRotations(snapshot.rotations);
         setStartPositions(snapshot.startPositions);
@@ -204,10 +230,11 @@ export function useSlicerWorkspace() {
         startPositions,
         selectedNode,
         ui,
+        history,
       }).catch(reportPersistenceError);
     }, 150);
     return () => window.clearTimeout(timeout);
-  }, [config, fileOverrides, models, persistenceReady, positions, rangeOverrides, reportPersistenceError, rotations, selectedNode, startPositions, ui]);
+  }, [config, fileOverrides, history, models, persistenceReady, positions, rangeOverrides, reportPersistenceError, rotations, selectedNode, startPositions, ui]);
 
   useEffect(() => {
     if (persistenceReady) void persistModels(models).catch(reportPersistenceError);
@@ -290,6 +317,7 @@ export function useSlicerWorkspace() {
       modelUrls.current.forEach(URL.revokeObjectURL);
       modelUrls.current = new Set(nextModels.map((model) => model.objectUrl));
       sliceController.current?.abort();
+      setHistory(createWorkspaceHistory());
       setModels(nextModels);
       setConfig(imported.config);
       setFileOverrides({});
@@ -348,6 +376,7 @@ export function useSlicerWorkspace() {
   }, []);
 
   const setSetting = useCallback((section: ConfigSection, key: string, value: unknown) => {
+    recordSettingsChange();
     // OrcaSlicer defines whole-print spiral mode at process scope. Keep the
     // control useful while an object is selected, but store it globally and
     // make every existing object/range compatible with vase mode.
@@ -384,48 +413,35 @@ export function useSlicerWorkspace() {
         return { ...current, [selectedNode.fileId]: ranges };
       });
     }
-  }, [selectedNode]);
+  }, [recordSettingsChange, selectedNode]);
 
-  const clearSetting = useCallback((section: ConfigSection, key: string) => {
-    if (selectedNode.type === 'scene') return;
-    if (selectedNode.type === 'file') {
-      setFileOverrides((current) => {
-        const next = structuredClone(current);
-        delete next[selectedNode.fileId]?.[section]?.[key];
-        return next;
-      });
-    } else {
-      setRangeOverrides((current) => {
-        const next = structuredClone(current);
-        delete next[selectedNode.fileId]?.[selectedNode.rangeIndex]?.[section]?.[key];
-        return next;
-      });
-    }
-  }, [selectedNode]);
 
   const addRange = useCallback((fileId: string) => {
+    recordSettingsChange();
     setRangeOverrides((current) => {
       const rangeIndex = (current[fileId] ?? []).length;
       setSelectedNode({ type: 'range', fileId, rangeIndex });
       return { ...current, [fileId]: [...(current[fileId] ?? []), emptyRange()] };
     });
-  }, []);
+  }, [recordSettingsChange]);
 
   const removeRange = useCallback((fileId: string, rangeIndex: number) => {
+    recordSettingsChange();
     setRangeOverrides((current) => ({
       ...current,
       [fileId]: (current[fileId] ?? []).filter((_, index) => index !== rangeIndex),
     }));
     setSelectedNode({ type: 'file', fileId });
-  }, []);
+  }, [recordSettingsChange]);
 
   const setRangeBoundary = useCallback((fileId: string, rangeIndex: number, key: 'min_z' | 'max_z', value: number) => {
+    recordSettingsChange();
     setRangeOverrides((current) => {
       const ranges = [...(current[fileId] ?? [])];
       ranges[rangeIndex] = { ...ranges[rangeIndex], range: { ...ranges[rangeIndex].range, [key]: value } };
       return { ...current, [fileId]: ranges };
     });
-  }, []);
+  }, [recordSettingsChange]);
 
   const slice = useCallback(async () => {
     if (!models.length) return;
@@ -470,6 +486,7 @@ export function useSlicerWorkspace() {
     setError(null);
     try {
       const recommendation = await requestSettingsPrefill(description, config, controller.signal);
+      recordSettingsChange();
       const processConfig = { ...recommendation.process_config };
       if (isEnabled(processConfig.spiral_mode)) Object.assign(processConfig, spiralModeSettings);
       const filamentConfig = Object.fromEntries(Object.entries(recommendation.filament_config).filter(
@@ -497,7 +514,7 @@ export function useSlicerWorkspace() {
     } finally {
       setPrefilling(false);
     }
-  }, [config, prefilling, ui.prefillDescription]);
+  }, [config, prefilling, recordSettingsChange, ui.prefillDescription]);
   const clearAiFieldHighlight = useCallback((section: ConfigSection, key: string) => {
     setUi((current) => ({
       ...current,
@@ -513,6 +530,7 @@ export function useSlicerWorkspace() {
     prefillController.current?.abort();
     modelUrls.current.forEach(URL.revokeObjectURL);
     modelUrls.current.clear();
+    setHistory(createWorkspaceHistory());
     setModels([]); setFileOverrides({}); setRangeOverrides({}); setPositions({}); setRotations({}); setStartPositions({});
     setConfig(defaultConfigRef.current ?? emptyConfig()); setSelectedNode({ type: 'scene' }); setUi(defaultWorkspaceUi());
     setError(null); setStatus('idle'); replaceGcode(null);
@@ -522,8 +540,9 @@ export function useSlicerWorkspace() {
   return {
     models, config, fileOverrides, rangeOverrides, positions, rotations, selectedNode, gcode,
     status, error, defaultsLoading, buildVolume, startPositions, enhancing, prefilling, projectBusy, projectNotice, ui, setUi,
-    setSelectedNode, addModels, removeModel, setSetting, clearSetting, addRange, removeRange,
+    setSelectedNode, addModels, removeModel, setSetting, addRange, removeRange,
     setRangeBoundary, setPositions, setRotations, slice, cancelSlice, enhanceGcode, prefillSettings,
     clearAiFieldHighlight, dismissError, dismissProjectNotice: () => setProjectNotice(null), importProject, exportProject, clear,
+    undo, redo, canUndo: history.past.length > 0, canRedo: history.future.length > 0,
   };
 }

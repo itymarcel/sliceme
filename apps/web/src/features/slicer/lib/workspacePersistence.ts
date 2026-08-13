@@ -8,6 +8,7 @@ import type {
   SlicerModel,
   WorkspaceUiState,
 } from '../types';
+import type { WorkspaceHistory } from './workspaceHistory';
 
 const DATABASE_NAME = 'sliceme-workspace';
 const DATABASE_VERSION = 1;
@@ -28,6 +29,7 @@ export type WorkspaceSnapshot = {
   startPositions: Record<string, Position>;
   selectedNode: SelectedNode;
   ui: WorkspaceUiState;
+  history?: WorkspaceHistory;
 };
 
 type StoredModel = {

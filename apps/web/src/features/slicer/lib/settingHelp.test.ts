@@ -33,4 +33,12 @@ describe('Orca setting help semantics', () => {
     expect(settingHelp.skirt_loops.text).toContain('Zero disables the skirt');
     expect(settingHelp.skirt_distance.diagram).toBe('skirt');
   });
+
+  it('uses dedicated diagrams for spiral, shell, and machine Z settings', () => {
+    expect(settingHelp.spiral_mode.diagram).toBe('spiral');
+    expect(settingHelp.top_shell_layers.diagram).toBe('top-layers');
+    expect(settingHelp.bottom_shell_layers.diagram).toBe('bottom-layers');
+    expect(settingHelp.printable_height.diagram).toBe('printable-height');
+    expect(settingHelp.z_offset.diagram).toBe('z-offset');
+  });
 });
