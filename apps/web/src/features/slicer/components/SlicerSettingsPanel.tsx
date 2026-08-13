@@ -10,6 +10,8 @@ type Field = {
   label: string;
   type?: 'number' | 'checkbox' | 'select' | 'text';
   step?: number;
+  min?: number;
+  max?: number;
   options?: Array<{ label: string; value: string }>;
 };
 type Group = { label: string; fields: Field[] };
@@ -122,6 +124,7 @@ const fields: Record<ConfigSection, Group[]> = {
       { key: 'support_style', label: 'Support style', type: 'select', options: ['default', 'grid', 'snug', 'organic', 'tree_slim', 'tree_strong', 'tree_hybrid'].map((value) => ({ label: value, value })) },
       { key: 'brim_type', label: 'Brim', type: 'select', options: [{ label: 'Automatic', value: 'auto_brim' }, { label: 'Mouse ear', value: 'brim_ears' }, { label: 'Painted', value: 'painted' }, { label: 'Outer only', value: 'outer_only' }, { label: 'Inner only', value: 'inner_only' }, { label: 'Outer and inner', value: 'outer_and_inner' }, { label: 'None', value: 'no_brim' }] },
       { key: 'brim_width', label: 'Brim width', type: 'number' },
+      { key: 'skirt_loops', label: 'Skirt loops', type: 'number', min: 0, max: 10 },
       { key: 'skirt_distance', label: 'Skirt distance', type: 'number' },
       { key: 'raft_layers', label: 'Raft layers', type: 'number' },
     ] },
@@ -201,7 +204,7 @@ function FieldControl({ field, section, props, onEditGcode }: { field: Field; se
             <Code2 size={13} /> Edit
           </button>
         ) : (
-          <input aria-labelledby={`setting-${field.key}`} type="number" step={field.step ?? 1} value={String(displayValue ?? '')} onChange={(event) => update(event.target.value)} />
+          <input aria-labelledby={`setting-${field.key}`} type="number" step={field.step ?? 1} min={field.min} max={field.max} value={String(displayValue ?? '')} onChange={(event) => update(event.target.value)} />
         )}
         {overridden && <button className="icon-button" type="button" title="Use inherited value" onClick={() => { props.onFieldInteract(section, field.key); props.onClear(section, field.key); }}><RotateCcw size={13} /></button>}
       </div>

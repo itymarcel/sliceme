@@ -24,4 +24,13 @@ describe('Orca setting help semantics', () => {
     expect(settingHelp.raft_layers.text).toContain('Raises the model');
     expect(settingHelp.brim_width.text).toContain('outermost brim line');
   });
+
+  it('illustrates brim and skirt settings', () => {
+    expect(settingHelp.brim_type.diagram).toBe('brim-type');
+    expect(settingHelp.brim_width.diagram).toBe('brim');
+    expect(settingHelp.brim_type.diagram).not.toBe(settingHelp.brim_width.diagram);
+    expect(settingHelp.skirt_loops.diagram).toBe('skirt');
+    expect(settingHelp.skirt_loops.text).toContain('Zero disables the skirt');
+    expect(settingHelp.skirt_distance.diagram).toBe('skirt');
+  });
 });

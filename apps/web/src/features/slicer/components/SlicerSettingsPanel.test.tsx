@@ -13,7 +13,7 @@ const config: ConfigBundle = {
     machine_end_gcode: 'M84',
   },
   filament_config: {},
-  process_config: {},
+  process_config: { skirt_loops: '0' },
 };
 
 const props = () => ({
@@ -90,6 +90,32 @@ describe('G-code setting editor', () => {
     }
     expect(screen.getByRole('option', { name: 'Painted only' }).getAttribute('value')).toBe('none');
     expect(screen.getByRole('option', { name: 'Disabled' }).getAttribute('value')).toBe('disabled_fuzzy');
+  });
+
+  it('exposes skirt loops as the skirt enable control', () => {
+    const panelProps = props();
+    render(<SlicerSettingsPanel {...panelProps} section="process_config" />);
+    const loops = screen.getByRole('spinbutton', { name: 'Skirt loops' }) as HTMLInputElement;
+    expect(loops.value).toBe('0');
+    expect(loops.min).toBe('0');
+    expect(loops.max).toBe('10');
+    expect(screen.getByRole('button', { name: 'About Skirt loops' })).toBeTruthy();
+    fireEvent.change(loops, { target: { value: '1' } });
+    expect(panelProps.onChange).toHaveBeenCalledWith('process_config', 'skirt_loops', '1');
+  });
+
+  it('renders distinct diagrams for brim placement and brim width', async () => {
+    const user = userEvent.setup();
+    render(<SlicerSettingsPanel {...props()} section="process_config" />);
+    await user.click(screen.getByRole('button', { name: 'About Brim' }));
+    const brimSvg = screen.getByRole('dialog', { name: 'Brim information' }).querySelector('svg');
+    expect(brimSvg).toBeTruthy();
+    const brimMarkup = brimSvg?.innerHTML;
+
+    await user.click(screen.getByRole('button', { name: 'About Brim width' }));
+    const widthSvg = screen.getByRole('dialog', { name: 'Brim width information' }).querySelector('svg');
+    expect(widthSvg).toBeTruthy();
+    expect(widthSvg?.innerHTML).not.toBe(brimMarkup);
   });
 
   it('marks AI recommendations with an icon and clears the marker on interaction', async () => {

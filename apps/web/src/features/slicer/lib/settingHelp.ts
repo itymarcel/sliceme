@@ -1,4 +1,4 @@
-export type HelpDiagram = 'nozzle' | 'layers' | 'first-layer' | 'width' | 'walls' | 'infill' | 'infill-density' | 'support-enable' | 'support-angle' | 'brim' | 'skirt' | 'raft' | 'z-hop' | 'motion' | 'rotation';
+export type HelpDiagram = 'nozzle' | 'layers' | 'first-layer' | 'width' | 'walls' | 'infill' | 'infill-density' | 'support-enable' | 'support-angle' | 'brim-type' | 'brim' | 'skirt' | 'raft' | 'z-hop' | 'motion' | 'rotation';
 export type SettingHelp = { text: string; diagram?: HelpDiagram };
 
 export const settingHelp: Record<string, SettingHelp> = {
@@ -77,8 +77,9 @@ export const settingHelp: Record<string, SettingHelp> = {
   support_threshold_angle: { text: 'Generates automatic support where overhang slope is below this angle. Smaller values allow steeper unsupported slopes; zero uses overlap for normal support and 30° for tree support.', diagram: 'support-angle' },
   support_type: { text: 'Selects normal or tree support. Auto detects supported regions; manual generates only support enforcers you mark.' },
   support_style: { text: 'Selects support shape. Grid is stable; Snug reduces material and scarring; tree styles trade branch merging, strength, and large-flat-overhang structure.' },
-  brim_type: { text: 'Selects automatic, mouse-ear, painted, outer, inner, combined, or no brim. Automatic calculates the required brim width.' },
+  brim_type: { text: 'Selects where first-layer brim lines attach to the model: outside, inside holes, both, localized mouse ears, painted areas, automatic placement, or none.', diagram: 'brim-type' },
   brim_width: { text: 'Distance from the model to the outermost brim line.', diagram: 'brim' },
+  skirt_loops: { text: 'Number of detached outline loops printed around the model to prime flow. Zero disables the skirt; a positive value enables that many loops.', diagram: 'skirt' },
   skirt_distance: { text: 'Distance from the skirt to the brim or, when there is no brim, to the model.', diagram: 'skirt' },
   raft_layers: { text: 'Raises the model by this number of support layers to form a raft. Zero disables the raft.', diagram: 'raft' },
   retraction_length: { text: 'Filament length pulled back to reduce ooze during long travel moves. A value of zero disables retraction.' },
