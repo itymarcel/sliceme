@@ -1,5 +1,6 @@
 services:
   slicer-api:
+    restart: unless-stopped
     build:
       context: ./services/slicer
       args:
@@ -19,6 +20,7 @@ services:
     init: true
 
   web:
+    restart: unless-stopped
     build: ./apps/web
     environment:
       SLICER_API_HOST: ${SLICER_API_HOST:-slicer-api}
