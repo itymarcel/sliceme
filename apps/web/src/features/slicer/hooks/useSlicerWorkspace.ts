@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { loadDefaultConfig, requestEnhancement, requestSettingsPrefill, requestSlice } from '../lib/slicerApi';
+import { loadDefaultConfig, requestEnhancement, requestProjectExport, requestProjectImport, requestSettingsPrefill, requestSlice } from '../lib/slicerApi';
 import { createClientId } from '../lib/createClientId';
 import {
   clearPersistedWorkspace,
@@ -24,6 +24,7 @@ import type {
   SlicerModel,
   SliceStatus,
   WorkspaceUiState,
+  SliceManifest,
 } from '../types';
 
 const emptyConfig = (): ConfigBundle => ({ machine_config: {}, process_config: {}, filament_config: {} });
@@ -106,6 +107,8 @@ export function useSlicerWorkspace() {
   const [defaultsLoading, setDefaultsLoading] = useState(true);
   const [enhancing, setEnhancing] = useState<GcodeEnhancement | null>(null);
   const [prefilling, setPrefilling] = useState(false);
+  const [projectBusy, setProjectBusy] = useState<'importing' | 'exporting' | null>(null);
+  const [projectNotice, setProjectNotice] = useState<string | null>(null);
   const [persistenceReady, setPersistenceReady] = useState(false);
   const sliceController = useRef<AbortController | null>(null);
   const prefillController = useRef<AbortController | null>(null);
@@ -248,6 +251,86 @@ export function useSlicerWorkspace() {
     setStatus('idle');
   }, [buildVolume]);
 
+  const sliceManifest = useCallback((): SliceManifest => ({
+    models: models.map((model) => ({ id: model.fileId, name: model.fileName })),
+    config,
+    fileOverrides,
+    rangeOverrides,
+    transforms: Object.fromEntries(models.map((model) => [model.fileId, {
+      position: positions[model.fileId] ?? { x: buildVolume.x / 2, y: buildVolume.y / 2 },
+      rotation: rotations[model.fileId] ?? { x: 0, y: 0, z: 0 },
+    }])),
+    customGcodeForZ: temperatureEvents(config, rangeOverrides),
+    startPositions,
+  }), [buildVolume, config, fileOverrides, models, positions, rangeOverrides, rotations, startPositions]);
+
+  const importProject = useCallback(async (project: File) => {
+    setProjectBusy('importing');
+    setError(null);
+    setProjectNotice(null);
+    try {
+      const imported = await requestProjectImport(project);
+      const nextPositions: Record<string, Position> = {};
+      const nextRotations: Record<string, Rotation> = {};
+      const nextRanges: Record<string, RangeOverride[]> = {};
+      const nextModels: SlicerModel[] = [];
+      try {
+        imported.models.forEach(({ file, position }) => {
+          const fileId = createClientId();
+          const objectUrl = URL.createObjectURL(file);
+          nextPositions[fileId] = position;
+          nextRotations[fileId] = { x: 0, y: 0, z: 0 };
+          nextRanges[fileId] = [];
+          nextModels.push({ fileId, fileName: file.name, fileSize: file.size, objectUrl, file });
+        });
+      } catch (urlError) {
+        nextModels.forEach((model) => URL.revokeObjectURL(model.objectUrl));
+        throw urlError;
+      }
+      modelUrls.current.forEach(URL.revokeObjectURL);
+      modelUrls.current = new Set(nextModels.map((model) => model.objectUrl));
+      sliceController.current?.abort();
+      setModels(nextModels);
+      setConfig(imported.config);
+      setFileOverrides({});
+      setRangeOverrides(nextRanges);
+      setPositions(nextPositions);
+      setRotations(nextRotations);
+      setStartPositions({});
+      setSelectedNode({ type: 'scene' });
+      replaceGcode(null);
+      setStatus('idle');
+      setProjectNotice(imported.warnings.length
+        ? `Imported ${nextModels.length} model${nextModels.length === 1 ? '' : 's'}. ${imported.warnings.join(' ')}`
+        : `Imported ${nextModels.length} model${nextModels.length === 1 ? '' : 's'} and supported Orca settings.`);
+    } catch (projectError) {
+      setError((projectError as Error).message);
+    } finally {
+      setProjectBusy(null);
+    }
+  }, [replaceGcode]);
+
+  const exportProject = useCallback(async () => {
+    if (!models.length) return;
+    setProjectBusy('exporting');
+    setError(null);
+    try {
+      const result = await requestProjectExport(sliceManifest(), models);
+      const url = URL.createObjectURL(result.blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = result.fileName;
+      link.hidden = true;
+      document.body.append(link);
+      link.click();
+      window.setTimeout(() => { link.remove(); URL.revokeObjectURL(url); }, 0);
+    } catch (projectError) {
+      setError((projectError as Error).message);
+    } finally {
+      setProjectBusy(null);
+    }
+  }, [models, sliceManifest]);
+
   const removeModel = useCallback((fileId: string) => {
     setModels((current) => {
       const removed = current.find((model) => model.fileId === fileId);
@@ -352,18 +435,7 @@ export function useSlicerWorkspace() {
     setStatus('slicing');
     setError(null);
     try {
-      const result = await requestSlice({
-        models: models.map((model) => ({ id: model.fileId, name: model.fileName })),
-        config,
-        fileOverrides,
-        rangeOverrides,
-        transforms: Object.fromEntries(models.map((model) => [model.fileId, {
-          position: positions[model.fileId] ?? { x: buildVolume.x / 2, y: buildVolume.y / 2 },
-          rotation: rotations[model.fileId] ?? { x: 0, y: 0, z: 0 },
-        }])),
-        customGcodeForZ: temperatureEvents(config, rangeOverrides),
-        startPositions,
-      }, models, controller.signal);
+      const result = await requestSlice(sliceManifest(), models, controller.signal);
       replaceGcode(result);
       setUi((current) => ({ ...current, gcodePreview: defaultWorkspaceUi().gcodePreview }));
       setStatus('done');
@@ -371,7 +443,7 @@ export function useSlicerWorkspace() {
       if ((sliceError as Error).name === 'AbortError') setStatus('idle');
       else { setStatus('error'); setError((sliceError as Error).message); }
     }
-  }, [buildVolume, config, fileOverrides, models, positions, rangeOverrides, replaceGcode, rotations, startPositions]);
+  }, [models, replaceGcode, sliceManifest]);
 
   const cancelSlice = useCallback(() => sliceController.current?.abort(), []);
   const enhanceGcode = useCallback(async (operation: GcodeEnhancement) => {
@@ -449,9 +521,9 @@ export function useSlicerWorkspace() {
 
   return {
     models, config, fileOverrides, rangeOverrides, positions, rotations, selectedNode, gcode,
-    status, error, defaultsLoading, buildVolume, startPositions, enhancing, prefilling, ui, setUi,
+    status, error, defaultsLoading, buildVolume, startPositions, enhancing, prefilling, projectBusy, projectNotice, ui, setUi,
     setSelectedNode, addModels, removeModel, setSetting, clearSetting, addRange, removeRange,
     setRangeBoundary, setPositions, setRotations, slice, cancelSlice, enhanceGcode, prefillSettings,
-    clearAiFieldHighlight, dismissError, clear,
+    clearAiFieldHighlight, dismissError, dismissProjectNotice: () => setProjectNotice(null), importProject, exportProject, clear,
   };
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Download, Eraser, FileUp, LoaderCircle, OctagonX, Scissors, ShieldCheck } from 'lucide-react';
+import { Box, Download, Eraser, FileArchive, FileUp, LoaderCircle, OctagonX, PackageOpen, Scissors, ShieldCheck } from 'lucide-react';
 
 import { GcodePreview } from './components/GcodePreview';
 import { AiPrefillPanel } from './components/AiPrefillPanel';
@@ -16,6 +16,7 @@ import { addMeasurementPoint, type MeasurementPoint } from './lib/measurement';
 export function SlicerWorkspace() {
   const workspace = useSlicerWorkspace();
   const fileInput = useRef<HTMLInputElement>(null);
+  const projectInput = useRef<HTMLInputElement>(null);
   const viewport = useRef<ModelViewportHandle>(null);
   const [dragging, setDragging] = useState(false);
   const measurementActive = workspace.ui.measurementActive;
@@ -43,16 +44,20 @@ export function SlicerWorkspace() {
   }, [modelIds, workspace.positions, workspace.rotations]);
 
   const openFilePicker = () => fileInput.current?.click();
+  const openProjectPicker = () => projectInput.current?.click();
   const receiveFiles = (files: FileList | null) => { if (files?.length) workspace.addModels(files); };
 
   return (
     <div className="app-shell" onDragEnter={(event) => { event.preventDefault(); setDragging(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { if (event.currentTarget === event.target) setDragging(false); }} onDrop={(event) => { event.preventDefault(); setDragging(false); receiveFiles(event.dataTransfer.files); }}>
       <input ref={fileInput} hidden type="file" multiple accept=".stl,.step,.stp" onChange={(event) => { receiveFiles(event.target.files); event.target.value = ''; }} />
+      <input ref={projectInput} hidden type="file" accept=".3mf" onChange={(event) => { const project = event.target.files?.[0]; if (project) void workspace.importProject(project); event.target.value = ''; }} />
       <header className="app-header">
         <div className="privacy-note"><ShieldCheck size={14} /> Saved locally in this browser</div>
         <ProjectLinks />
         <div className="header-actions">
           <button className="button secondary" onClick={openFilePicker}><FileUp size={15} /> Add model</button>
+          <button className="button secondary" disabled={workspace.projectBusy !== null} onClick={openProjectPicker}><PackageOpen size={15} /> Import *.3mf</button>
+          <button className="button secondary" disabled={!workspace.models.length || workspace.projectBusy !== null} onClick={() => void workspace.exportProject()}><FileArchive size={15} /> Export 3MF</button>
           <button className="button ghost danger" disabled={!workspace.models.length} onClick={workspace.clear}><Eraser size={15} /> Clear</button>
           {workspace.status === 'slicing' ? <button className="button danger" onClick={workspace.cancelSlice}><OctagonX size={15} /> Cancel</button> : <button className="button primary" disabled={!workspace.models.length || workspace.defaultsLoading} onClick={workspace.slice}><Scissors size={15} /> Slice</button>}
           {workspace.gcode && <a className="button primary download" href={workspace.gcode.url} download={workspace.gcode.fileName}><Download size={15} /> Download</a>}
@@ -86,6 +91,7 @@ export function SlicerWorkspace() {
         </main>
       </div>
 
+      {workspace.projectNotice && <div className="project-notice" role="status"><span>{workspace.projectNotice}</span><button onClick={workspace.dismissProjectNotice}>Dismiss</button></div>}
       {workspace.error && <div className="error-toast"><OctagonX size={17} /><div><strong>Could not complete</strong><span>{workspace.error}</span></div><button onClick={workspace.dismissError}>Dismiss</button></div>}
       {dragging && <div className="drop-overlay"><FileUp size={34} /><strong>Drop models to add them</strong><span>STL, STEP, or STP</span></div>}
     </div>

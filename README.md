@@ -34,6 +34,35 @@ browser may still evict storage under exceptional space pressure. Nothing is
 synced between devices or uploaded anywhere except to the stateless slicer API
 during a slice or enhancement request.
 
+## OrcaSlicer 3MF projects
+
+**Import `*.3mf`** replaces the current browser workspace only after the API has
+validated and parsed the complete project. The supported Orca/standard 3MF
+subset is:
+
+- mesh objects, component references, build items, object names, affine build
+  transforms, and standard 3MF length units;
+- one SliceMe model per build item, with component/build transforms baked into
+  its temporary STL and its XY build position preserved;
+- global printer, process, and filament keys that exist in SliceMe's current
+  profiles.
+
+Unsafe or unsupported global settings are counted and reported. Import never
+applies custom G-code. Per-object settings, painted seams/supports, modifiers,
+variable layer height, plate thumbnails, and additional plate layouts are not
+currently imported. The API treats 3MF as an untrusted ZIP/XML package: archive
+paths, entry count, expanded archive size, model XML size, component depth,
+component instances (10,000), imported model count (12), expanded geometry
+(500,000 vertices and triangles), generated model bytes (50 MiB), transforms,
+triangle indices, and numeric coordinates are validated before the browser
+workspace changes.
+
+**Export 3MF** downloads the current SliceMe models, transforms, global settings,
+per-object overrides, height ranges, and supported per-layer events as the same
+native Orca project package used by the slicing backend. The exported project is
+intended for OrcaSlicer and can also be imported back into SliceMe within the
+subset above.
+
 ## Provide the Orca runtime image
 
 The slicer service is built on the public custom Orca runtime published by [`itymarcel/custom-orca`](https://github.com/itymarcel/custom-orca). The runtime contains an executable at `/opt/orcaslicer/AppRun`.
@@ -186,6 +215,11 @@ The Nginx container substitutes the API host and port at startup. Compose uses t
 - `models`: one or more STL, STEP, or STP files in the same order as `manifest.models`.
 
 It responds directly with a `.gcode` attachment. Inputs and output are never placed in durable storage.
+
+`POST /api/import-project` accepts one Orca/standard `.3mf` and responds with a
+transient ZIP containing a JSON manifest plus extracted binary STL objects.
+`POST /api/export-project` accepts the same manifest/models as `/api/slice` and
+responds with a native Orca `.3mf` attachment. Neither endpoint stores projects.
 
 ## Checks
 

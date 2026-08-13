@@ -1,10 +1,12 @@
 import asyncio
 from collections import defaultdict, deque
+import io
 import json
 import logging
 import os
 import re
 import time
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -14,8 +16,9 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from .ai_prefill import generate_slicer_recommendation
-from .engine import SliceJob, UploadedModel, default_config, slice_job
+from .engine import SliceJob, UploadedModel, build_3mf, default_config, slice_job
 from .gcode_enhancements import ENHANCEMENTS, apply_enhancement
+from .project_3mf import import_orca_project
 
 
 logger = logging.getLogger("standalone-slicer")
@@ -62,6 +65,12 @@ def _safe_download_name(raw_name: str) -> str:
     stem = Path(raw_name).stem or "slice"
     stem = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("._") or "slice"
     return f"{stem}.gcode"
+
+
+def _safe_project_name(raw_name: str) -> str:
+    stem = Path(raw_name).stem or "sliceme-project"
+    stem = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("._") or "sliceme-project"
+    return f"{stem}.3mf"
 
 
 def _parse_manifest(raw_manifest: str, files: list[UploadFile]) -> SliceJob:
@@ -205,3 +214,57 @@ async def slice_models(
         media_type="text/x-gcode",
         headers={"Content-Disposition": f'attachment; filename="{download_name}"'},
     )
+
+
+@app.post("/api/export-project")
+async def export_project(
+    manifest: str = Form(...),
+    fileName: str = Form("sliceme-project"),
+    models: list[UploadFile] = File(...),
+):
+    job = _parse_manifest(manifest, models)
+    manifest_data = json.loads(manifest)
+    uploaded: list[UploadedModel] = []
+    for metadata, upload in zip(manifest_data["models"], models):
+        filename = upload.filename or metadata.get("name") or "model.stl"
+        if Path(filename).suffix.lower() not in ALLOWED_EXTENSIONS:
+            raise HTTPException(status_code=415, detail=f"Unsupported model format: {filename}")
+        data = await upload.read(MAX_FILE_BYTES + 1)
+        if len(data) > MAX_FILE_BYTES:
+            raise HTTPException(status_code=413, detail=f"Model is too large: {filename}")
+        uploaded.append(UploadedModel(str(metadata.get("id") or ""), filename, data))
+    if any(not model.file_id for model in uploaded):
+        raise HTTPException(status_code=422, detail="Every model needs a stable client ID")
+    if len({model.file_id for model in uploaded}) != len(uploaded):
+        raise HTTPException(status_code=422, detail="Model IDs must be unique")
+    job.models = uploaded
+    job.__post_init__()
+    try:
+        project = await asyncio.to_thread(build_3mf, job)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return Response(project, media_type="model/3mf", headers={
+        "Content-Disposition": f'attachment; filename="{_safe_project_name(fileName)}"',
+    })
+
+
+@app.post("/api/import-project")
+async def import_project(project: UploadFile = File(...)):
+    if Path(project.filename or "").suffix.lower() != ".3mf":
+        raise HTTPException(status_code=415, detail="Import requires a .3mf project")
+    data = await project.read(MAX_FILE_BYTES + 1)
+    if len(data) > MAX_FILE_BYTES:
+        raise HTTPException(status_code=413, detail="3MF project is too large")
+    try:
+        imported = await asyncio.to_thread(import_orca_project, data, default_config())
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    output = io.BytesIO()
+    manifest_models = []
+    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as package:
+        for index, model in enumerate(imported.models):
+            path = f"models/{index}.stl"
+            package.writestr(path, model.stl)
+            manifest_models.append({"path": path, "name": model.name, "position": model.position})
+        package.writestr("manifest.json", json.dumps({"config": imported.config, "models": manifest_models, "warnings": imported.warnings}))
+    return Response(output.getvalue(), media_type="application/zip")

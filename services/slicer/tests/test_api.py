@@ -2,11 +2,14 @@ import io
 import json
 import struct
 import unittest
+import xml.etree.ElementTree as ET
+import zipfile
 from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
 from app.main import app, prefill_rate_events
+from app.engine import build_3mf
 
 
 def triangle_stl() -> bytes:
@@ -46,6 +49,85 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(response.content, b"; transient output\n")
         self.assertIn("triangle.gcode", response.headers["content-disposition"])
         self.assertEqual(mocked_slice.call_args.args[0].models[0].file_id, "model-1")
+
+    @patch("app.main.build_3mf", wraps=build_3mf)
+    def test_export_project_returns_native_orca_3mf(self, mocked_builder):
+        manifest = self.manifest()
+        manifest["config"]["process_config"]["layer_height"] = "0.4"
+        response = self.client.post(
+            "/api/export-project",
+            data={"manifest": json.dumps(manifest), "fileName": "Bracket project"},
+            files={"models": ("triangle.stl", io.BytesIO(triangle_stl()), "application/octet-stream")},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["content-type"], "model/3mf")
+        self.assertIn("Bracket_project.3mf", response.headers["content-disposition"])
+        with zipfile.ZipFile(io.BytesIO(response.content)) as package:
+            self.assertIn("3D/3dmodel.model", package.namelist())
+            self.assertIn("Metadata/project_settings.config", package.namelist())
+            project_settings = json.loads(package.read("Metadata/project_settings.config"))
+            self.assertEqual(project_settings["layer_height"], "0.4")
+        mocked_builder.assert_called_once()
+
+    def test_export_project_writes_object_layer_height_on_object_not_part(self):
+        manifest = self.manifest()
+        manifest["fileOverrides"] = {
+            "model-1": {"process_config": {"layer_height": "0.4"}},
+        }
+        response = self.client.post(
+            "/api/export-project",
+            data={"manifest": json.dumps(manifest)},
+            files={"models": ("triangle.stl", io.BytesIO(triangle_stl()), "application/octet-stream")},
+        )
+        self.assertEqual(response.status_code, 200)
+        with zipfile.ZipFile(io.BytesIO(response.content)) as package:
+            root = ET.fromstring(package.read("Metadata/model_settings.config"))
+        obj = root.find("./object")
+        self.assertIsNotNone(obj)
+        object_values = {item.get("key"): item.get("value") for item in obj.findall("./metadata")}
+        part_values = {item.get("key"): item.get("value") for item in obj.findall("./part/metadata")}
+        self.assertEqual(object_values.get("layer_height"), "0.4")
+        self.assertNotIn("layer_height", part_values)
+
+    def test_export_project_rejects_layer_height_above_nozzle_diameter(self):
+        manifest = self.manifest()
+        manifest["config"]["machine_config"]["nozzle_diameter"] = ["0.6"]
+        manifest["config"]["process_config"]["layer_height"] = "1.4"
+        response = self.client.post(
+            "/api/export-project",
+            data={"manifest": json.dumps(manifest)},
+            files={"models": ("triangle.stl", io.BytesIO(triangle_stl()), "application/octet-stream")},
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("cannot exceed nozzle diameter", response.json()["detail"])
+
+    def test_export_project_rejects_object_layer_height_above_nozzle_diameter(self):
+        manifest = self.manifest()
+        manifest["config"]["machine_config"]["nozzle_diameter"] = ["0.6"]
+        manifest["fileOverrides"] = {
+            "model-1": {"process_config": {"layer_height": "1.4"}},
+        }
+        response = self.client.post(
+            "/api/export-project",
+            data={"manifest": json.dumps(manifest)},
+            files={"models": ("triangle.stl", io.BytesIO(triangle_stl()), "application/octet-stream")},
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("Object model-1 layer height 1.4 mm", response.json()["detail"])
+
+    def test_export_project_rejects_duplicate_model_ids(self):
+        manifest = self.manifest()
+        manifest["models"].append({"id": "model-1", "name": "second.stl"})
+        response = self.client.post(
+            "/api/export-project",
+            data={"manifest": json.dumps(manifest)},
+            files=[
+                ("models", ("triangle.stl", io.BytesIO(triangle_stl()), "application/octet-stream")),
+                ("models", ("second.stl", io.BytesIO(triangle_stl()), "application/octet-stream")),
+            ],
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["detail"], "Model IDs must be unique")
 
     def test_rejects_unsupported_model(self):
         manifest = self.manifest()

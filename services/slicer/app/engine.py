@@ -171,6 +171,37 @@ def _normalize_flat_overrides(overrides: dict, base: dict) -> dict:
     return normalized
 
 
+def _minimum_nozzle_diameter(value) -> float:
+    values = value if isinstance(value, list) else [value]
+    diameters = [float(item) for item in values]
+    if not diameters or any(not math.isfinite(item) or item <= 0 for item in diameters):
+        raise ValueError("Nozzle diameter must contain positive finite values")
+    return min(diameters)
+
+
+def _validate_export_layer_heights(session, project_config: dict) -> None:
+    """Reject layer heights Orca cannot load for the effective nozzle diameter."""
+    project_nozzle = project_config.get('nozzle_diameter')
+    checks = [('Global', project_config.get('layer_height'), project_nozzle)]
+    for file_id, bundle in (session.file_overrides or {}).items():
+        process = bundle.get('process_config', {})
+        machine = bundle.get('machine_config', {})
+        if 'layer_height' in process:
+            checks.append((f'Object {file_id}', process['layer_height'], machine.get('nozzle_diameter', project_nozzle)))
+    for scope, raw_height, raw_nozzle in checks:
+        if raw_height is None or raw_nozzle is None:
+            continue
+        try:
+            height = float(raw_height)
+            nozzle = _minimum_nozzle_diameter(raw_nozzle)
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"{scope} layer height and nozzle diameter must be finite numbers") from error
+        if not math.isfinite(height) or height <= 0:
+            raise ValueError(f"{scope} layer height must be a positive finite number")
+        if height > nozzle:
+            raise ValueError(f"{scope} layer height {height:g} mm cannot exceed nozzle diameter {nozzle:g} mm")
+
+
 def validate_range_overrides(range_overrides: dict):
     """Raise ValueError when a range override contains options the slicer cannot handle safely."""
     if not range_overrides:
@@ -668,13 +699,24 @@ def _build_model_settings_xml(session, stl_files) -> str:
         overrides = file_overrides.get(str(f.file_id), {})
         start_position = _normalize_start_position(start_positions.get(str(f.file_id)))
 
-        settings_meta = []
-        for config_key in ('process_config', 'machine_config', 'filament_config'):
+        object_settings_meta = []
+        for opt_key, opt_val in overrides.get('process_config', {}).items():
+            normalized_val = _normalize_orca_value(opt_val)
+            if normalized_val is None:
+                continue
+            object_settings_meta.append(
+                f'    <metadata key="{escape(str(opt_key))}" value="{escape(str(normalized_val))}"/>'
+            )
+
+        part_settings_meta = []
+        for config_key in ('machine_config', 'filament_config'):
             for opt_key, opt_val in overrides.get(config_key, {}).items():
                 normalized_val = _normalize_orca_value(opt_val)
                 if normalized_val is None:
                     continue
-                settings_meta.append(f'      <metadata key="{opt_key}" value="{normalized_val}"/>')
+                part_settings_meta.append(
+                    f'      <metadata key="{escape(str(opt_key))}" value="{escape(str(normalized_val))}"/>'
+                )
 
         part_lines = [
             f'    <part id="{obj_id}" subtype="normal_part">',
@@ -687,13 +729,14 @@ def _build_model_settings_xml(session, stl_files) -> str:
                 f'      <metadata key="model_start_point_x" value="{escape(str(start_position["x"]))}"/>',
                 f'      <metadata key="model_start_point_y" value="{escape(str(start_position["y"]))}"/>',
             ])
-        part_lines.extend(settings_meta)
+        part_lines.extend(part_settings_meta)
         part_lines.append('    </part>')
 
         objects_xml.append(
             f'  <object id="{obj_id}">\n'
             f'    <metadata key="name" value="{name}"/>\n'
             f'    <metadata key="extruder" value="1"/>\n'
+            + ('\n'.join(object_settings_meta) + '\n' if object_settings_meta else '')
             + '\n'.join(part_lines) + '\n'
             + '  </object>'
         )
@@ -1797,6 +1840,7 @@ def build_3mf(session) -> bytes:
     """
     stl_files = list(session.stl_files.all())
     project_config = load_project_config(session)
+    _validate_export_layer_heights(session, project_config)
 
     # Download all files — STEP files are converted to STL bytes automatically
     stl_bytes_list = [_download_stl_bytes(f) for f in stl_files]
