@@ -20,7 +20,9 @@ export function SlicerWorkspace() {
   const fileInput = useRef<HTMLInputElement>(null);
   const projectInput = useRef<HTMLInputElement>(null);
   const viewport = useRef<ModelViewportHandle>(null);
+  const modelStage = useRef<HTMLElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [modelFullscreen, setModelFullscreen] = useState(false);
   const measurementActive = workspace.ui.measurementActive;
   const setMeasurementActive = (value: boolean | ((current: boolean) => boolean)) => workspace.setUi((current) => ({
     ...current,
@@ -33,6 +35,12 @@ export function SlicerWorkspace() {
     : null;
   const selectedModel = useMemo(() => workspace.models.find((model) => model.fileId === selectedFileId), [selectedFileId, workspace.models]);
   const modelIds = useMemo(() => workspace.models.map((model) => model.fileId).join(','), [workspace.models]);
+
+  useEffect(() => {
+    const changed = () => setModelFullscreen(document.fullscreenElement === modelStage.current);
+    document.addEventListener('fullscreenchange', changed);
+    return () => document.removeEventListener('fullscreenchange', changed);
+  }, []);
 
   useEffect(() => {
     if (workspace.models.length === 0) {
@@ -78,8 +86,8 @@ export function SlicerWorkspace() {
         <div className="header-actions">
           <HeaderMoreMenu onAddModel={openFilePicker} onImportProject={openProjectPicker} onExportProject={() => void workspace.exportProject()} importingDisabled={workspace.projectBusy !== null} exportingDisabled={!workspace.models.length || workspace.projectBusy !== null} />
           <button className="button ghost danger" disabled={!workspace.models.length} onClick={workspace.clear}><Eraser size={15} /> Clear</button>
+          {workspace.gcode && <a className="button secondary download" href={workspace.gcode.url} download={workspace.gcode.fileName}><Download size={15} /> Download</a>}
           {workspace.status === 'slicing' ? <button className="button danger" onClick={workspace.cancelSlice}><OctagonX size={15} /> Cancel</button> : <button className="button primary" disabled={!workspace.models.length || workspace.defaultsLoading} onClick={workspace.slice}><Scissors size={15} /> Slice</button>}
-          {workspace.gcode && <a className="button primary download" href={workspace.gcode.url} download={workspace.gcode.fileName}><Download size={15} /> Download</a>}
         </div>
       </header>
 
@@ -91,14 +99,14 @@ export function SlicerWorkspace() {
         </aside>
 
         <main className={`work-area ${workspace.gcode ? 'with-gcode' : ''}`}>
-          <section className="model-stage">
+          <section ref={modelStage} className="model-stage">
             {workspace.models.length ? (
               <ModelViewport ref={viewport} stlFiles={workspace.models} buildVolume={workspace.buildVolume} selectedFileId={selectedFileId} filePositions={workspace.positions} fileRotations={workspace.rotations} activeRange={activeRange} onSelectFile={(fileId) => workspace.setSelectedNode({ type: 'file', fileId })} onSelectScene={() => workspace.setSelectedNode({ type: 'scene' })} onPositionChange={(fileId, x, y) => workspace.setPositions((current) => ({ ...current, [fileId]: { x, y } }))} measurementActive={measurementActive} measurementPoints={measurementPoints} onMeasurementPoint={(point) => setMeasurementPoints((current) => addMeasurementPoint(current, point))} />
             ) : (
               <button className="empty-state" onClick={openFilePicker}><span><Box size={28} /></span><strong>Drop a model here</strong><p>Open an STL or STEP file to begin slicing.</p><em>Choose files</em></button>
             )}
             {workspace.models.length > 0 && <div className="axis-legend" aria-label="Viewport axes"><span className="axis-x">X</span><span className="axis-y">Y</span><span className="axis-z">Z</span></div>}
-            {workspace.models.length > 0 && <CameraPresetControls onTop={() => viewport.current?.setCameraPreset('top')} onFront={() => viewport.current?.setCameraPreset('front')} onRight={() => viewport.current?.setCameraPreset('right')} onCenter={() => viewport.current?.setCameraPreset('center')} />}
+            {workspace.models.length > 0 && <CameraPresetControls fullscreen={modelFullscreen} onToggleFullscreen={() => { if (document.fullscreenElement === modelStage.current) void document.exitFullscreen(); else void modelStage.current?.requestFullscreen(); }} onTop={() => viewport.current?.setCameraPreset('top')} onFront={() => viewport.current?.setCameraPreset('front')} onRight={() => viewport.current?.setCameraPreset('right')} onCenter={() => viewport.current?.setCameraPreset('center')} />}
             <MeasurementPanel active={measurementActive} disabled={workspace.models.length === 0} points={measurementPoints} onToggle={() => {
               if (measurementActive) setMeasurementPoints([]);
               setMeasurementActive((active) => !active);

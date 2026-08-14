@@ -15,7 +15,14 @@ describe('G-code toolbar presentation', () => {
     expect(styles).toMatch(/\.preview-mode-selector\s*\{[^}]*padding:/s);
     expect(styles).toMatch(/\.preview-mode-selector\s*\{[^}]*border:/s);
     expect(styles).toMatch(/\.preview-mode-selector\s*\{[^}]*background:/s);
-    expect(styles).toMatch(/\.preview-meta\s*\{[^}]*height:\s*36px/s);
+    expect(component).not.toContain('className="preview-meta"');
+    expect(component).toContain('className="gcode-toolbar-controls"');
+    expect(component).not.toContain('label="Travel"');
+    expect(component).toContain("TRAVEL_TOOLPATH");
+    expect(component).not.toContain('onTravelChange');
+    expect(component).toContain('<section ref={previewSectionRef} className="gcode-preview">');
+    expect(component).toContain('document.fullscreenElement === previewSectionRef.current');
+    expect(styles).toMatch(/\.gcode-toolbar-controls\s*\{/s);
   });
 
   it('does not move buttons vertically on hover', () => {

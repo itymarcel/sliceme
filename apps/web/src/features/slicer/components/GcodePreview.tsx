@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box3, Color, ConeGeometry, Group, MathUtils, Mesh, MeshBasicMaterial, Vector3 } from 'three';
-import { BroomSparkles, Check, Code2, Layers3, LoaderCircle, Plane, Printer, Route } from 'lucide-react';
+import { Axis3d, BroomSparkles, Check, Code2, Cuboid, Layers3, LoaderCircle } from 'lucide-react';
 
 import { CameraPresetControls } from './CameraPresetControls';
 import { ToolpathControls } from './ToolpathControls';
 import { init, type WebGLPreview } from '../lib/gcode-preview/gcode-preview';
 import type { GCodeCommand, Layer } from '../lib/gcode-preview/gcode-parser';
 import type { BuildVolume, GcodeEnhancement, GcodePreviewUiState, GcodeResult } from '../types';
-import { isToolpathVisible, toolpathTypesFromLayers } from '../lib/toolpathVisibility';
+import { isToolpathVisible, toolpathColor, toolpathTypesFromLayers } from '../lib/toolpathVisibility';
 
 type CameraPreset = 'top' | 'front' | 'right' | 'fit';
 type PrinterPosition = { x: number; y: number; z: number };
+const TRAVEL_TOOLPATH = 'Travel moves';
 
 const enhancementOptions: Array<{ id: GcodeEnhancement; label: string; description: string }> = [
   { id: 'perimeter_echo', label: 'Perimeter echo', description: 'Blend the end of the first outer perimeter into its beginning.' },
@@ -93,15 +94,15 @@ const formatBytes = (bytes: number) => bytes < 1024 * 1024
   ? `${(bytes / 1024).toFixed(1)} KB`
   : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
-function PreviewToggle({ checked, icon, label, onChange }: {
+function ToolbarToggle({ checked, icon, label, onChange }: {
   checked: boolean;
   icon: React.ReactNode;
   label: string;
   onChange: () => void;
 }) {
   return (
-    <button className="preview-toggle" type="button" role="switch" aria-checked={checked} onClick={onChange}>
-      {icon}<span>{label}</span><i className="toggle-track"><i /></i>
+    <button className={`toolbar-button ${checked ? 'active' : ''}`} type="button" aria-pressed={checked} onClick={onChange}>
+      {icon}<span>{label}</span>
     </button>
   );
 }
@@ -115,6 +116,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
   onUiChange: (ui: GcodePreviewUiState) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const previewSectionRef = useRef<HTMLElement>(null);
   const previewRef = useRef<WebGLPreview>();
   const toolheadRef = useRef<Group>();
   const [source, setSource] = useState('');
@@ -124,8 +126,20 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
   const [loading, setLoading] = useState(true);
   const [enhanceOpen, setEnhanceOpen] = useState(false);
   const [toolpathTypes, setToolpathTypes] = useState<string[]>([]);
-  const { mode, layerIndex, moveCount, showTravel, showGrid, showPrintPreview, mutedToolpaths = [], soloedToolpaths = [] } = ui;
+  const [fullscreen, setFullscreen] = useState(false);
+  const { mode, layerIndex, moveCount, showGrid, showPrintPreview, mutedToolpaths = [], soloedToolpaths = [], colorToolpaths = false } = ui;
   const updateUi = (patch: Partial<GcodePreviewUiState>) => onUiChange({ ...ui, ...patch });
+
+  useEffect(() => {
+    const changed = () => setFullscreen(document.fullscreenElement === previewSectionRef.current);
+    document.addEventListener('fullscreenchange', changed);
+    return () => document.removeEventListener('fullscreenchange', changed);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement === previewSectionRef.current) void document.exitFullscreen();
+    else void previewSectionRef.current?.requestFullscreen();
+  };
 
   const stats = useMemo(() => ({
     time: metadataValue(source, /^;\s*estimated printing time \(normal mode\)\s*=\s*(.+)$/im),
@@ -226,7 +240,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
       travelColor: '#fb7185',
       lineWidth: 1.5,
       renderExtrusion: true,
-      renderTravel: showTravel,
+      renderTravel: isToolpathVisible(TRAVEL_TOOLPATH, mutedToolpaths, soloedToolpaths),
       renderTubes: showPrintPreview,
       extrusionWidth: 0.6,
       devMode: false,
@@ -237,7 +251,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
     preview.camera.updateProjectionMatrix();
     preview.processGCode(source);
     const count = preview.parser.layers.length;
-    setToolpathTypes(toolpathTypesFromLayers(preview.parser.layers));
+    setToolpathTypes([TRAVEL_TOOLPATH, ...toolpathTypesFromLayers(preview.parser.layers).filter((type) => type !== TRAVEL_TOOLPATH)]);
     const lastLayer = Math.max(0, count - 1);
     const restoredLayer = ui.layerIndex < 0 ? lastLayer : Math.min(ui.layerIndex, lastLayer);
     const restoredLayerMoves = layerMoveCount(preview.parser.layers[restoredLayer]);
@@ -272,14 +286,16 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
     const originalCommands = layer.commands;
     layer.commands = commandsThroughMove(layer, moveCount);
     preview.endLayer = layerIndex + 2; // renderer layer zero is the G-code preamble
-    preview.renderTravel = showTravel;
+    preview.renderTravel = isToolpathVisible(TRAVEL_TOOLPATH, mutedToolpaths, soloedToolpaths);
+    preview.travelColor = new Color(colorToolpaths ? toolpathColor(TRAVEL_TOOLPATH) : '#fb7185');
     preview.renderTubes = showPrintPreview;
     preview.toolpathVisible = (type) => isToolpathVisible(type, mutedToolpaths, soloedToolpaths);
+    preview.toolpathColor = (type) => colorToolpaths && type ? toolpathColor(type) : undefined;
     preview.render();
     layer.commands = originalCommands;
     applyGridVisibility(preview, showGrid);
     addToolhead(preview, toolheadAt(preview, layerIndex, moveCount));
-  }, [addToolhead, applyGridVisibility, layerCount, layerIndex, moveCount, mutedToolpaths, showGrid, showPrintPreview, showTravel, soloedToolpaths]);
+  }, [addToolhead, applyGridVisibility, colorToolpaths, layerCount, layerIndex, moveCount, mutedToolpaths, showGrid, showPrintPreview, soloedToolpaths]);
 
   const selectLayer = (nextLayer: number) => {
     const preview = previewRef.current;
@@ -289,30 +305,25 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
     updateUi({ layerIndex: bounded, moveCount: count });
   };
 
-  const visibleZ = previewRef.current?.parser.layers[layerIndex]?.height
-    ? previewRef.current.parser.layers.slice(0, layerIndex + 1).reduce((z, current) => z + current.height, 0)
-    : 0;
 
   return (
-    <section className="gcode-preview">
+    <section ref={previewSectionRef} className="gcode-preview">
       <div className="preview-toolbar">
         <div className="segmented preview-mode-selector">
           <button className={mode === 'preview' ? 'active' : ''} onClick={() => updateUi({ mode: 'preview' })}><Layers3 size={14} /> Preview</button>
           <button className={mode === 'source' ? 'active' : ''} onClick={() => updateUi({ mode: 'source' })}><Code2 size={14} /> Source</button>
         </div>
-        <span className="preview-meta">{mode === 'preview' && layerCount > 0 ? `Layer ${layerIndex + 1}/${layerCount} · Z ${visibleZ.toFixed(2)} mm` : result.fileName}</span>
+        {mode === 'preview' && <div className="gcode-toolbar-controls">
+          <ToolbarToggle checked={showPrintPreview} icon={<Cuboid size={14} />} label="Print preview" onChange={() => updateUi({ showPrintPreview: !showPrintPreview })} />
+          <ToolbarToggle checked={showGrid} icon={<Axis3d size={14} />} label="Grid" onChange={() => updateUi({ showGrid: !showGrid })} />
+          <ToolpathControls types={toolpathTypes} muted={mutedToolpaths} soloed={soloedToolpaths} colorByType={colorToolpaths} onColorByTypeChange={(colorToolpaths) => updateUi({ colorToolpaths })} onClear={() => updateUi({ mutedToolpaths: [], soloedToolpaths: [] })} onMutedChange={(types) => updateUi({ mutedToolpaths: types })} onSoloedChange={(types) => updateUi({ soloedToolpaths: types })} />
+        </div>}
       </div>
 
       <div className={`gcode-viewport ${mode === 'source' ? 'is-hidden' : ''}`}>
         <canvas ref={canvasRef} />
         {loading && <div className="gcode-loading"><Layers3 size={22} /><span>Building 3D toolpath…</span></div>}
 
-        <div className="gcode-view-controls">
-          <PreviewToggle checked={showPrintPreview} icon={<Printer size={14} />} label="Print preview" onChange={() => updateUi({ showPrintPreview: !showPrintPreview })} />
-          <PreviewToggle checked={showGrid} icon={<Plane size={14} />} label="Grid" onChange={() => updateUi({ showGrid: !showGrid })} />
-          <PreviewToggle checked={showTravel} icon={<Route size={14} />} label="Travel" onChange={() => updateUi({ showTravel: !showTravel })} />
-          <ToolpathControls types={toolpathTypes} muted={mutedToolpaths} soloed={soloedToolpaths} onMutedChange={(types) => updateUi({ mutedToolpaths: types })} onSoloedChange={(types) => updateUi({ soloedToolpaths: types })} />
-        </div>
 
         <div className="gcode-stats panel">
           <div><span>Print time</span><strong>{stats.time}</strong></div>
@@ -325,7 +336,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
           {toolhead && <div className="toolhead-position"><span>Toolhead</span><strong>X{toolhead.x.toFixed(1)} Y{toolhead.y.toFixed(1)} Z{toolhead.z.toFixed(1)}</strong></div>}
         </div>
 
-        <CameraPresetControls onTop={() => setCameraPreset('top')} onFront={() => setCameraPreset('front')} onRight={() => setCameraPreset('right')} onCenter={() => setCameraPreset('fit')} />
+        <CameraPresetControls fullscreen={fullscreen} onToggleFullscreen={toggleFullscreen} onTop={() => setCameraPreset('top')} onFront={() => setCameraPreset('front')} onRight={() => setCameraPreset('right')} onCenter={() => setCameraPreset('fit')} />
 
         {layerCount > 0 && (
           <div className="gcode-scrubbers">

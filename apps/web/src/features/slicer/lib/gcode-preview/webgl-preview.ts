@@ -127,6 +127,7 @@ export class WebGLPreview {
   renderTravel = false;
   renderTubes = false;
   toolpathVisible: (type: string | undefined) => boolean = () => true;
+  toolpathColor: (type: string | undefined) => ColorRepresentation | undefined = () => undefined;
   extrusionWidth = 0.6;
   lineWidth?: number;
   lineHeight?: number;
@@ -502,8 +503,17 @@ export class WebGLPreview {
       z: this.state.z,
       height: l.height
     };
+    let activeToolpathType: string | undefined;
 
     for (const cmd of l.commands) {
+      if (cmd.toolpathType !== activeToolpathType) {
+        if (currentLayer.extrusion.length) {
+          this.doRenderExtrusion(currentLayer, index, activeToolpathType, false);
+          currentLayer.extrusion = [];
+        }
+        if (this.renderTubes && this._tubeLine) this.finalizeTubes();
+        activeToolpathType = cmd.toolpathType;
+      }
       if (cmd.gcode == 'g20') {
         this.setInches();
         continue;
@@ -511,7 +521,7 @@ export class WebGLPreview {
 
       if (cmd.gcode.startsWith('t')) {
         // flush render queue
-        this.doRenderExtrusion(currentLayer, index);
+        this.doRenderExtrusion(currentLayer, index, activeToolpathType, false);
         currentLayer.extrusion = [];
 
         const tool = cmd as SelectToolCommand;
@@ -567,7 +577,8 @@ export class WebGLPreview {
             if (!this._tubeLine) {
               this._tubeLine = new LineTubeGeometry(8);
             }
-            this._tubeLine.add(new LinePoint(p1, radius, this.currentToolColor.clone()));
+            const typeColor = this.toolpathColor(activeToolpathType);
+            this._tubeLine.add(new LinePoint(p1, radius, typeColor === undefined ? this.currentToolColor.clone() : new Color(typeColor)));
           } else if (moving) {
             // Travel or retraction (eDelta ≤ 0): break the tube to prevent stray segments
             if (this.renderTubes && this._tubeLine) {
@@ -591,15 +602,16 @@ export class WebGLPreview {
       }
     }
 
-    this.doRenderExtrusion(currentLayer, index);
+    this.doRenderExtrusion(currentLayer, index, activeToolpathType, true);
   }
 
   /** @internal */
-  doRenderExtrusion(layer: RenderLayer, index: number): void {
+  doRenderExtrusion(layer: RenderLayer, index: number, toolpathType?: string, includeTravel = true): void {
     if (this.renderExtrusion) {
-      let extrusionColor = this.currentToolColor;
+      const typeColor = this.toolpathColor(toolpathType);
+      let extrusionColor = typeColor === undefined ? this.currentToolColor : new Color(typeColor);
 
-      if (!this.singleLayerMode && !this.renderTubes && !this.disableGradient) {
+      if (typeColor === undefined && !this.singleLayerMode && !this.renderTubes && !this.disableGradient) {
         const brightness = 0.1 + (0.7 * index) / this.layers.length;
 
         extrusionColor.getHSL(target);
@@ -607,7 +619,7 @@ export class WebGLPreview {
       }
 
       if (!this.renderTubes) {
-        if (index == this.layers.length - 1) {
+        if (typeColor === undefined && index == this.layers.length - 1) {
           const layerColor = this._topLayerColor ?? extrusionColor;
           const lastSegmentColor = this._lastSegmentColor ?? layerColor;
           const endPoint = layer.extrusion.splice(-3);
@@ -620,7 +632,7 @@ export class WebGLPreview {
       }
     }
 
-    if (this.renderTravel) {
+    if (includeTravel && this.renderTravel) {
       this.addLine(layer.travel, this._travelColor.getHex());
     }
   }

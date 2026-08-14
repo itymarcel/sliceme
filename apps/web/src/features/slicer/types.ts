@@ -61,6 +61,7 @@ export type GcodePreviewUiState = {
   showPrintPreview: boolean;
   mutedToolpaths: string[];
   soloedToolpaths: string[];
+  colorToolpaths: boolean;
 };
 
 export type WorkspaceUiState = {

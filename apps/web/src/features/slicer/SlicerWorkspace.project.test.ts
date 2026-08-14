@@ -31,6 +31,11 @@ describe('workspace header controls', () => {
     expect(workspace).not.toContain('OrcaSlicer is working');
   });
 
+  it('keeps Slice rightmost and styles Download as secondary', () => {
+    expect(workspace).toContain('className="button secondary download"');
+    expect(workspace.indexOf('className="button secondary download"')).toBeLessThan(workspace.indexOf('<Scissors size={15} /> Slice'));
+  });
+
   it('persists and restores setting history with the browser session', () => {
     expect(hook).toContain('setHistory(snapshot.history ?? createWorkspaceHistory())');
     expect(hook).toContain('history,');

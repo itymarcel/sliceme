@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { Parser } from './gcode-preview/gcode-parser';
-import { isToolpathVisible, toolpathTypesFromLayers } from './toolpathVisibility';
+import { isToolpathVisible, toolpathColor, toolpathTypesFromLayers } from './toolpathVisibility';
 
 describe('toolpath visibility', () => {
   const parser = new Parser(0);
@@ -24,5 +24,10 @@ describe('toolpath visibility', () => {
     expect(isToolpathVisible('Outer wall', ['Outer wall'], ['Outer wall'])).toBe(true);
     expect(isToolpathVisible('Sparse infill', [], ['Outer wall'])).toBe(false);
     expect(isToolpathVisible(undefined, [], ['Outer wall'])).toBe(false);
+  });
+
+  it('assigns stable distinct colors by toolpath type', () => {
+    expect(toolpathColor('Outer wall')).toBe(toolpathColor('Outer wall'));
+    expect(toolpathColor('Outer wall')).not.toBe(toolpathColor('Sparse infill'));
   });
 });

@@ -15,5 +15,6 @@ export const defaultWorkspaceUi = (): WorkspaceUiState => ({
     showPrintPreview: false,
     mutedToolpaths: [],
     soloedToolpaths: [],
+    colorToolpaths: true,
   },
 });
