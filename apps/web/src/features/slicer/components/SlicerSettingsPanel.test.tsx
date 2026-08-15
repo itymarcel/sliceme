@@ -11,6 +11,9 @@ const config: ConfigBundle = {
   machine_config: {
     machine_start_gcode: 'G28 ; home',
     machine_end_gcode: 'M84',
+    printable_area: ['0x0', '250x0', '250x210', '0x210'],
+    printable_height: '210',
+    nozzle_diameter: ['0.6'],
   },
   filament_config: {},
   process_config: { skirt_loops: '0' },
@@ -22,6 +25,7 @@ const props = () => ({
   fileOverrides: {},
   rangeOverrides: {},
   onChange: vi.fn(),
+  onApplyPrinterPreset: vi.fn(),
   onClear: vi.fn(),
   onRangeBoundary: vi.fn(),
   section: 'machine_config' as const,
@@ -35,6 +39,33 @@ const props = () => ({
 afterEach(cleanup);
 
 describe('G-code setting editor', () => {
+  it('offers distinct target G-code presets in the standard setting control', async () => {
+    const user = userEvent.setup();
+    const panelProps = props();
+    render(<SlicerSettingsPanel {...panelProps} />);
+    const select = screen.getByRole('combobox', { name: 'Printer preset' });
+    expect(screen.getByRole('option', { name: 'Bambu Lab A1' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Bambu Lab P1S' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Bambu Lab X1 Carbon' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Prusa MK4S' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Creality Ender-3 V3 SE' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Creality K1C' })).toBeTruthy();
+    await user.selectOptions(select, 'bambu-a1');
+    expect(panelProps.onApplyPrinterPreset).toHaveBeenCalledWith('bambu-a1');
+    expect(select.closest('.setting-row')).toBeTruthy();
+  });
+
+  it('exposes bed width, depth, and height as independent input settings', async () => {
+    const user = userEvent.setup();
+    const panelProps = props();
+    render(<SlicerSettingsPanel {...panelProps} />);
+    expect(screen.getByRole('spinbutton', { name: 'Bed width' }).getAttribute('value')).toBe('250');
+    expect(screen.getByRole('spinbutton', { name: 'Bed depth' }).getAttribute('value')).toBe('210');
+    expect(screen.getByRole('spinbutton', { name: 'Build height' }).getAttribute('value')).toBe('210');
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Bed width' }), { target: { value: '300' } });
+    expect(panelProps.onChange).toHaveBeenLastCalledWith('machine_config', 'printable_width', '300');
+  });
+
   it('opens parameter help on click and closes it outside or with Escape', async () => {
     const user = userEvent.setup();
     render(<SlicerSettingsPanel {...props()} />);

@@ -107,16 +107,17 @@ function ToolbarToggle({ checked, icon, label, onChange }: {
   );
 }
 
-export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, onUiChange }: {
+export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, onUiChange, expanded, onToggleExpanded }: {
   result: GcodeResult;
   buildVolume: BuildVolume;
   enhancing: GcodeEnhancement | null;
   onEnhance: (operation: GcodeEnhancement) => void;
   ui: GcodePreviewUiState;
   onUiChange: (ui: GcodePreviewUiState) => void;
+  expanded: boolean;
+  onToggleExpanded: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const previewSectionRef = useRef<HTMLElement>(null);
   const previewRef = useRef<WebGLPreview>();
   const toolheadRef = useRef<Group>();
   const [source, setSource] = useState('');
@@ -126,20 +127,10 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
   const [loading, setLoading] = useState(true);
   const [enhanceOpen, setEnhanceOpen] = useState(false);
   const [toolpathTypes, setToolpathTypes] = useState<string[]>([]);
-  const [fullscreen, setFullscreen] = useState(false);
+
   const { mode, layerIndex, moveCount, showGrid, showPrintPreview, mutedToolpaths = [], soloedToolpaths = [], colorToolpaths = false } = ui;
   const updateUi = (patch: Partial<GcodePreviewUiState>) => onUiChange({ ...ui, ...patch });
 
-  useEffect(() => {
-    const changed = () => setFullscreen(document.fullscreenElement === previewSectionRef.current);
-    document.addEventListener('fullscreenchange', changed);
-    return () => document.removeEventListener('fullscreenchange', changed);
-  }, []);
-
-  const toggleFullscreen = () => {
-    if (document.fullscreenElement === previewSectionRef.current) void document.exitFullscreen();
-    else void previewSectionRef.current?.requestFullscreen();
-  };
 
   const stats = useMemo(() => ({
     time: metadataValue(source, /^;\s*estimated printing time \(normal mode\)\s*=\s*(.+)$/im),
@@ -307,7 +298,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
 
 
   return (
-    <section ref={previewSectionRef} className="gcode-preview">
+    <section className="gcode-preview">
       <div className="preview-toolbar">
         <div className="segmented preview-mode-selector">
           <button className={mode === 'preview' ? 'active' : ''} onClick={() => updateUi({ mode: 'preview' })}><Layers3 size={14} /> Preview</button>
@@ -336,7 +327,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
           {toolhead && <div className="toolhead-position"><span>Toolhead</span><strong>X{toolhead.x.toFixed(1)} Y{toolhead.y.toFixed(1)} Z{toolhead.z.toFixed(1)}</strong></div>}
         </div>
 
-        <CameraPresetControls fullscreen={fullscreen} onToggleFullscreen={toggleFullscreen} onTop={() => setCameraPreset('top')} onFront={() => setCameraPreset('front')} onRight={() => setCameraPreset('right')} onCenter={() => setCameraPreset('fit')} />
+        <CameraPresetControls expanded={expanded} viewerLabel="G-code" onToggleExpanded={onToggleExpanded} onTop={() => setCameraPreset('top')} onFront={() => setCameraPreset('front')} onRight={() => setCameraPreset('right')} onCenter={() => setCameraPreset('fit')} />
 
         {layerCount > 0 && (
           <div className="gcode-scrubbers">

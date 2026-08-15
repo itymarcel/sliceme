@@ -5,6 +5,8 @@ export const settingHelp: Record<string, SettingHelp> = {
   nozzle_diameter: { text: 'Diameter of the physical nozzle opening. It constrains practical line widths and achievable detail.', diagram: 'nozzle' },
   nozzle_type: { text: 'Nozzle material affects wear resistance and suitable filament types. Abrasive composites usually need hardened steel.' },
   gcode_flavor: { text: 'Selects the command dialect expected by the printer firmware.' },
+  printable_width: { text: 'Usable X-axis width of the build plate. This controls the preview bed and slicing boundary independently of the target-printer G-code preset.' },
+  printable_depth: { text: 'Usable Y-axis depth of the build plate. This controls the preview bed and slicing boundary independently of the target-printer G-code preset.' },
   printable_height: { text: 'Maximum Z height the printer mechanism can reach and print.', diagram: 'printable-height' },
   z_offset: { text: 'Value added to every output G-code Z coordinate. Negative values move commanded Z closer to the bed; positive values move it farther away.', diagram: 'z-offset' },
   extruder_clearance_height_to_rod: { text: 'Distance from the nozzle tip to the lower toolhead rod. Orca uses it for collision checks in by-object printing.' },

@@ -36,6 +36,14 @@ describe('workspace header controls', () => {
     expect(workspace.indexOf('className="button secondary download"')).toBeLessThan(workspace.indexOf('<Scissors size={15} /> Slice'));
   });
 
+  it('owns in-app expanded viewer state without the browser Fullscreen API', () => {
+    expect(workspace).toContain("useState<'model' | 'gcode' | null>(null)");
+    expect(workspace).toContain("expandedViewer === 'model'");
+    expect(workspace).toContain("expandedViewer === 'gcode'");
+    expect(workspace).not.toContain('requestFullscreen');
+    expect(workspace).not.toContain('fullscreenElement');
+  });
+
   it('persists and restores setting history with the browser session', () => {
     expect(hook).toContain('setHistory(snapshot.history ?? createWorkspaceHistory())');
     expect(hook).toContain('history,');

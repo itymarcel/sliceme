@@ -2,6 +2,11 @@
 
 Changes are grouped into one consolidated summary per calendar day.
 
+## 2026-08-14
+
+- Replaced browser-native viewer fullscreen with an in-app expanded mode that hides the SliceMe navbar, settings sidebar, and sibling viewer while retaining the selected viewer's complete controls and state.
+- Added target-printer G-code presets backed by the bundled Orca machine profiles for common Bambu Lab, Prusa, Creality, Elegoo, and Anycubic machines; presets affect only injected printer G-code, while independently editable bed width, bed depth, and build height control slicing bounds and both 3D previews.
+
 ## 2026-08-13
 
 - Added click-to-open information icons for every slicer, range, position, and rotation parameter, with Orca-source-audited explanations and parameter-specific vector diagrams for genuinely geometric concepts; popovers open beside the click pointer, flip at viewport edges, and close on outside click or Escape.

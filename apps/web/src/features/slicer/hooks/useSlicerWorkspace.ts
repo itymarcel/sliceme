@@ -11,6 +11,7 @@ import {
   requestDurableStorage,
 } from '../lib/workspacePersistence';
 import { defaultWorkspaceUi } from '../lib/workspaceUi';
+import { machineConfigForPreset, machineConfigWithBuildDimension, PRINTER_PRESET_CONFIG_KEY } from '../lib/printerPresets';
 import { createWorkspaceHistory, recordWorkspaceChange, redoWorkspaceChange, undoWorkspaceChange, type WorkspaceSettingsSnapshot } from '../lib/workspaceHistory';
 import type {
   BuildVolume,
@@ -392,6 +393,14 @@ export function useSlicerWorkspace() {
       return;
     }
     if (selectedNode.type === 'scene') {
+      if (section === 'machine_config' && (key === 'printable_width' || key === 'printable_depth')) {
+        const dimension = key === 'printable_width' ? 'width' : 'depth';
+        setConfig((current) => ({
+          ...current,
+          machine_config: machineConfigWithBuildDimension(current.machine_config, dimension, Number(value)),
+        }));
+        return;
+      }
       setConfig((current) => ({ ...current, [section]: withSettingRelations(section, current[section], key, value) }));
       if (section === 'process_config' && key === 'spiral_mode' && isEnabled(value)) {
         setFileOverrides(withSpiralFileRelations);
@@ -414,6 +423,17 @@ export function useSlicerWorkspace() {
       });
     }
   }, [recordSettingsChange, selectedNode]);
+
+  const applyPrinterPreset = useCallback((presetId: string) => {
+    const presetConfig = presetId === 'custom'
+      ? { [PRINTER_PRESET_CONFIG_KEY]: '' }
+      : machineConfigForPreset(presetId);
+    recordSettingsChange();
+    setConfig((current) => ({
+      ...current,
+      machine_config: { ...current.machine_config, ...presetConfig },
+    }));
+  }, [recordSettingsChange]);
 
 
   const addRange = useCallback((fileId: string) => {
@@ -540,7 +560,7 @@ export function useSlicerWorkspace() {
   return {
     models, config, fileOverrides, rangeOverrides, positions, rotations, selectedNode, gcode,
     status, error, defaultsLoading, buildVolume, startPositions, enhancing, prefilling, projectBusy, projectNotice, ui, setUi,
-    setSelectedNode, addModels, removeModel, setSetting, addRange, removeRange,
+    setSelectedNode, addModels, removeModel, setSetting, applyPrinterPreset, addRange, removeRange,
     setRangeBoundary, setPositions, setRotations, slice, cancelSlice, enhanceGcode, prefillSettings,
     clearAiFieldHighlight, dismissError, dismissProjectNotice: () => setProjectNotice(null), importProject, exportProject, clear,
     undo, redo, canUndo: history.past.length > 0, canRedo: history.future.length > 0,

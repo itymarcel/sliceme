@@ -20,8 +20,10 @@ describe('G-code toolbar presentation', () => {
     expect(component).not.toContain('label="Travel"');
     expect(component).toContain("TRAVEL_TOOLPATH");
     expect(component).not.toContain('onTravelChange');
-    expect(component).toContain('<section ref={previewSectionRef} className="gcode-preview">');
-    expect(component).toContain('document.fullscreenElement === previewSectionRef.current');
+    expect(component).toContain('<section className="gcode-preview">');
+    expect(component).toContain('expanded={expanded}');
+    expect(component).not.toContain('requestFullscreen');
+    expect(component).not.toContain('fullscreenElement');
     expect(styles).toMatch(/\.gcode-toolbar-controls\s*\{/s);
   });
 

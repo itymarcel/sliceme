@@ -20,9 +20,8 @@ export function SlicerWorkspace() {
   const fileInput = useRef<HTMLInputElement>(null);
   const projectInput = useRef<HTMLInputElement>(null);
   const viewport = useRef<ModelViewportHandle>(null);
-  const modelStage = useRef<HTMLElement>(null);
   const [dragging, setDragging] = useState(false);
-  const [modelFullscreen, setModelFullscreen] = useState(false);
+  const [expandedViewer, setExpandedViewer] = useState<'model' | 'gcode' | null>(null);
   const measurementActive = workspace.ui.measurementActive;
   const setMeasurementActive = (value: boolean | ((current: boolean) => boolean)) => workspace.setUi((current) => ({
     ...current,
@@ -36,11 +35,6 @@ export function SlicerWorkspace() {
   const selectedModel = useMemo(() => workspace.models.find((model) => model.fileId === selectedFileId), [selectedFileId, workspace.models]);
   const modelIds = useMemo(() => workspace.models.map((model) => model.fileId).join(','), [workspace.models]);
 
-  useEffect(() => {
-    const changed = () => setModelFullscreen(document.fullscreenElement === modelStage.current);
-    document.addEventListener('fullscreenchange', changed);
-    return () => document.removeEventListener('fullscreenchange', changed);
-  }, []);
 
   useEffect(() => {
     if (workspace.models.length === 0) {
@@ -74,7 +68,7 @@ export function SlicerWorkspace() {
   const receiveFiles = (files: FileList | null) => { if (files?.length) workspace.addModels(files); };
 
   return (
-    <div className="app-shell" onDragEnter={(event) => { event.preventDefault(); setDragging(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { if (event.currentTarget === event.target) setDragging(false); }} onDrop={(event) => { event.preventDefault(); setDragging(false); receiveFiles(event.dataTransfer.files); }}>
+    <div className={`app-shell ${expandedViewer ? 'viewer-expanded' : ''}`} onDragEnter={(event) => { event.preventDefault(); setDragging(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { if (event.currentTarget === event.target) setDragging(false); }} onDrop={(event) => { event.preventDefault(); setDragging(false); receiveFiles(event.dataTransfer.files); }}>
       <input ref={fileInput} hidden type="file" multiple accept=".stl,.step,.stp" onChange={(event) => { receiveFiles(event.target.files); event.target.value = ''; }} />
       <input ref={projectInput} hidden type="file" accept=".3mf" onChange={(event) => { const project = event.target.files?.[0]; if (project) void workspace.importProject(project); event.target.value = ''; }} />
       <header className="app-header">
@@ -94,19 +88,19 @@ export function SlicerWorkspace() {
       <div className="workspace-layout">
         <aside className="sidebar">
           <ObjectTree models={workspace.models} ranges={workspace.rangeOverrides} selected={workspace.selectedNode} onSelect={workspace.setSelectedNode} onAddModels={openFilePicker} onRemoveModel={workspace.removeModel} onAddRange={workspace.addRange} onRemoveRange={workspace.removeRange} />
-          <SlicerSettingsPanel selectedNode={workspace.selectedNode} config={workspace.config} fileOverrides={workspace.fileOverrides} rangeOverrides={workspace.rangeOverrides} onChange={workspace.setSetting} onRangeBoundary={workspace.setRangeBoundary} section={workspace.ui.settingsSection} query={workspace.ui.settingsQuery} onSectionChange={(settingsSection) => workspace.setUi((current) => ({ ...current, settingsSection }))} onQueryChange={(settingsQuery) => workspace.setUi((current) => ({ ...current, settingsQuery }))} highlightedFields={workspace.ui.aiHighlightedFields} onFieldInteract={workspace.clearAiFieldHighlight} />
+          <SlicerSettingsPanel selectedNode={workspace.selectedNode} config={workspace.config} fileOverrides={workspace.fileOverrides} rangeOverrides={workspace.rangeOverrides} onChange={workspace.setSetting} onApplyPrinterPreset={workspace.applyPrinterPreset} onRangeBoundary={workspace.setRangeBoundary} section={workspace.ui.settingsSection} query={workspace.ui.settingsQuery} onSectionChange={(settingsSection) => workspace.setUi((current) => ({ ...current, settingsSection }))} onQueryChange={(settingsQuery) => workspace.setUi((current) => ({ ...current, settingsQuery }))} highlightedFields={workspace.ui.aiHighlightedFields} onFieldInteract={workspace.clearAiFieldHighlight} />
           <AiPrefillPanel description={workspace.ui.prefillDescription} loading={workspace.prefilling || workspace.status === 'slicing'} onDescriptionChange={(prefillDescription) => workspace.setUi((current) => ({ ...current, prefillDescription }))} onPrefill={workspace.prefillSettings} />
         </aside>
 
-        <main className={`work-area ${workspace.gcode ? 'with-gcode' : ''}`}>
-          <section ref={modelStage} className="model-stage">
+        <main className={`work-area ${workspace.gcode ? 'with-gcode' : ''} ${expandedViewer ? `expanded-${expandedViewer}` : ''}`}>
+          <section className="model-stage">
             {workspace.models.length ? (
               <ModelViewport ref={viewport} stlFiles={workspace.models} buildVolume={workspace.buildVolume} selectedFileId={selectedFileId} filePositions={workspace.positions} fileRotations={workspace.rotations} activeRange={activeRange} onSelectFile={(fileId) => workspace.setSelectedNode({ type: 'file', fileId })} onSelectScene={() => workspace.setSelectedNode({ type: 'scene' })} onPositionChange={(fileId, x, y) => workspace.setPositions((current) => ({ ...current, [fileId]: { x, y } }))} measurementActive={measurementActive} measurementPoints={measurementPoints} onMeasurementPoint={(point) => setMeasurementPoints((current) => addMeasurementPoint(current, point))} />
             ) : (
               <button className="empty-state" onClick={openFilePicker}><span><Box size={28} /></span><strong>Drop a model here</strong><p>Open an STL or STEP file to begin slicing.</p><em>Choose files</em></button>
             )}
             {workspace.models.length > 0 && <div className="axis-legend" aria-label="Viewport axes"><span className="axis-x">X</span><span className="axis-y">Y</span><span className="axis-z">Z</span></div>}
-            {workspace.models.length > 0 && <CameraPresetControls fullscreen={modelFullscreen} onToggleFullscreen={() => { if (document.fullscreenElement === modelStage.current) void document.exitFullscreen(); else void modelStage.current?.requestFullscreen(); }} onTop={() => viewport.current?.setCameraPreset('top')} onFront={() => viewport.current?.setCameraPreset('front')} onRight={() => viewport.current?.setCameraPreset('right')} onCenter={() => viewport.current?.setCameraPreset('center')} />}
+            {workspace.models.length > 0 && <CameraPresetControls expanded={expandedViewer === 'model'} viewerLabel="model" onToggleExpanded={() => setExpandedViewer((current) => current === 'model' ? null : 'model')} onTop={() => viewport.current?.setCameraPreset('top')} onFront={() => viewport.current?.setCameraPreset('front')} onRight={() => viewport.current?.setCameraPreset('right')} onCenter={() => viewport.current?.setCameraPreset('center')} />}
             <MeasurementPanel active={measurementActive} disabled={workspace.models.length === 0} points={measurementPoints} onToggle={() => {
               if (measurementActive) setMeasurementPoints([]);
               setMeasurementActive((active) => !active);
@@ -114,7 +108,7 @@ export function SlicerWorkspace() {
             {selectedModel && selectedFileId && <TransformPanel position={workspace.positions[selectedFileId] ?? { x: workspace.buildVolume.x / 2, y: workspace.buildVolume.y / 2 }} rotation={workspace.rotations[selectedFileId] ?? { x: 0, y: 0, z: 0 }} onPosition={(position) => workspace.setPositions((current) => ({ ...current, [selectedFileId]: position }))} onRotation={(rotation) => workspace.setRotations((current) => ({ ...current, [selectedFileId]: rotation }))} />}
             {workspace.status === 'slicing' && <div className="slicing-overlay"><LoaderCircle size={28} className="spin" /><strong>Slicer engine is working</strong><span>This request remains temporary.</span></div>}
           </section>
-          {workspace.gcode && <GcodePreview result={workspace.gcode} buildVolume={workspace.buildVolume} enhancing={workspace.enhancing} onEnhance={workspace.enhanceGcode} ui={workspace.ui.gcodePreview} onUiChange={(gcodePreview) => workspace.setUi((current) => ({ ...current, gcodePreview }))} />}
+          {workspace.gcode && <GcodePreview result={workspace.gcode} buildVolume={workspace.buildVolume} enhancing={workspace.enhancing} onEnhance={workspace.enhanceGcode} ui={workspace.ui.gcodePreview} onUiChange={(gcodePreview) => workspace.setUi((current) => ({ ...current, gcodePreview }))} expanded={expandedViewer === 'gcode'} onToggleExpanded={() => setExpandedViewer((current) => current === 'gcode' ? null : 'gcode')} />}
         </main>
       </div>
 

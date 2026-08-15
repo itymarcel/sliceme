@@ -3,6 +3,7 @@ import { Code2, Search, Sparkles, X } from 'lucide-react';
 
 import type { AiHighlightedFields, ConfigBundle, ConfigSection, RangeOverride, SelectedNode } from '../types';
 import { rangeHelp, settingHelp } from '../lib/settingHelp';
+import { buildDimensionsFromMachineConfig, findMatchingPrinterPreset, printerPresets } from '../lib/printerPresets';
 import { ParameterHelp } from './ParameterHelp';
 
 type Field = {
@@ -19,10 +20,12 @@ type Group = { label: string; fields: Field[] };
 const fields: Record<ConfigSection, Group[]> = {
   machine_config: [
     { label: 'Build volume', fields: [
+      { key: 'printable_width', label: 'Bed width', type: 'number', min: 1 },
+      { key: 'printable_depth', label: 'Bed depth', type: 'number', min: 1 },
+      { key: 'printable_height', label: 'Build height', type: 'number', min: 1 },
       { key: 'nozzle_diameter', label: 'Nozzle diameter', type: 'select', options: ['0.2', '0.25', '0.4', '0.6', '0.8', '1.0', '1.2', '1.4', '1.6', '1.8', '2.0'].map((value) => ({ label: `${value} mm`, value })) },
       { key: 'nozzle_type', label: 'Nozzle type', type: 'select', options: ['undefine', 'hardened_steel', 'stainless_steel', 'brass'].map((value) => ({ label: value.replaceAll('_', ' '), value })) },
       { key: 'gcode_flavor', label: 'G-code flavor', type: 'select', options: ['marlin', 'klipper', 'reprapfirmware'].map((value) => ({ label: value, value })) },
-      { key: 'printable_height', label: 'Printable height', type: 'number' },
       { key: 'z_offset', label: 'Z offset', type: 'number', step: 0.01 },
       { key: 'extruder_clearance_height_to_rod', label: 'Clearance height', type: 'number' },
     ] },
@@ -146,6 +149,7 @@ type Props = {
   fileOverrides: Record<string, Partial<ConfigBundle>>;
   rangeOverrides: Record<string, RangeOverride[]>;
   onChange: (section: ConfigSection, key: string, value: unknown) => void;
+  onApplyPrinterPreset: (presetId: string) => void;
 
   onRangeBoundary: (fileId: string, rangeIndex: number, key: 'min_z' | 'max_z', value: number) => void;
   section: ConfigSection;
@@ -169,7 +173,10 @@ type GcodeEditor = { section: ConfigSection; key: string; label: string; value: 
 
 function FieldControl({ field, section, props, onEditGcode }: { field: Field; section: ConfigSection; props: Props; onEditGcode: (editor: GcodeEditor) => void }) {
   const { resolved, own } = overrideConfig(props, section);
-  const value = resolved[field.key];
+  const buildDimensions = section === 'machine_config' ? buildDimensionsFromMachineConfig(resolved) : null;
+  const value = field.key === 'printable_width' ? buildDimensions?.width
+    : field.key === 'printable_depth' ? buildDimensions?.depth
+      : resolved[field.key];
   const scalarValue = Array.isArray(value) ? value[0] : value;
   const overridden = props.selectedNode.type !== 'scene' && Object.hasOwn(own, field.key);
   const globalFromObject = field.key === 'spiral_mode' && props.selectedNode.type === 'file';
@@ -222,6 +229,7 @@ export function SlicerSettingsPanel(props: Props) {
   })).filter((group) => group.fields.length), [query, section]);
   const rangeSelection = props.selectedNode.type === 'range' ? props.selectedNode : null;
   const range = rangeSelection ? props.rangeOverrides[rangeSelection.fileId]?.[rangeSelection.rangeIndex] : null;
+  const printerPresetId = findMatchingPrinterPreset(props.config.machine_config);
 
   const openEditor = (nextEditor: GcodeEditor) => {
     setEditor(nextEditor);
@@ -265,6 +273,20 @@ export function SlicerSettingsPanel(props: Props) {
         ))}
       </div>
       <div className="settings-scroll">
+        {section === 'machine_config' && props.selectedNode.type === 'scene' && (
+          <div className="settings-group">
+            <h3>Target printer</h3>
+            <div className="setting-row">
+              <span><span id="setting-printer-preset">Printer preset</span><ParameterHelp label="Printer preset" text="Selects the additional start, end, pause, filament-change, and layer G-code from the target printer's bundled Orca profile. It does not change bed dimensions, nozzle, speeds, temperatures, or firmware settings." /></span>
+              <div className="setting-control">
+                <select id="printer-preset" aria-labelledby="setting-printer-preset" value={printerPresetId} onChange={(event) => props.onApplyPrinterPreset(event.target.value)}>
+                  <option value="custom">Custom</option>
+                  {printerPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.manufacturer} {preset.name}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
         {visibleGroups.map((group) => (
           <div className="settings-group" key={group.label}>
             <h3>{group.label}</h3>

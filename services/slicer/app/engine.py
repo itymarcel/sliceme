@@ -15,6 +15,8 @@ from typing import Optional
 from xml.sax.saxutils import escape
 from types import SimpleNamespace
 
+from .printer_presets import printer_preset_gcode
+
 import logging
 logger = logging.getLogger('api.slicer')
 
@@ -358,6 +360,13 @@ def load_project_config(session) -> dict:
     for k, v in raw.items():
         if k not in ('machine_config', 'process_config', 'filament_config'):
             overrides[k] = v
+
+    # SliceMe's target-printer preset selects only the G-code snippets from the
+    # corresponding bundled Orca machine profile. It intentionally does not
+    # import profile dimensions, nozzle, speeds, temperatures, or firmware.
+    preset_id = overrides.pop('sliceme_printer_preset', '')
+    if preset_id:
+        overrides.update(printer_preset_gcode(str(preset_id)))
     overrides = _normalize_flat_overrides(overrides, base)
 
     # Remove any non-4-point bed_exclude_area from overrides — the post-merge step
@@ -933,6 +942,7 @@ def _flatten_bucket_overrides(raw: dict) -> dict:
     for key, value in raw.items():
         if key not in ('machine_config', 'process_config', 'filament_config'):
             flat[key] = value
+    flat.pop('sliceme_printer_preset', None)
     return flat
 
 
