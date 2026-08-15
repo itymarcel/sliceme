@@ -12,6 +12,7 @@ describe('mobile phone workspace', () => {
     expect(workspace).toContain('<span>Settings</span>');
     expect(workspace).toContain('mobile-navbar-actions');
     expect(workspace).toContain('mobile-navbar-slice');
+    expect(workspace).toContain('model-edit-controls');
     expect(workspace).toContain('mobileSettingsOpen');
     expect(workspace).toContain('Open objects and slicer settings');
     expect(workspace).toContain('Close objects and slicer settings');
@@ -27,6 +28,7 @@ describe('mobile phone workspace', () => {
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.work-area\.with-gcode\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/);
     expect(styles).toMatch(/\.work-area\.expanded-model,\s*\.work-area\.expanded-gcode\s*\{[^}]*grid-template-rows:\s*minmax\(0,\s*1fr\)/);
     expect(styles).toMatch(/\.camera-controls \.camera-preset\s*\{[^}]*display:\s*none/);
+    expect(styles).toMatch(/\.model-edit-controls\s*\{[^}]*display:\s*flex;[^}]*justify-content:\s*space-between/);
     expect(styles).toMatch(/\.sidebar\s*\{[^}]*position:\s*fixed;[^}]*inset:/);
   });
 });

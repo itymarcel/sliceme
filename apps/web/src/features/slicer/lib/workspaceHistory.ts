@@ -1,28 +1,32 @@
-import type { ConfigBundle, RangeOverride, SelectedNode } from '../types';
+import type { ConfigBundle, Position, RangeOverride, Rotation, SelectedNode } from '../types';
 
-export type WorkspaceSettingsSnapshot = {
+export type WorkspaceHistorySnapshot = {
+  modelOrder: string[];
   config: ConfigBundle;
   fileOverrides: Record<string, Partial<ConfigBundle>>;
   rangeOverrides: Record<string, RangeOverride[]>;
+  positions: Record<string, Position>;
+  rotations: Record<string, Rotation>;
+  startPositions: Record<string, Position>;
   selectedNode: SelectedNode;
 };
 
 export type WorkspaceHistory = {
-  past: WorkspaceSettingsSnapshot[];
-  future: WorkspaceSettingsSnapshot[];
+  past: WorkspaceHistorySnapshot[];
+  future: WorkspaceHistorySnapshot[];
 };
 
 const HISTORY_LIMIT = 50;
-const clone = (snapshot: WorkspaceSettingsSnapshot): WorkspaceSettingsSnapshot => structuredClone(snapshot);
+const clone = (snapshot: WorkspaceHistorySnapshot): WorkspaceHistorySnapshot => structuredClone(snapshot);
 
 export const createWorkspaceHistory = (): WorkspaceHistory => ({ past: [], future: [] });
 
-export const recordWorkspaceChange = (history: WorkspaceHistory, current: WorkspaceSettingsSnapshot): WorkspaceHistory => ({
+export const recordWorkspaceChange = (history: WorkspaceHistory, current: WorkspaceHistorySnapshot): WorkspaceHistory => ({
   past: [...history.past, clone(current)].slice(-HISTORY_LIMIT),
   future: [],
 });
 
-export const undoWorkspaceChange = (history: WorkspaceHistory, current: WorkspaceSettingsSnapshot) => {
+export const undoWorkspaceChange = (history: WorkspaceHistory, current: WorkspaceHistorySnapshot) => {
   const snapshot = history.past.at(-1);
   if (!snapshot) return { history, snapshot: null };
   return {
@@ -31,7 +35,7 @@ export const undoWorkspaceChange = (history: WorkspaceHistory, current: Workspac
   };
 };
 
-export const redoWorkspaceChange = (history: WorkspaceHistory, current: WorkspaceSettingsSnapshot) => {
+export const redoWorkspaceChange = (history: WorkspaceHistory, current: WorkspaceHistorySnapshot) => {
   const snapshot = history.future[0];
   if (!snapshot) return { history, snapshot: null };
   return {

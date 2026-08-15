@@ -11,15 +11,11 @@ const callbacks = {
   onAddModel: vi.fn(),
   onImportProject: vi.fn(),
   onExportProject: vi.fn(),
-  onUndo: vi.fn(),
-  onRedo: vi.fn(),
   onClear: vi.fn(),
 };
 
 const renderMenu = () => render(<MobileActionsMenu
   {...callbacks}
-  canUndo
-  canRedo
   canClear
   importingDisabled={false}
   exportingDisabled={false}
@@ -33,9 +29,11 @@ describe('MobileActionsMenu', () => {
     fireEvent.click(trigger);
 
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
-    ['Add model', 'Import *.3mf', 'Export 3MF', 'Download G-code', 'Undo', 'Redo', 'Clear workspace'].forEach((name) => {
+    ['Add model', 'Import *.3mf', 'Export 3MF', 'Download G-code', 'Clear workspace'].forEach((name) => {
       expect(screen.getByRole(name === 'Download G-code' ? 'link' : 'button', { name })).toBeTruthy();
     });
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Redo' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Slice' })).toBeNull();
     expect(screen.getByRole('link', { name: 'Support SliceMe on Buy Me a Coffee' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'SliceMe on GitHub' })).toBeTruthy();

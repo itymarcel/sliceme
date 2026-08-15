@@ -167,7 +167,6 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
         if (!selected || seamPickActive || measurementActive) return;
         const hit = getPlaneHit(e.clientX, e.clientY);
         if (!hit) return;
-        onDragStart();
         dragState.current = { active: true, offsetX: hit.x - position.x, offsetY: hit.y - position.y };
         (e.target as Element).setPointerCapture(e.pointerId);
         setOrbitEnabled(false);
@@ -178,9 +177,10 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
           onSnapHover?.(getSnapPoint(e));
         }
         if (!dragState.current.active) return;
-        pointerMoved.current = true;
         const hit = getPlaneHit(e.clientX, e.clientY);
         if (!hit) return;
+        if (!pointerMoved.current) onDragStart();
+        pointerMoved.current = true;
         const nx = Math.max(0, Math.min(buildVolume.x, hit.x - dragState.current.offsetX));
         const ny = Math.max(0, Math.min(buildVolume.y, hit.y - dragState.current.offsetY));
         onPositionChange(nx, ny);

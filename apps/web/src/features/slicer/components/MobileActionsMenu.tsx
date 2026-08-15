@@ -6,8 +6,6 @@ import {
   FileUp,
   Menu,
   PackageOpen,
-  Redo2,
-  Undo2,
   X,
 } from 'lucide-react';
 
@@ -17,11 +15,7 @@ type Props = {
   onAddModel: () => void;
   onImportProject: () => void;
   onExportProject: () => void;
-  onUndo: () => void;
-  onRedo: () => void;
   onClear: () => void;
-  canUndo: boolean;
-  canRedo: boolean;
   canClear: boolean;
   importingDisabled: boolean;
   exportingDisabled: boolean;
@@ -67,8 +61,6 @@ export function MobileActionsMenu(props: Props) {
           <button type="button" tabIndex={open ? 0 : -1} disabled={props.importingDisabled} onClick={() => run(props.onImportProject)}><PackageOpen size={16} /> Import *.3mf</button>
           <button type="button" tabIndex={open ? 0 : -1} disabled={props.exportingDisabled} onClick={() => run(props.onExportProject)}><FileArchive size={16} /> Export 3MF</button>
           {props.download && <a aria-label="Download G-code" tabIndex={open ? 0 : -1} href={props.download.href} download={props.download.fileName} onClick={() => setOpen(false)}><Download size={16} /> Download G-code</a>}
-          <button type="button" tabIndex={open ? 0 : -1} disabled={!props.canUndo} onClick={() => run(props.onUndo)}><Undo2 size={16} /> Undo</button>
-          <button type="button" tabIndex={open ? 0 : -1} disabled={!props.canRedo} onClick={() => run(props.onRedo)}><Redo2 size={16} /> Redo</button>
           <button className="danger" type="button" tabIndex={open ? 0 : -1} disabled={!props.canClear} onClick={() => run(props.onClear)}><Eraser size={16} /> Clear workspace</button>
         </div>
         <div className="mobile-menu-links"><SupportLink /><GitHubLinks /></div>
