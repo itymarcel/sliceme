@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Download, Eraser, FileUp, LoaderCircle, OctagonX, Redo2, Scissors, ShieldCheck, Undo2 } from 'lucide-react';
+import { Box, Download, Eraser, FileUp, LoaderCircle, OctagonX, Redo2, Scissors, ShieldCheck, SlidersHorizontal, Undo2, X } from 'lucide-react';
 
 import { GcodePreview } from './components/GcodePreview';
 import { AiPrefillPanel } from './components/AiPrefillPanel';
@@ -10,6 +10,7 @@ import { SlicerSettingsPanel } from './components/SlicerSettingsPanel';
 import { TransformPanel } from './components/TransformPanel';
 import { MeasurementPanel } from './components/MeasurementPanel';
 import { HeaderMoreMenu } from './components/HeaderMoreMenu';
+import { MobileActionsMenu } from './components/MobileActionsMenu';
 import { SupportLink } from './components/ProjectLinks';
 import { useSlicerWorkspace } from './hooks/useSlicerWorkspace';
 import { addMeasurementPoint, type MeasurementPoint } from './lib/measurement';
@@ -22,6 +23,7 @@ export function SlicerWorkspace() {
   const viewport = useRef<ModelViewportHandle>(null);
   const [dragging, setDragging] = useState(false);
   const [expandedViewer, setExpandedViewer] = useState<'model' | 'gcode' | null>(null);
+  const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
   const measurementActive = workspace.ui.measurementActive;
   const setMeasurementActive = (value: boolean | ((current: boolean) => boolean)) => workspace.setUi((current) => ({
     ...current,
@@ -63,6 +65,15 @@ export function SlicerWorkspace() {
     return () => window.removeEventListener('keydown', onHistoryShortcut);
   }, [workspace.redo, workspace.undo]);
 
+  useEffect(() => {
+    if (!mobileSettingsOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileSettingsOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [mobileSettingsOpen]);
+
   const openFilePicker = () => fileInput.current?.click();
   const openProjectPicker = () => projectInput.current?.click();
   const receiveFiles = (files: FileList | null) => { if (files?.length) workspace.addModels(files); };
@@ -83,10 +94,32 @@ export function SlicerWorkspace() {
           {workspace.gcode && <a className="button secondary download" href={workspace.gcode.url} download={workspace.gcode.fileName}><Download size={15} /> Download</a>}
           {workspace.status === 'slicing' ? <button className="button danger" onClick={workspace.cancelSlice}><OctagonX size={15} /> Cancel</button> : <button className="button primary" disabled={!workspace.models.length || workspace.defaultsLoading} onClick={workspace.slice}><Scissors size={15} /> Slice</button>}
         </div>
+        <MobileActionsMenu
+          onAddModel={openFilePicker}
+          onImportProject={openProjectPicker}
+          onExportProject={() => void workspace.exportProject()}
+          onUndo={workspace.undo}
+          onRedo={workspace.redo}
+          onClear={workspace.clear}
+          canUndo={workspace.canUndo}
+          canRedo={workspace.canRedo}
+          canClear={workspace.models.length > 0}
+          importingDisabled={workspace.projectBusy !== null}
+          exportingDisabled={!workspace.models.length || workspace.projectBusy !== null}
+          download={workspace.gcode ? { href: workspace.gcode.url, fileName: workspace.gcode.fileName } : undefined}
+        />
+        <div className="mobile-navbar-actions">
+          {workspace.status === 'slicing'
+            ? <button className="mobile-navbar-slice button danger" type="button" onClick={workspace.cancelSlice}><OctagonX size={14} /> Cancel</button>
+            : <button className="mobile-navbar-slice button primary" type="button" disabled={!workspace.models.length || workspace.defaultsLoading} onClick={workspace.slice}><Scissors size={14} /> Slice</button>}
+          <button className="mobile-settings-trigger mobile-header-button" type="button" aria-label="Open objects and slicer settings" aria-expanded={mobileSettingsOpen} aria-controls="mobile-settings-panel" onClick={() => setMobileSettingsOpen(true)}><SlidersHorizontal size={14} /><span>Settings</span></button>
+        </div>
       </header>
 
+      <button className={`mobile-settings-backdrop ${mobileSettingsOpen ? 'is-open' : ''}`} type="button" aria-label="Close objects and slicer settings" aria-hidden={!mobileSettingsOpen} tabIndex={mobileSettingsOpen ? 0 : -1} onClick={() => setMobileSettingsOpen(false)} />
       <div className="workspace-layout">
-        <aside className="sidebar">
+        <aside id="mobile-settings-panel" className={`sidebar ${mobileSettingsOpen ? 'mobile-settings-open' : ''}`} role={mobileSettingsOpen ? 'dialog' : undefined} aria-modal={mobileSettingsOpen ? 'true' : undefined} aria-label={mobileSettingsOpen ? 'Objects and slicer settings' : undefined}>
+          <div className="mobile-settings-header"><span><SlidersHorizontal size={16} /><strong>Objects &amp; settings</strong></span><button className="icon-button" type="button" aria-label="Close objects and slicer settings" onClick={() => setMobileSettingsOpen(false)}><X size={18} /></button></div>
           <ObjectTree models={workspace.models} ranges={workspace.rangeOverrides} selected={workspace.selectedNode} onSelect={workspace.setSelectedNode} onAddModels={openFilePicker} onRemoveModel={workspace.removeModel} onAddRange={workspace.addRange} onRemoveRange={workspace.removeRange} />
           <SlicerSettingsPanel selectedNode={workspace.selectedNode} config={workspace.config} fileOverrides={workspace.fileOverrides} rangeOverrides={workspace.rangeOverrides} onChange={workspace.setSetting} onApplyPrinterPreset={workspace.applyPrinterPreset} onRangeBoundary={workspace.setRangeBoundary} section={workspace.ui.settingsSection} query={workspace.ui.settingsQuery} onSectionChange={(settingsSection) => workspace.setUi((current) => ({ ...current, settingsSection }))} onQueryChange={(settingsQuery) => workspace.setUi((current) => ({ ...current, settingsQuery }))} highlightedFields={workspace.ui.aiHighlightedFields} onFieldInteract={workspace.clearAiFieldHighlight} />
           <AiPrefillPanel description={workspace.ui.prefillDescription} loading={workspace.prefilling || workspace.status === 'slicing'} onDescriptionChange={(prefillDescription) => workspace.setUi((current) => ({ ...current, prefillDescription }))} onPrefill={workspace.prefillSettings} />
@@ -95,12 +128,12 @@ export function SlicerWorkspace() {
         <main className={`work-area ${workspace.gcode ? 'with-gcode' : ''} ${expandedViewer ? `expanded-${expandedViewer}` : ''}`}>
           <section className="model-stage">
             {workspace.models.length ? (
-              <ModelViewport ref={viewport} stlFiles={workspace.models} buildVolume={workspace.buildVolume} selectedFileId={selectedFileId} filePositions={workspace.positions} fileRotations={workspace.rotations} activeRange={activeRange} onSelectFile={(fileId) => workspace.setSelectedNode({ type: 'file', fileId })} onSelectScene={() => workspace.setSelectedNode({ type: 'scene' })} onPositionChange={(fileId, x, y) => workspace.setPositions((current) => ({ ...current, [fileId]: { x, y } }))} measurementActive={measurementActive} measurementPoints={measurementPoints} onMeasurementPoint={(point) => setMeasurementPoints((current) => addMeasurementPoint(current, point))} />
+              <ModelViewport ref={viewport} stlFiles={workspace.models} buildVolume={workspace.buildVolume} selectedFileId={selectedFileId} filePositions={workspace.positions} fileRotations={workspace.rotations} activeRange={activeRange} onSelectFile={(fileId) => workspace.setSelectedNode({ type: 'file', fileId })} onSelectScene={() => workspace.setSelectedNode({ type: 'scene' })} onPositionChange={(fileId, x, y) => workspace.setPositions((current) => ({ ...current, [fileId]: { x, y } }))} measurementActive={measurementActive} measurementPoints={measurementPoints} onMeasurementPoint={(point) => setMeasurementPoints((current) => addMeasurementPoint(current, point))} xray={workspace.ui.xrayModel} />
             ) : (
               <button className="empty-state" onClick={openFilePicker}><span><Box size={28} /></span><strong>Drop a model here</strong><p>Open an STL or STEP file to begin slicing.</p><em>Choose files</em></button>
             )}
             {workspace.models.length > 0 && <div className="axis-legend" aria-label="Viewport axes"><span className="axis-x">X</span><span className="axis-y">Y</span><span className="axis-z">Z</span></div>}
-            {workspace.models.length > 0 && <CameraPresetControls expanded={expandedViewer === 'model'} viewerLabel="model" onToggleExpanded={() => setExpandedViewer((current) => current === 'model' ? null : 'model')} onTop={() => viewport.current?.setCameraPreset('top')} onFront={() => viewport.current?.setCameraPreset('front')} onRight={() => viewport.current?.setCameraPreset('right')} onCenter={() => viewport.current?.setCameraPreset('center')} />}
+            {workspace.models.length > 0 && <CameraPresetControls expanded={expandedViewer === 'model'} viewerLabel="model" xray={workspace.ui.xrayModel} onToggleXray={() => workspace.setUi((current) => ({ ...current, xrayModel: !current.xrayModel }))} onToggleExpanded={() => setExpandedViewer((current) => current === 'model' ? null : 'model')} onTop={() => viewport.current?.setCameraPreset('top')} onFront={() => viewport.current?.setCameraPreset('front')} onRight={() => viewport.current?.setCameraPreset('right')} onCenter={() => viewport.current?.setCameraPreset('center')} />}
             <MeasurementPanel active={measurementActive} disabled={workspace.models.length === 0} points={measurementPoints} onToggle={() => {
               if (measurementActive) setMeasurementPoints([]);
               setMeasurementActive((active) => !active);

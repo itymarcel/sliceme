@@ -6,6 +6,7 @@ import { Box3, BufferGeometry, BufferAttribute, DirectionalLight, DoubleSide, Eu
 import type { SlicerModel } from '../types';
 import { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { closestSnapCandidate, type MeasurementPoint } from '../lib/measurement';
+import { modelMaterialAppearance } from '../lib/modelAppearance';
 
 const DEG2RAD = Math.PI / 180;
 const GROUND_PLANE = new Plane(new Vector3(0, 0, 1), 0);
@@ -72,11 +73,12 @@ type SlicerStlMeshProps = {
   measurementActive?: boolean;
   onMeasurementPoint?: (point: MeasurementPoint) => void;
   onSnapHover?: (point: MeasurementPoint | null) => void;
+  xray?: boolean;
 };
 
 const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
   file, selected, position, rotation, buildVolume, onSelect, onDragStart, onPositionChange, setOrbitEnabled, onGeometryLoaded,
-  seamPickActive = false, measurementActive = false, onMeasurementPoint, onSnapHover,
+  seamPickActive = false, measurementActive = false, onMeasurementPoint, onSnapHover, xray = false,
 }) => {
   const [geometry, setGeometry] = useState<BufferGeometry | undefined>(undefined);
   const { camera, gl, invalidate } = useThree();
@@ -153,7 +155,7 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
       geometry={geometry}
       position={[position.x, position.y, zLift]}
       rotation={[rotation.x * DEG2RAD, rotation.y * DEG2RAD, rotation.z * DEG2RAD]}
-      castShadow
+      castShadow={!xray}
       onPointerDown={(e) => {
         e.stopPropagation();
         pointerMoved.current = false;
@@ -212,7 +214,7 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
       onPointerOut={() => { if (measurementActive) onSnapHover?.(null); }}
     >
       <meshStandardMaterial
-        color={selected ? '#eeee45' : '#8090a3'}
+        {...modelMaterialAppearance(selected, xray)}
         roughness={0.6}
         metalness={0.1}
       />
@@ -353,6 +355,7 @@ type ModelViewportProps = {
   measurementActive?: boolean;
   measurementPoints?: MeasurementPoint[];
   onMeasurementPoint?: (point: MeasurementPoint) => void;
+  xray?: boolean;
 };
 
 export type ModelViewportHandle = {
@@ -370,7 +373,7 @@ const CameraBridge: React.FC<{ cameraRef: React.MutableRefObject<any> }> = ({ ca
 const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>(({ 
   stlFiles, buildVolume = DEFAULT_BUILD_VOLUME, selectedFileId, fileRotations, filePositions, activeRange, onSelectFile, onSelectScene, onDragStart, onPositionChange,
   startPositions = {}, startPositionPickTarget, onStartPositionPick, onStartPositionPickCancel,
-  measurementActive = false, measurementPoints = [], onMeasurementPoint,
+  measurementActive = false, measurementPoints = [], onMeasurementPoint, xray = false,
 }, ref) => {
   const cameraRef = useRef<any>(null);
   const orbitControlsRef = useRef<OrbitControlsImpl | null>(null);
@@ -521,6 +524,7 @@ const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>(({
             measurementActive={measurementActive}
             onMeasurementPoint={onMeasurementPoint}
             onSnapHover={setSnapHover}
+            xray={xray}
           />
         );
       })}

@@ -127,6 +127,8 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
   const [loading, setLoading] = useState(true);
   const [enhanceOpen, setEnhanceOpen] = useState(false);
   const [toolpathTypes, setToolpathTypes] = useState<string[]>([]);
+  const [statsCollapsed, setStatsCollapsed] = useState(false);
+  const isMobile = typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 640px)').matches;
 
   const { mode, layerIndex, moveCount, showGrid, showPrintPreview, mutedToolpaths = [], soloedToolpaths = [], colorToolpaths = false } = ui;
   const updateUi = (patch: Partial<GcodePreviewUiState>) => onUiChange({ ...ui, ...patch });
@@ -296,6 +298,10 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
     updateUi({ layerIndex: bounded, moveCount: count });
   };
 
+  const toggleStats = () => {
+    if (isMobile) setStatsCollapsed((collapsed) => !collapsed);
+  };
+
 
   return (
     <section className="gcode-preview">
@@ -316,15 +322,17 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
         {loading && <div className="gcode-loading"><Layers3 size={22} /><span>Building 3D toolpath…</span></div>}
 
 
-        <div className="gcode-stats panel">
-          <div><span>Print time</span><strong>{stats.time}</strong></div>
-          <div><span>Filament</span><strong>{stats.filament === '—' ? '—' : `${stats.filament} mm`}</strong></div>
-          <div><span>Weight</span><strong>{stats.weight === '—' ? '—' : `${stats.weight} g`}</strong></div>
-          <div><span>Layers</span><strong>{layerCount || '—'}</strong></div>
-          <div><span>Nozzle</span><strong>{stats.nozzle === '—' ? '—' : `${stats.nozzle} mm`}</strong></div>
-          <div><span>G-code</span><strong>{formatBytes(result.blob.size)}</strong></div>
-          {stats.cost !== '—' && <div><span>Material cost</span><strong>{stats.cost}</strong></div>}
-          {toolhead && <div className="toolhead-position"><span>Toolhead</span><strong>X{toolhead.x.toFixed(1)} Y{toolhead.y.toFixed(1)} Z{toolhead.z.toFixed(1)}</strong></div>}
+        <div className={`gcode-stats panel ${statsCollapsed ? 'is-collapsed' : ''}`} role={isMobile ? 'button' : undefined} tabIndex={isMobile ? 0 : undefined} aria-expanded={isMobile ? !statsCollapsed : undefined} aria-label={isMobile ? `${statsCollapsed ? 'Expand' : 'Collapse'} Print Info` : undefined} onClick={toggleStats} onKeyDown={(event) => { if (isMobile && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); toggleStats(); } }}>
+          {isMobile && statsCollapsed ? <strong className="print-info-label">Print Info</strong> : <>
+            <div><span>Print time</span><strong>{stats.time}</strong></div>
+            <div><span>Filament</span><strong>{stats.filament === '—' ? '—' : `${stats.filament} mm`}</strong></div>
+            <div><span>Weight</span><strong>{stats.weight === '—' ? '—' : `${stats.weight} g`}</strong></div>
+            <div><span>Layers</span><strong>{layerCount || '—'}</strong></div>
+            <div><span>Nozzle</span><strong>{stats.nozzle === '—' ? '—' : `${stats.nozzle} mm`}</strong></div>
+            <div><span>G-code</span><strong>{formatBytes(result.blob.size)}</strong></div>
+            {stats.cost !== '—' && <div><span>Material cost</span><strong>{stats.cost}</strong></div>}
+            {toolhead && <div className="toolhead-position"><span>Toolhead</span><strong>X{toolhead.x.toFixed(1)} Y{toolhead.y.toFixed(1)} Z{toolhead.z.toFixed(1)}</strong></div>}
+          </>}
         </div>
 
         <CameraPresetControls expanded={expanded} viewerLabel="G-code" onToggleExpanded={onToggleExpanded} onTop={() => setCameraPreset('top')} onFront={() => setCameraPreset('front')} onRight={() => setCameraPreset('right')} onCenter={() => setCameraPreset('fit')} />

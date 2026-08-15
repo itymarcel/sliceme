@@ -2,6 +2,12 @@
 
 Changes are grouped into one consolidated summary per calendar day.
 
+## 2026-08-15
+
+- Added a persistent X-Ray model inspection toggle with a Lucide Sun control that renders selected and unselected models as translucent double-sided geometry while preserving model picking, camera controls, and expanded view.
+- Changed the main application accent and selected-model highlight to `#89FF8E` while retaining yellow for G-code toolpaths.
+- Added and refined a clean phone layout with a 50/50 STL/G-code split, centered single-column hamburger menu, labeled SlidersHorizontal settings overlay, navbar slicing, compact fullscreen/X-Ray controls, visible Toolpaths, collapsible top-left Print Info, and true full-height expanded viewers.
+
 ## 2026-08-14
 
 - Replaced browser-native viewer fullscreen with an in-app expanded mode that hides the SliceMe navbar, settings sidebar, and sibling viewer while retaining the selected viewer's complete controls and state.

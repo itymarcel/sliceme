@@ -70,5 +70,6 @@ export type WorkspaceUiState = {
   prefillDescription: string;
   aiHighlightedFields: AiHighlightedFields;
   measurementActive: boolean;
+  xrayModel: boolean;
   gcodePreview: GcodePreviewUiState;
 };

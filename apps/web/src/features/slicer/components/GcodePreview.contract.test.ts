@@ -30,4 +30,14 @@ describe('G-code toolbar presentation', () => {
   it('does not move buttons vertically on hover', () => {
     expect(styles).not.toMatch(/:hover[^\{]*\{[^}]*transform:\s*translateY\(\s*-\d/s);
   });
+
+  it('provides compact tappable mobile print info without hiding Toolpaths', () => {
+    expect(component).toContain('statsCollapsed');
+    expect(component).toContain('Print Info');
+    expect(component).toContain("role={isMobile ? 'button' : undefined}");
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.gcode-stats\s*\{[^}]*top:\s*6px;[^}]*left:\s*6px/);
+    expect(styles).toMatch(/\.gcode-stats\.is-collapsed\s*\{/);
+    expect(styles).toMatch(/\.gcode-toolbar-controls\s*\{[^}]*overflow:\s*visible/);
+    expect(styles).toMatch(/\.toolpath-controls\s*\{[^}]*flex:\s*0 0 auto/);
+  });
 });

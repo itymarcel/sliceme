@@ -6,6 +6,7 @@ export const defaultWorkspaceUi = (): WorkspaceUiState => ({
   prefillDescription: '',
   aiHighlightedFields: {},
   measurementActive: false,
+  xrayModel: false,
   gcodePreview: {
     mode: 'preview',
     layerIndex: -1,
