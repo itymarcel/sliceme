@@ -61,7 +61,7 @@ export function MobileActionsMenu(props: Props) {
       ><Menu size={14} /></button>
       <button className={`mobile-menu-backdrop ${open ? 'is-open' : ''}`} type="button" aria-label="Close main menu" aria-hidden={!open} tabIndex={open ? 0 : -1} onClick={() => setOpen(false)} />
       <div id="mobile-main-menu" className={`mobile-main-menu panel ${open ? 'is-open' : ''}`} aria-label="Main menu" aria-hidden={!open}>
-        <header><strong>Menu</strong><button type="button" aria-label="Close main menu" tabIndex={open ? 0 : -1} onClick={() => setOpen(false)}><X size={16} /></button></header>
+        <header><strong>Slicme</strong><button type="button" aria-label="Close main menu" tabIndex={open ? 0 : -1} onClick={() => setOpen(false)}><X size={16} /></button></header>
         <div className="mobile-menu-grid">
           <button type="button" tabIndex={open ? 0 : -1} onClick={() => run(props.onAddModel)}><FileUp size={16} /> Add model</button>
           <button type="button" tabIndex={open ? 0 : -1} disabled={props.importingDisabled} onClick={() => run(props.onImportProject)}><PackageOpen size={16} /> Import *.3mf</button>
