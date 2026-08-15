@@ -1,4 +1,6 @@
-import { Move3D, Rotate3D } from 'lucide-react';
+import { Move3D, Rotate3D, RotateCw } from 'lucide-react';
+
+import { useState } from 'react';
 
 import type { Position, Rotation } from '../types';
 
@@ -13,6 +15,7 @@ const wrapDegrees = (value: number) => ((value % 360) + 360) % 360;
 const number = (value: string) => (Number.isFinite(Number(value)) ? Number(value) : 0);
 
 export function TransformPanel({ position, rotation, onPosition, onRotation }: Props) {
+  const [focused, setFocused] = useState<string | null>(null);
   return (
     <div className="transform-panel panel">
       <div className="transform-group">
@@ -36,7 +39,7 @@ export function TransformPanel({ position, rotation, onPosition, onRotation }: P
           );
         })}
       </div>
-      <div className="transform-group">
+      <div className="transform-group rotation-group">
         <span><Rotate3D size={14} aria-hidden /></span>
         {(['x', 'y', 'z'] as const).map((axis) => {
           const label = `Rotation ${axis.toUpperCase()}`;
@@ -50,25 +53,27 @@ export function TransformPanel({ position, rotation, onPosition, onRotation }: P
                 type="number"
                 step="1"
                 value={rotation[axis]}
-                onFocus={(event) => event.currentTarget.select()}
+                onFocus={(event) => {
+                  setFocused(id);
+                  event.currentTarget.select();
+                }}
+                onBlur={() => setFocused(null)}
                 onChange={(event) => onRotation({ ...rotation, [axis]: number(event.target.value) })}
               />
+              {focused !== id && (
+                <button
+                  type="button"
+                  className="rotate-overlay"
+                  aria-label={`Rotate ${axis.toUpperCase()} clockwise 45 degrees`}
+                  title={`Rotate ${axis.toUpperCase()} clockwise`}
+                  onClick={() => onRotation({ ...rotation, [axis]: wrapDegrees(rotation[axis] + 45) })}
+                >
+                  <RotateCw size={12} />
+                </button>
+              )}
             </div>
           );
         })}
-        <div className="quick-rotate">
-          {(['x', 'y', 'z'] as const).map((axis) => (
-            <button
-              key={axis}
-              type="button"
-              className="quick-rotate-button"
-              aria-label={`Rotate ${axis.toUpperCase()} by 45 degrees`}
-              onClick={() => onRotation({ ...rotation, [axis]: wrapDegrees(rotation[axis] + 45) })}
-            >
-              {axis.toUpperCase()}+45°
-            </button>
-          ))}
-        </div>
       </div>
     </div>
   );

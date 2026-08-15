@@ -195,9 +195,9 @@ button { color: inherit; }
 .transform-panel .parameter-help-trigger { width: 14px; height: 14px; }
 .transform-panel .parameter-help-popover { position: fixed; right: auto; width: min(270px, calc(100vw - 24px)); }
 .transform-group input { width: 52px; height: 25px; }
-.quick-rotate { display: flex; gap: 3px; margin-left: 2px; }
-.quick-rotate-button { min-width: 30px; padding: 0 4px; height: 25px; border: 1px solid #283747; border-radius: 6px; background: #0a1016; color: #8aa0b4; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; cursor: pointer; }
-.quick-rotate-button:hover { border-color: rgba(137,255,142,.45); color: var(--accent); }
+.transform-field { position: relative; }
+.rotate-overlay { position: absolute; top: 50%; right: 2px; transform: translateY(-50%); width: 18px; height: 18px; display: grid; place-items: center; border: 0; border-radius: 4px; background: rgba(137,255,142,.14); color: var(--accent); cursor: pointer; }
+.rotate-overlay:hover { background: rgba(137,255,142,.28); }
 
 .gcode-preview { min-width: 0; min-height: 0; position: relative; border-left: 1px solid var(--line); background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
 .gcode-viewport { min-width: 0; min-height: 0; position: relative; flex: 1; overflow: hidden; }
@@ -340,7 +340,7 @@ button { color: inherit; }
   .transform-group > span { width: auto; }
   .transform-field { min-width: 0; }
   .transform-group input { width: 100%; min-width: 0; }
-  .quick-rotate { grid-column: 1 / -1; flex-wrap: wrap; }
+  .rotate-overlay { right: 4px; }
   .preview-toolbar { min-height: 34px; margin: 6px 6px 0; gap: 5px; }
   .gcode-toolbar-controls { width: max-content; min-width: 0; max-width: none; flex: 0 0 auto; justify-content: flex-end; overflow: visible; }
   .gcode-toolbar-controls .toolbar-button > span { display: none; }
