@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Download, Eraser, FileUp, LoaderCircle, OctagonX, Redo2, Scissors, ShieldCheck, SlidersHorizontal, Undo2, X } from 'lucide-react';
+import { Box, Download, Eraser, FileUp, LoaderCircle, OctagonX, Redo2, ShieldCheck, SlidersHorizontal, Slice, Undo2, X } from 'lucide-react';
 
 import { GcodePreview } from './components/GcodePreview';
 import { AiPrefillPanel } from './components/AiPrefillPanel';
@@ -92,7 +92,7 @@ export function SlicerWorkspace() {
           <HeaderMoreMenu onAddModel={openFilePicker} onImportProject={openProjectPicker} onExportProject={() => void workspace.exportProject()} importingDisabled={workspace.projectBusy !== null} exportingDisabled={!workspace.models.length || workspace.projectBusy !== null} />
           <button className="button ghost danger" disabled={!workspace.models.length} onClick={workspace.clear}><Eraser size={15} /> Clear</button>
           {workspace.gcode && <a className="button secondary download" href={workspace.gcode.url} download={workspace.gcode.fileName}><Download size={15} /> Download</a>}
-          {workspace.status === 'slicing' ? <button className="button danger" onClick={workspace.cancelSlice}><OctagonX size={15} /> Cancel</button> : <button className="button primary" disabled={!workspace.models.length || workspace.defaultsLoading} onClick={workspace.slice}><Scissors size={15} /> Slice</button>}
+          {workspace.status === 'slicing' ? <button className="button danger" onClick={workspace.cancelSlice}><OctagonX size={15} /> Cancel</button> : <button className="button primary" disabled={!workspace.models.length || workspace.defaultsLoading} onClick={workspace.slice}><Slice size={15} /> Slice</button>}
         </div>
         <MobileActionsMenu
           onAddModel={openFilePicker}
@@ -110,7 +110,7 @@ export function SlicerWorkspace() {
           <button className="mobile-settings-trigger mobile-header-button" type="button" aria-label="Open objects and slicer settings" aria-expanded={mobileSettingsOpen} aria-controls="mobile-settings-panel" onClick={() => setMobileSettingsOpen(true)}><SlidersHorizontal size={14} /><span>Settings</span></button>
           {workspace.status === 'slicing'
             ? <button className="mobile-navbar-slice button danger" type="button" onClick={workspace.cancelSlice}><OctagonX size={14} /> Cancel</button>
-            : <button className="mobile-navbar-slice button primary" type="button" disabled={!workspace.models.length || workspace.defaultsLoading} onClick={workspace.slice}><Scissors size={14} /> Slice</button>}
+            : <button className="mobile-navbar-slice button primary" type="button" disabled={!workspace.models.length || workspace.defaultsLoading} onClick={workspace.slice}><Slice size={14} /> Slice</button>}
         </div>
       </header>
 

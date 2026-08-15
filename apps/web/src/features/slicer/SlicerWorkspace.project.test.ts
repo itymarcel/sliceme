@@ -33,7 +33,7 @@ describe('workspace header controls', () => {
 
   it('keeps Slice rightmost and styles Download as secondary', () => {
     expect(workspace).toContain('className="button secondary download"');
-    expect(workspace.indexOf('className="button secondary download"')).toBeLessThan(workspace.indexOf('<Scissors size={15} /> Slice'));
+    expect(workspace.indexOf('className="button secondary download"')).toBeLessThan(workspace.indexOf('<Slice size={15} /> Slice'));
   });
 
   it('owns in-app expanded viewer state without the browser Fullscreen API', () => {

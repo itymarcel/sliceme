@@ -8,6 +8,7 @@ Changes are grouped into one consolidated summary per calendar day.
 - Changed the main application accent and selected-model highlight to `#89FF8E` while retaining yellow for G-code toolpaths.
 - Added and refined a clean phone layout with a 50/50 STL/G-code split, centered single-column hamburger menu, navbar Undo/Redo, labeled SlidersHorizontal settings and slicing actions, horizontally aligned Measure/Position/Rotation controls, compact fullscreen/X-Ray controls, shrink-wrapped visible Toolpaths, collapsible top-left Print Info, and true full-height expanded viewers.
 - Extended unified workspace Undo/Redo to model position and rotation edits plus model addition and removal, with one history entry per viewer drag and durable model restoration.
+- Swapped the Slice button icon from scissors to the Lucide Slice icon, and added a clear disabled visual state for the mobile navbar Undo/Redo controls so they no longer appear permanently active.
 
 ## 2026-08-14
 
