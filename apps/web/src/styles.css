@@ -194,9 +194,9 @@ button { color: inherit; }
 .transform-field > span { display: inline-flex; align-items: center; gap: 1px; }
 .transform-panel .parameter-help-trigger { width: 14px; height: 14px; }
 .transform-panel .parameter-help-popover { position: fixed; right: auto; width: min(270px, calc(100vw - 24px)); }
-.transform-group input { width: 52px; height: 25px; }
+.transform-group input { width: 65px; height: 25px; }
 .transform-field { position: relative; }
-.rotate-overlay { position: absolute; top: 50%; right: 2px; transform: translateY(-50%); width: 18px; height: 18px; display: grid; place-items: center; border: 0; border-radius: 4px; background: rgba(137,255,142,.14); color: var(--accent); cursor: pointer; }
+.rotate-overlay { position: absolute; top: 50%; right: 4px; transform: translateY(-50%); width: 18px; height: 18px; display: grid; place-items: center; border: 0; border-radius: 4px; background: rgba(137,255,142,.14); color: var(--accent); cursor: pointer; display: flex; justify-content: center; }
 .rotate-overlay:hover { background: rgba(137,255,142,.28); }
 
 .gcode-preview { min-width: 0; min-height: 0; position: relative; border-left: 1px solid var(--line); background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
