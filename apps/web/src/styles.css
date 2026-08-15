@@ -189,12 +189,15 @@ button { color: inherit; }
 .axis-legend .axis-z { color: #5b8cff; }
 .transform-panel { position: absolute; top: 14px; right: 14px; padding: 8px; display: flex; flex-direction: column; gap: 7px; z-index: 10; }
 .transform-group { display: flex; align-items: center; gap: 5px; }
-.transform-group > span { width: 76px; display: flex; align-items: center; gap: 6px; color: #71859a; font-size: 9px; }
+.transform-group > span { display: flex; align-items: center; gap: 6px; color: #71859a; font-size: 9px; }
 .transform-field { display: flex; align-items: center; gap: 3px; color: #65798e; font-size: 8px; }
 .transform-field > span { display: inline-flex; align-items: center; gap: 1px; }
 .transform-panel .parameter-help-trigger { width: 14px; height: 14px; }
 .transform-panel .parameter-help-popover { position: fixed; right: auto; width: min(270px, calc(100vw - 24px)); }
 .transform-group input { width: 52px; height: 25px; }
+.quick-rotate { display: flex; gap: 3px; margin-left: 2px; }
+.quick-rotate-button { min-width: 30px; padding: 0 4px; height: 25px; border: 1px solid #283747; border-radius: 6px; background: #0a1016; color: #8aa0b4; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; cursor: pointer; }
+.quick-rotate-button:hover { border-color: rgba(137,255,142,.45); color: var(--accent); }
 
 .gcode-preview { min-width: 0; min-height: 0; position: relative; border-left: 1px solid var(--line); background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
 .gcode-viewport { min-width: 0; min-height: 0; position: relative; flex: 1; overflow: hidden; }
@@ -333,10 +336,11 @@ button { color: inherit; }
   .model-edit-controls .measurement-panel { flex: 0 0 auto; }
   .model-edit-controls .measurement-panel.active, .model-edit-controls .measurement-readout { width: 140px; }
   .model-edit-controls .transform-panel { min-width: 0; max-width: none; flex: 1 1 auto; padding: 6px; }
-  .transform-group { display: grid; grid-template-columns: 62px repeat(3, minmax(0, 1fr)); }
+  .transform-group { display: grid; grid-template-columns: 16px repeat(3, minmax(0, 1fr)); align-items: center; }
   .transform-group > span { width: auto; }
   .transform-field { min-width: 0; }
   .transform-group input { width: 100%; min-width: 0; }
+  .quick-rotate { grid-column: 1 / -1; flex-wrap: wrap; }
   .preview-toolbar { min-height: 34px; margin: 6px 6px 0; gap: 5px; }
   .gcode-toolbar-controls { width: max-content; min-width: 0; max-width: none; flex: 0 0 auto; justify-content: flex-end; overflow: visible; }
   .gcode-toolbar-controls .toolbar-button > span { display: none; }
