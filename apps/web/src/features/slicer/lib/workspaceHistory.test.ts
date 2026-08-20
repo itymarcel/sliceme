@@ -15,7 +15,10 @@ const snapshot = (value: string): WorkspaceHistorySnapshot => ({
   rangeOverrides: {},
   positions: { 'model-a': { x: Number(value), y: 20 } },
   rotations: { 'model-a': { x: 0, y: 0, z: Number(value) } },
+  scales: { 'model-a': { x: 1, y: 1, z: 1 } },
+  modelNames: { 'model-a': 'Model A' },
   startPositions: {},
+  selectedFileIds: ['model-a'],
   selectedNode: { type: 'scene' as const },
 });
 
@@ -52,5 +55,7 @@ describe('workspace history', () => {
     expect(redone.snapshot?.modelOrder).toEqual(['model-a']);
     expect(redone.snapshot?.positions['model-a']).toEqual({ x: 0.3, y: 20 });
     expect(redone.snapshot?.rotations['model-a']).toEqual({ x: 0, y: 0, z: 0.3 });
+    expect(redone.snapshot?.scales['model-a']).toEqual({ x: 1, y: 1, z: 1 });
+    expect(redone.snapshot?.modelNames['model-a']).toBe('Model A');
   });
 });

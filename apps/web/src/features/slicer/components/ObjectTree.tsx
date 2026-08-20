@@ -1,4 +1,5 @@
-import { Box, CornerDownRight, Globe2, Layers3, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { AlertTriangle, Box, CornerDownRight, Globe2, Layers3, Plus, Sparkles, Trash2 } from 'lucide-react';
 
 import type { RangeOverride, SelectedNode, SlicerModel } from '../types';
 
@@ -6,11 +7,40 @@ type Props = {
   models: SlicerModel[];
   ranges: Record<string, RangeOverride[]>;
   selected: SelectedNode;
+  selectedFileIds?: string[];
+  modelNames?: Record<string, string>;
+  placementIssues?: Record<string, string[]>;
   onSelect: (node: SelectedNode) => void;
+  onSelectFile?: (fileId: string, additive: boolean) => void;
+  onRename?: (fileId: string, name: string) => void;
+  onArrange?: () => void;
   onAddModels: () => void;
   onRemoveModel: (fileId: string) => void;
   onAddRange: (fileId: string) => void;
   onRemoveRange: (fileId: string, rangeIndex: number) => void;
+};
+
+function ObjectName({ fileId, name, onRename }: { fileId: string; name: string; onRename?: (fileId: string, name: string) => void }) {
+  const [value, setValue] = useState(name);
+  useEffect(() => setValue(name), [name]);
+  const commit = () => {
+    const clean = value.trim();
+    if (!clean || clean === name) {
+      setValue(name);
+      return;
+    }
+    setValue(clean);
+    onRename?.(fileId, clean);
+  };
+  return <input aria-label="Object name" value={value} onClick={(event) => event.stopPropagation()} onChange={(event) => setValue(event.target.value)} onBlur={commit} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} />;
+}
+
+const placementIssueLabel = (name: string, issues: string[]) => {
+  const outside = issues.includes('outside');
+  const overlap = issues.includes('overlap');
+  if (outside && overlap) return `${name} is outside the bed and overlaps another object`;
+  if (outside) return `${name} is outside the bed`;
+  return `${name} overlaps another object`;
 };
 
 const selected = (current: SelectedNode, candidate: SelectedNode) =>
@@ -23,7 +53,10 @@ export function ObjectTree(props: Props) {
     <section className="object-tree panel">
       <div className="panel-heading">
         <div><span className="eyebrow">Workspace</span><strong>Objects</strong></div>
-        <button className="icon-button" onClick={props.onAddModels} title="Add models"><Plus size={16} /></button>
+        <div className="tree-heading-actions">
+          {props.onArrange && <button className="icon-button" type="button" aria-label="Auto arrange objects" title="Auto arrange objects" onClick={props.onArrange}><Sparkles size={15} /></button>}
+          <button className="icon-button" title="Add models" aria-label="Add models" onClick={props.onAddModels}><Plus size={15} /></button>
+        </div>
       </div>
       <div className="tree-list">
         <div className="tree-line">
@@ -35,10 +68,16 @@ export function ObjectTree(props: Props) {
         {props.models.map((model) => (
           <div className="tree-object" key={model.fileId}>
             <div className="tree-line">
-              <button className={`tree-row ${selected(props.selected, { type: 'file', fileId: model.fileId }) ? 'active' : ''}`} onClick={() => props.onSelect({ type: 'file', fileId: model.fileId })}>
-                <Box size={15} /><span title={model.fileName}>{model.fileName}</span>
-              </button>
-              <button className="icon-button danger" title="Remove model" onClick={() => props.onRemoveModel(model.fileId)}><Trash2 size={14} /></button>
+              <div className={`tree-row ${(props.selectedFileIds?.includes(model.fileId) || selected(props.selected, { type: 'file', fileId: model.fileId })) ? 'active' : ''}`}>
+                <button className="tree-select-button" type="button" aria-label={`Select ${props.modelNames?.[model.fileId] ?? model.fileName}`} onClick={(event) => props.onSelectFile?.(model.fileId, event.ctrlKey || event.metaKey || event.shiftKey) ?? props.onSelect({ type: 'file', fileId: model.fileId })}>
+                  <Box size={15} />
+                </button>
+                <ObjectName fileId={model.fileId} name={props.modelNames?.[model.fileId] ?? model.fileName} onRename={props.onRename} />
+                {!!props.placementIssues?.[model.fileId]?.length && (
+                  <AlertTriangle size={14} className="placement-warning" role="status" aria-label={placementIssueLabel(props.modelNames?.[model.fileId] ?? model.fileName, props.placementIssues[model.fileId])} />
+                )}
+              </div>
+              <button className="icon-button danger" title="Remove model" aria-label={`Remove ${props.modelNames?.[model.fileId] ?? model.fileName}`} onClick={() => props.onRemoveModel(model.fileId)}><Trash2 size={14} /></button>
             </div>
             {(props.ranges[model.fileId] ?? []).map((range, index) => (
               <div className="tree-line" key={index}>

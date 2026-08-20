@@ -509,10 +509,16 @@ def _build_3dmodel_xml(stl_bytes_list: list, per_object_transforms: list = None,
         if isinstance(raw_transform, dict):
             pos = raw_transform.get('position', {})
             rot = raw_transform.get('rotation', {})
+            scale = raw_transform.get('scale', {})
 
             desired_x = float(pos.get('x', 0.0))
             desired_y = float(pos.get('y', 0.0))
             user_z    = float(pos.get('z', 0.0))
+            sx_scale = float(scale.get('x', 1.0))
+            sy_scale = float(scale.get('y', 1.0))
+            sz_scale = float(scale.get('z', 1.0))
+            if any(not math.isfinite(value) or value == 0 for value in (sx_scale, sy_scale, sz_scale)):
+                raise ValueError("Object scale must contain finite non-zero values")
 
             # Frontend is Three.js (Y-up). OrcaSlicer is Z-up.
             # rx negated: Three.js rx=+90° inverts OrcaSlicer Z (world_z=-vy). rx=-90° gives world_z=+vy ✓
@@ -523,9 +529,9 @@ def _build_3dmodel_xml(stl_bytes_list: list, per_object_transforms: list = None,
             cx_r, sx_r = math.cos(rx), math.sin(rx)
             cy_r, sy_r = math.cos(ry), math.sin(ry)
             cz_r, sz_r = math.cos(rz), math.sin(rz)
-            m00 = cz_r*cy_r;  m01 = cz_r*sy_r*sx_r - sz_r*cx_r;  m02 = cz_r*sy_r*cx_r + sz_r*sx_r
-            m10 = sz_r*cy_r;  m11 = sz_r*sy_r*sx_r + cz_r*cx_r;  m12 = sz_r*sy_r*cx_r - cz_r*sx_r
-            m20 = -sy_r;      m21 = cy_r*sx_r;                    m22 = cy_r*cx_r
+            m00 = (cz_r*cy_r) * sx_scale;  m01 = (cz_r*sy_r*sx_r - sz_r*cx_r) * sx_scale;  m02 = (cz_r*sy_r*cx_r + sz_r*sx_r) * sx_scale
+            m10 = (sz_r*cy_r) * sy_scale;  m11 = (sz_r*sy_r*sx_r + cz_r*cx_r) * sy_scale;  m12 = (sz_r*sy_r*cx_r - cz_r*sx_r) * sy_scale
+            m20 = (-sy_r) * sz_scale;      m21 = (cy_r*sx_r) * sz_scale;                    m22 = (cy_r*cx_r) * sz_scale
 
             tx = desired_x - (m00*mesh_cx + m10*mesh_cy + m20*mesh_cz)
             ty = desired_y - (m01*mesh_cx + m11*mesh_cy + m21*mesh_cz)
@@ -876,10 +882,14 @@ def _build_affine_from_item_transform(raw_transform, vertices: list, bed_center:
     if isinstance(raw_transform, dict):
         pos = raw_transform.get('position', {})
         rot = raw_transform.get('rotation', {})
+        scale = raw_transform.get('scale', {})
 
         desired_x = float(pos.get('x', 0.0))
         desired_y = float(pos.get('y', 0.0))
         user_z = float(pos.get('z', 0.0))
+        sx_scale = float(scale.get('x', 1.0))
+        sy_scale = float(scale.get('y', 1.0))
+        sz_scale = float(scale.get('z', 1.0))
 
         rx = -math.radians(float(rot.get('x', 0.0)))
         ry = math.radians(float(rot.get('y', 0.0)))
@@ -888,15 +898,15 @@ def _build_affine_from_item_transform(raw_transform, vertices: list, bed_center:
         cy_r, sy_r = math.cos(ry), math.sin(ry)
         cz_r, sz_r = math.cos(rz), math.sin(rz)
 
-        m00 = cz_r * cy_r
-        m01 = cz_r * sy_r * sx_r - sz_r * cx_r
-        m02 = cz_r * sy_r * cx_r + sz_r * sx_r
-        m10 = sz_r * cy_r
-        m11 = sz_r * sy_r * sx_r + cz_r * cx_r
-        m12 = sz_r * sy_r * cx_r - cz_r * sx_r
-        m20 = -sy_r
-        m21 = cy_r * sx_r
-        m22 = cy_r * cx_r
+        m00 = (cz_r * cy_r) * sx_scale
+        m01 = (cz_r * sy_r * sx_r - sz_r * cx_r) * sx_scale
+        m02 = (cz_r * sy_r * cx_r + sz_r * sx_r) * sx_scale
+        m10 = (sz_r * cy_r) * sy_scale
+        m11 = (sz_r * sy_r * sx_r + cz_r * cx_r) * sy_scale
+        m12 = (sz_r * sy_r * cx_r - cz_r * sx_r) * sy_scale
+        m20 = (-sy_r) * sz_scale
+        m21 = (cy_r * sx_r) * sz_scale
+        m22 = (cy_r * cx_r) * sz_scale
 
         tx = desired_x - (m00 * mesh_cx + m10 * mesh_cy + m20 * mesh_cz)
         ty = desired_y - (m01 * mesh_cx + m11 * mesh_cy + m21 * mesh_cz)

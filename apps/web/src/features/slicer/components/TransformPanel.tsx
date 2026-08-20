@@ -1,20 +1,29 @@
-import { Move3D, Rotate3D, RotateCw } from 'lucide-react';
+import { AlignCenter, Copy, FlipHorizontal2, FlipVertical2, Move3D, Rotate3D, RotateCw, Scaling } from 'lucide-react';
 
 import { useState } from 'react';
 
-import type { Position, Rotation } from '../types';
+import type { Position, Rotation, Scale } from '../types';
 
 type Props = {
   position: Position;
   rotation: Rotation;
+  scale?: Scale;
   onPosition: (position: Position) => void;
   onRotation: (rotation: Rotation) => void;
+  onScale?: (scale: Scale) => void;
+  onMirror?: (axis: keyof Scale) => void;
+  onDuplicate?: () => void;
+  onCenter?: () => void;
+  onLayFlat?: () => void;
 };
 
 const wrapDegrees = (value: number) => ((value % 360) + 360) % 360;
 const number = (value: string) => (Number.isFinite(Number(value)) ? Number(value) : 0);
 
-export function TransformPanel({ position, rotation, onPosition, onRotation }: Props) {
+export function TransformPanel({
+  position, rotation, scale = { x: 1, y: 1, z: 1 }, onPosition, onRotation,
+  onScale, onMirror, onDuplicate, onCenter, onLayFlat,
+}: Props) {
   const [focused, setFocused] = useState<string | null>(null);
   return (
     <div className="transform-panel panel">
@@ -75,6 +84,39 @@ export function TransformPanel({ position, rotation, onPosition, onRotation }: P
           );
         })}
       </div>
+      {onScale && (
+        <div className="transform-group scale-group">
+          <span><Scaling size={14} aria-hidden /></span>
+          <div className="transform-field scale-field">
+            <span><label htmlFor="scale-percent">%</label></span>
+            <input
+              id="scale-percent"
+              aria-label="Scale percent"
+              type="number"
+              min="1"
+              step="1"
+              value={Math.round(Math.abs(scale.x) * 100)}
+              onFocus={(event) => event.currentTarget.select()}
+              onChange={(event) => {
+                const next = Math.max(0.01, number(event.target.value) / 100);
+                onScale({ x: Math.sign(scale.x || 1) * next, y: Math.sign(scale.y || 1) * next, z: Math.sign(scale.z || 1) * next });
+              }}
+            />
+          </div>
+          {(['x', 'y', 'z'] as const).map((axis) => (
+            <button key={axis} className="transform-action" type="button" aria-label={`Mirror ${axis.toUpperCase()}`} title={`Mirror ${axis.toUpperCase()}`} onClick={() => onMirror?.(axis)}>
+              {axis === 'y' ? <FlipVertical2 size={13} /> : <FlipHorizontal2 size={13} />}<small>{axis.toUpperCase()}</small>
+            </button>
+          ))}
+        </div>
+      )}
+      {(onDuplicate || onCenter || onLayFlat) && (
+        <div className="object-quick-actions">
+          {onDuplicate && <button type="button" aria-label="Duplicate object" onClick={onDuplicate}><Copy size={13} /> Duplicate</button>}
+          {onCenter && <button type="button" aria-label="Center object" onClick={onCenter}><AlignCenter size={13} /> Center</button>}
+          {onLayFlat && <button type="button" aria-label="Lay largest face flat" onClick={onLayFlat}><FlipVertical2 size={13} /> Lay flat</button>}
+        </div>
+      )}
     </div>
   );
 }

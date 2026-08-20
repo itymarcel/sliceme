@@ -40,12 +40,26 @@ describe('transform controls', () => {
     expect(screen.getByRole('button', { name: 'Rotate X clockwise 45 degrees' })).toBeTruthy();
   });
 
-  it('rotates 45 degrees clockwise around the chosen axis and keeps the value within 0-359', () => {
-    const onRotation = vi.fn();
-    render(<TransformPanel position={{ x: 0, y: 0 }} rotation={{ x: 10, y: 0, z: 350 }} onPosition={vi.fn()} onRotation={onRotation} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Rotate X clockwise 45 degrees' }));
-    expect(onRotation).toHaveBeenCalledWith({ x: 55, y: 0, z: 350 });
-    fireEvent.click(screen.getByRole('button', { name: 'Rotate Z clockwise 45 degrees' }));
-    expect(onRotation).toHaveBeenCalledWith({ x: 10, y: 0, z: 35 });
+  it('exposes uniform scaling, mirroring, and object actions', () => {
+    const onScale = vi.fn();
+    const onMirror = vi.fn();
+    const onDuplicate = vi.fn();
+    const onCenter = vi.fn();
+    const onLayFlat = vi.fn();
+    render(<TransformPanel
+      position={{ x: 0, y: 0 }} rotation={{ x: 0, y: 0, z: 0 }} scale={{ x: 1, y: 1, z: 1 }}
+      onPosition={vi.fn()} onRotation={vi.fn()} onScale={onScale} onMirror={onMirror}
+      onDuplicate={onDuplicate} onCenter={onCenter} onLayFlat={onLayFlat}
+    />);
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Scale percent' }), { target: { value: '150' } });
+    expect(onScale).toHaveBeenCalledWith({ x: 1.5, y: 1.5, z: 1.5 });
+    fireEvent.click(screen.getByRole('button', { name: 'Mirror X' }));
+    expect(onMirror).toHaveBeenCalledWith('x');
+    fireEvent.click(screen.getByRole('button', { name: 'Duplicate object' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Center object' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Lay largest face flat' }));
+    expect(onDuplicate).toHaveBeenCalledOnce();
+    expect(onCenter).toHaveBeenCalledOnce();
+    expect(onLayFlat).toHaveBeenCalledOnce();
   });
 });

@@ -1,4 +1,4 @@
-import type { ConfigBundle, Position, RangeOverride, Rotation, SelectedNode } from '../types';
+import type { ConfigBundle, Position, RangeOverride, Rotation, Scale, SelectedNode } from '../types';
 
 export type WorkspaceHistorySnapshot = {
   modelOrder: string[];
@@ -7,7 +7,10 @@ export type WorkspaceHistorySnapshot = {
   rangeOverrides: Record<string, RangeOverride[]>;
   positions: Record<string, Position>;
   rotations: Record<string, Rotation>;
+  scales: Record<string, Scale>;
+  modelNames: Record<string, string>;
   startPositions: Record<string, Position>;
+  selectedFileIds: string[];
   selectedNode: SelectedNode;
 };
 

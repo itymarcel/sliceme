@@ -6,7 +6,7 @@ import zipfile
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from app.engine import SliceJob, UploadedModel, build_3mf, default_config, load_project_config, slice_job
+from app.engine import SliceJob, UploadedModel, _build_affine_from_item_transform, build_3mf, default_config, load_project_config, slice_job
 
 
 def triangle_stl() -> bytes:
@@ -44,6 +44,26 @@ class EngineTest(unittest.TestCase):
             settings = json.loads(package.read("Metadata/project_settings.config"))
             self.assertEqual(settings["variable_layer_height"], "0")
             self.assertEqual(settings["single_extruder_multi_material"], "0")
+
+    def test_scale_and_mirror_are_embedded_in_build_transform(self):
+        job = self.job()
+        job.transforms["model-1"]["scale"] = {"x": -2, "y": 1.5, "z": 1}
+        archive = build_3mf(job)
+        with zipfile.ZipFile(io.BytesIO(archive)) as package:
+            model_xml = package.read("3D/3dmodel.model").decode()
+        transform = model_xml.split('transform="', 1)[1].split('"', 1)[0]
+        values = [float(value) for value in transform.split()]
+        self.assertEqual(values[0], -2)
+        self.assertEqual(values[4], 1.5)
+        self.assertEqual(values[8], 1)
+
+    def test_scale_and_mirror_are_applied_by_direct_mesh_transform(self):
+        values = _build_affine_from_item_transform(
+            {"position": {"x": 10, "y": 20}, "rotation": {"x": 0, "y": 0, "z": 0}, "scale": {"x": -2, "y": 1.5, "z": 3}},
+            [(0, 0, 0), (2, 4, 6)],
+            (0, 0),
+        )
+        self.assertEqual(values[:9], [-2, 0, 0, 0, 1.5, 0, 0, 0, 3])
 
     def test_spiral_mode_applies_required_relational_settings(self):
         config = load_project_config(SimpleNamespace(config={"process_config": {

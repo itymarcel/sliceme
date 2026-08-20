@@ -2,6 +2,11 @@
 
 Changes are grouped into one consolidated summary per calendar day.
 
+## 2026-08-20
+
+- Added essential object preparation tools: uniform scaling, per-axis mirroring, duplicate, center, largest-face lay-flat, automatic bed arrangement, editable object names, modifier-key multi-selection, and visible out-of-bed/overlap warnings.
+- Extended browser persistence, unified undo/redo history, viewport rendering, slice manifests, and native Orca 3MF transforms so scale and mirror state survive reloads and produce matching sliced geometry.
+
 ## 2026-08-15
 
 - Added a persistent X-Ray model inspection toggle with a Lucide Sun control that renders selected and unselected models as translucent double-sided geometry while preserving model picking, camera controls, and expanded view.

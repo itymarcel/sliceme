@@ -3,10 +3,11 @@ import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Line } from '@react-three/drei';
 import { parseGeometry } from '../lib/geometryParserClient';
 import { Box3, BufferGeometry, BufferAttribute, DirectionalLight, DoubleSide, Euler, Matrix4, Plane, Vector2, Vector3, Raycaster } from 'three';
-import type { SlicerModel } from '../types';
+import type { Rotation, Scale, SlicerModel } from '../types';
 import { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { closestSnapCandidate, type MeasurementPoint } from '../lib/measurement';
 import { modelMaterialAppearance } from '../lib/modelAppearance';
+import { largestFaceDownRotation, type ModelBounds } from '../lib/objectTools';
 
 const DEG2RAD = Math.PI / 180;
 const GROUND_PLANE = new Plane(new Vector3(0, 0, 1), 0);
@@ -63,8 +64,9 @@ type SlicerStlMeshProps = {
   selected: boolean;
   position: FilePosition;
   rotation: FileRotation;
+  scale: Scale;
   buildVolume: BuildVolume;
-  onSelect: () => void;
+  onSelect: (additive: boolean) => void;
   onDragStart: () => void;
   onPositionChange: (x: number, y: number) => void;
   setOrbitEnabled: (enabled: boolean) => void;
@@ -77,7 +79,7 @@ type SlicerStlMeshProps = {
 };
 
 const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
-  file, selected, position, rotation, buildVolume, onSelect, onDragStart, onPositionChange, setOrbitEnabled, onGeometryLoaded,
+  file, selected, position, rotation, scale, buildVolume, onSelect, onDragStart, onPositionChange, setOrbitEnabled, onGeometryLoaded,
   seamPickActive = false, measurementActive = false, onMeasurementPoint, onSnapHover, xray = false,
 }) => {
   const [geometry, setGeometry] = useState<BufferGeometry | undefined>(undefined);
@@ -89,9 +91,10 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
   const zLift = useMemo(() => {
     if (!geometry?.boundingBox) return 0;
     const euler = new Euler(rotation.x * DEG2RAD, rotation.y * DEG2RAD, rotation.z * DEG2RAD);
-    const rotatedBox = geometry.boundingBox.clone().applyMatrix4(new Matrix4().makeRotationFromEuler(euler));
+    const matrix = new Matrix4().makeRotationFromEuler(euler).scale(new Vector3(scale.x, scale.y, scale.z));
+    const rotatedBox = geometry.boundingBox.clone().applyMatrix4(matrix);
     return -rotatedBox.min.z;
-  }, [geometry, rotation]);
+  }, [geometry, rotation, scale]);
   const dragState = useRef({ active: false, offsetX: 0, offsetY: 0 });
   const pointerMoved = useRef(false);
   const pointerDownClient = useRef<{ x: number; y: number } | null>(null);
@@ -119,7 +122,7 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
     return () => { cancelled = true; };
   }, [file.objectUrl]);
 
-  useEffect(() => { invalidate(); }, [rotation, position]);
+  useEffect(() => { invalidate(); }, [rotation, position, scale]);
 
   if (!geometry) return null;
 
@@ -155,6 +158,7 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
       geometry={geometry}
       position={[position.x, position.y, zLift]}
       rotation={[rotation.x * DEG2RAD, rotation.y * DEG2RAD, rotation.z * DEG2RAD]}
+      scale={[scale.x, scale.y, scale.z]}
       castShadow={!xray}
       onPointerDown={(e) => {
         e.stopPropagation();
@@ -192,7 +196,7 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
           dragState.current.active = false;
           (e.target as Element).releasePointerCapture(e.pointerId);
           setOrbitEnabled(true);
-          if (!pointerMoved.current) onSelect();
+          if (!pointerMoved.current) onSelect(e.nativeEvent.ctrlKey || e.nativeEvent.metaKey || e.nativeEvent.shiftKey);
           return;
         }
         // Unselected path: only select if the pointer barely moved (genuine click,
@@ -200,7 +204,7 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
         if (!selected && pointerDownClient.current) {
           const dx = e.clientX - pointerDownClient.current.x;
           const dy = e.clientY - pointerDownClient.current.y;
-          if (dx * dx + dy * dy < 25) onSelect(); // < 5 px
+          if (dx * dx + dy * dy < 25) onSelect(e.nativeEvent.ctrlKey || e.nativeEvent.metaKey || e.nativeEvent.shiftKey); // < 5 px
         }
       }}
       onClick={(e) => {
@@ -341,10 +345,12 @@ type ModelViewportProps = {
   stlFiles: SlicerModel[];
   buildVolume?: BuildVolume;
   selectedFileId?: string;
+  selectedFileIds?: string[];
   fileRotations?: Record<string, FileRotation>;
   filePositions?: Record<string, FilePosition>;
+  fileScales?: Record<string, Scale>;
   activeRange?: { min_z: number; max_z: number } | null;
-  onSelectFile?: (fileId: string) => void;
+  onSelectFile?: (fileId: string, additive: boolean) => void;
   onSelectScene?: () => void;
   onDragStart?: (fileId: string) => void;
   onPositionChange?: (fileId: string, x: number, y: number) => void;
@@ -356,10 +362,12 @@ type ModelViewportProps = {
   measurementPoints?: MeasurementPoint[];
   onMeasurementPoint?: (point: MeasurementPoint) => void;
   xray?: boolean;
+  onGeometryBounds?: (fileId: string, bounds: ModelBounds) => void;
 };
 
 export type ModelViewportHandle = {
   setCameraPreset: (preset: 'top' | 'front' | 'right' | 'center') => void;
+  layFlat: (fileId: string) => Rotation | null;
 };
 
 const CameraBridge: React.FC<{ cameraRef: React.MutableRefObject<any> }> = ({ cameraRef }) => {
@@ -371,9 +379,9 @@ const CameraBridge: React.FC<{ cameraRef: React.MutableRefObject<any> }> = ({ ca
 };
 
 const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>(({ 
-  stlFiles, buildVolume = DEFAULT_BUILD_VOLUME, selectedFileId, fileRotations, filePositions, activeRange, onSelectFile, onSelectScene, onDragStart, onPositionChange,
+  stlFiles, buildVolume = DEFAULT_BUILD_VOLUME, selectedFileId, selectedFileIds = [], fileRotations, filePositions, fileScales, activeRange, onSelectFile, onSelectScene, onDragStart, onPositionChange,
   startPositions = {}, startPositionPickTarget, onStartPositionPick, onStartPositionPickCancel,
-  measurementActive = false, measurementPoints = [], onMeasurementPoint, xray = false,
+  measurementActive = false, measurementPoints = [], onMeasurementPoint, xray = false, onGeometryBounds,
 }, ref) => {
   const cameraRef = useRef<any>(null);
   const orbitControlsRef = useRef<OrbitControlsImpl | null>(null);
@@ -394,6 +402,8 @@ const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>(({
   fileRotationsRef.current = fileRotations;
   const filePositionsRef = useRef(filePositions);
   filePositionsRef.current = filePositions;
+  const fileScalesRef = useRef(fileScales);
+  fileScalesRef.current = fileScales;
   const buildVolumeRef = useRef(buildVolume);
   buildVolumeRef.current = buildVolume;
   const startPositionPickTargetRef = useRef(startPositionPickTarget);
@@ -414,7 +424,8 @@ const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>(({
       if (!geo?.boundingBox) continue;
       const rot = fileRotationsRef.current?.[file.fileId] ?? { x: 0, y: 0, z: 0 };
       const pos = filePositionsRef.current?.[file.fileId] ?? { x: buildVolumeRef.current.x / 2, y: buildVolumeRef.current.y / 2 };
-      const rotMatrix = new Matrix4().makeRotationFromEuler(new Euler(rot.x * DEG2RAD, rot.y * DEG2RAD, rot.z * DEG2RAD));
+      const scale = fileScalesRef.current?.[file.fileId] ?? { x: 1, y: 1, z: 1 };
+      const rotMatrix = new Matrix4().makeRotationFromEuler(new Euler(rot.x * DEG2RAD, rot.y * DEG2RAD, rot.z * DEG2RAD)).scale(new Vector3(scale.x, scale.y, scale.z));
       const rotatedBox = geo.boundingBox.clone().applyMatrix4(rotMatrix);
       const zLift = -rotatedBox.min.z;
       combined.union(rotatedBox.clone().translate(new Vector3(pos.x, pos.y, zLift)));
@@ -439,12 +450,15 @@ const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>(({
 
   const handleGeometryLoaded = useCallback((fileId: string, geometry: BufferGeometry) => {
     loadedGeometries.current.set(fileId, geometry);
+    const size = new Vector3();
+    geometry.boundingBox?.getSize(size);
+    onGeometryBounds?.(fileId, { x: size.x, y: size.y, z: size.z });
     if (hasFitCamera.current) return;
     if (stlFilesRef.current.length === 0) return;
     if (loadedGeometries.current.size < stlFilesRef.current.length) return;
     hasFitCamera.current = true;
     fitCameraToModels();
-  }, [fitCameraToModels]);
+  }, [fitCameraToModels, onGeometryBounds]);
   const setOrbitEnabled = useCallback((enabled: boolean) => {
     if (!orbitControlsRef.current) return;
     orbitControlsRef.current.enabled = enabled;
@@ -485,6 +499,11 @@ const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>(({
 
   useImperativeHandle(ref, () => ({
     setCameraPreset,
+    layFlat: (fileId) => {
+      const geometry = loadedGeometries.current.get(fileId);
+      const positions = geometry?.getAttribute('position');
+      return positions ? largestFaceDownRotation(positions.array, geometry?.index?.array, fileScalesRef.current?.[fileId]) : null;
+    },
   }), [setCameraPreset]);
 
   return (
@@ -511,11 +530,12 @@ const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>(({
           <SlicerStlMesh
             key={file.fileId}
             file={file}
-            selected={file.fileId === selectedFileId}
+            selected={selectedFileIds.includes(file.fileId) || file.fileId === selectedFileId}
             position={pos}
             rotation={fileRotations?.[file.fileId] ?? { x: 0, y: 0, z: 0 }}
+            scale={fileScales?.[file.fileId] ?? { x: 1, y: 1, z: 1 }}
             buildVolume={buildVolume}
-            onSelect={() => onSelectFile?.(file.fileId)}
+            onSelect={(additive) => onSelectFile?.(file.fileId, additive)}
             onDragStart={() => onDragStart?.(file.fileId)}
             onPositionChange={(x, y) => onPositionChange?.(file.fileId, x, y)}
             setOrbitEnabled={setOrbitEnabled}

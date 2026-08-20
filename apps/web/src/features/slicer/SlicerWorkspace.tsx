@@ -47,7 +47,7 @@ export function SlicerWorkspace() {
 
   useEffect(() => {
     setMeasurementPoints([]);
-  }, [modelIds, workspace.positions, workspace.rotations]);
+  }, [modelIds, workspace.positions, workspace.rotations, workspace.scales]);
 
   useEffect(() => {
     const onHistoryShortcut = (event: KeyboardEvent) => {
@@ -118,7 +118,7 @@ export function SlicerWorkspace() {
       <div className="workspace-layout">
         <aside id="mobile-settings-panel" className={`sidebar ${mobileSettingsOpen ? 'mobile-settings-open' : ''}`} role={mobileSettingsOpen ? 'dialog' : undefined} aria-modal={mobileSettingsOpen ? 'true' : undefined} aria-label={mobileSettingsOpen ? 'Objects and slicer settings' : undefined}>
           <div className="mobile-settings-header"><span><SlidersHorizontal size={16} /><strong>Objects &amp; settings</strong></span><button className="icon-button" type="button" aria-label="Close objects and slicer settings" onClick={() => setMobileSettingsOpen(false)}><X size={18} /></button></div>
-          <ObjectTree models={workspace.models} ranges={workspace.rangeOverrides} selected={workspace.selectedNode} onSelect={workspace.setSelectedNode} onAddModels={openFilePicker} onRemoveModel={workspace.removeModel} onAddRange={workspace.addRange} onRemoveRange={workspace.removeRange} />
+          <ObjectTree models={workspace.models} ranges={workspace.rangeOverrides} selected={workspace.selectedNode} selectedFileIds={workspace.selectedFileIds} modelNames={workspace.modelNames} placementIssues={workspace.placementIssues} onSelect={workspace.selectNode} onSelectFile={workspace.selectFile} onRename={workspace.renameModel} onArrange={workspace.autoArrange} onAddModels={openFilePicker} onRemoveModel={workspace.removeModel} onAddRange={workspace.addRange} onRemoveRange={workspace.removeRange} />
           <SlicerSettingsPanel selectedNode={workspace.selectedNode} config={workspace.config} fileOverrides={workspace.fileOverrides} rangeOverrides={workspace.rangeOverrides} onChange={workspace.setSetting} onApplyPrinterPreset={workspace.applyPrinterPreset} onRangeBoundary={workspace.setRangeBoundary} section={workspace.ui.settingsSection} query={workspace.ui.settingsQuery} onSectionChange={(settingsSection) => workspace.setUi((current) => ({ ...current, settingsSection }))} onQueryChange={(settingsQuery) => workspace.setUi((current) => ({ ...current, settingsQuery }))} highlightedFields={workspace.ui.aiHighlightedFields} onFieldInteract={workspace.clearAiFieldHighlight} />
           <AiPrefillPanel description={workspace.ui.prefillDescription} loading={workspace.prefilling || workspace.status === 'slicing'} onDescriptionChange={(prefillDescription) => workspace.setUi((current) => ({ ...current, prefillDescription }))} onPrefill={workspace.prefillSettings} />
         </aside>
@@ -126,7 +126,7 @@ export function SlicerWorkspace() {
         <main className={`work-area ${workspace.gcode ? 'with-gcode' : ''} ${expandedViewer ? `expanded-${expandedViewer}` : ''}`}>
           <section className="model-stage">
             {workspace.models.length ? (
-              <ModelViewport ref={viewport} stlFiles={workspace.models} buildVolume={workspace.buildVolume} selectedFileId={selectedFileId} filePositions={workspace.positions} fileRotations={workspace.rotations} activeRange={activeRange} onSelectFile={(fileId) => workspace.setSelectedNode({ type: 'file', fileId })} onSelectScene={() => workspace.setSelectedNode({ type: 'scene' })} onDragStart={workspace.beginTransformChange} onPositionChange={(fileId, x, y) => workspace.setPositions((current) => ({ ...current, [fileId]: { x, y } }), false)} measurementActive={measurementActive} measurementPoints={measurementPoints} onMeasurementPoint={(point) => setMeasurementPoints((current) => addMeasurementPoint(current, point))} xray={workspace.ui.xrayModel} />
+              <ModelViewport ref={viewport} stlFiles={workspace.models} buildVolume={workspace.buildVolume} selectedFileId={selectedFileId} selectedFileIds={workspace.selectedFileIds} filePositions={workspace.positions} fileRotations={workspace.rotations} fileScales={workspace.scales} activeRange={activeRange} onSelectFile={workspace.selectFile} onSelectScene={workspace.selectScene} onDragStart={workspace.beginTransformChange} onPositionChange={(fileId, x, y) => workspace.setPositions((current) => ({ ...current, [fileId]: { x, y } }), false)} onGeometryBounds={workspace.setModelGeometryBounds} measurementActive={measurementActive} measurementPoints={measurementPoints} onMeasurementPoint={(point) => setMeasurementPoints((current) => addMeasurementPoint(current, point))} xray={workspace.ui.xrayModel} />
             ) : (
               <button className="empty-state" onClick={openFilePicker}><span><Box size={28} /></span><strong>Drop a model here</strong><p>Open an STL or STEP file to begin slicing.</p><em>Choose files</em></button>
             )}
@@ -137,7 +137,31 @@ export function SlicerWorkspace() {
                 if (measurementActive) setMeasurementPoints([]);
                 setMeasurementActive((active) => !active);
               }} onClear={() => setMeasurementPoints([])} />
-              {selectedModel && selectedFileId && <TransformPanel position={workspace.positions[selectedFileId] ?? { x: workspace.buildVolume.x / 2, y: workspace.buildVolume.y / 2 }} rotation={workspace.rotations[selectedFileId] ?? { x: 0, y: 0, z: 0 }} onPosition={(position) => workspace.setPositions((current) => ({ ...current, [selectedFileId]: position }))} onRotation={(rotation) => workspace.setRotations((current) => ({ ...current, [selectedFileId]: rotation }))} />}
+              {selectedModel && selectedFileId && <TransformPanel
+                position={workspace.positions[selectedFileId] ?? { x: workspace.buildVolume.x / 2, y: workspace.buildVolume.y / 2 }}
+                rotation={workspace.rotations[selectedFileId] ?? { x: 0, y: 0, z: 0 }}
+                scale={workspace.scales[selectedFileId] ?? { x: 1, y: 1, z: 1 }}
+                onPosition={(position) => workspace.setPositions((current) => ({ ...current, [selectedFileId]: position }))}
+                onRotation={(rotation) => workspace.setRotations((current) => ({ ...current, [selectedFileId]: rotation }))}
+                onScale={(scale) => workspace.setScales((current) => ({
+                  ...current,
+                  ...Object.fromEntries(workspace.selectedFileIds.map((fileId) => {
+                    const prior = current[fileId] ?? { x: 1, y: 1, z: 1 };
+                    return [fileId, {
+                      x: Math.sign(prior.x) * Math.abs(scale.x),
+                      y: Math.sign(prior.y) * Math.abs(scale.y),
+                      z: Math.sign(prior.z) * Math.abs(scale.z),
+                    }];
+                  })),
+                }))}
+                onMirror={workspace.mirrorSelected}
+                onDuplicate={workspace.duplicateSelected}
+                onCenter={workspace.centerSelected}
+                onLayFlat={() => {
+                  const rotation = viewport.current?.layFlat(selectedFileId);
+                  if (rotation) workspace.setRotations((current) => ({ ...current, [selectedFileId]: rotation }));
+                }}
+              />}
             </div>
             {workspace.status === 'slicing' && <div className="slicing-overlay"><LoaderCircle size={28} className="spin" /><strong>Slicer engine is working</strong><span>This request remains temporary.</span></div>}
           </section>

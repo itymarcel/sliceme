@@ -4,6 +4,7 @@ import type {
   Position,
   RangeOverride,
   Rotation,
+  Scale,
   SelectedNode,
   SlicerModel,
   WorkspaceUiState,
@@ -26,7 +27,10 @@ export type WorkspaceSnapshot = {
   rangeOverrides: Record<string, RangeOverride[]>;
   positions: Record<string, Position>;
   rotations: Record<string, Rotation>;
+  scales: Record<string, Scale>;
+  modelNames: Record<string, string>;
   startPositions: Record<string, Position>;
+  selectedFileIds: string[];
   selectedNode: SelectedNode;
   ui: WorkspaceUiState;
   history?: WorkspaceHistory;

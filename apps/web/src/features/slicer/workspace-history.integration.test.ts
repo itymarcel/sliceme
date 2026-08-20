@@ -11,6 +11,9 @@ describe('workspace model and transform history integration', () => {
     expect(hook).toContain('modelOrder: models.map');
     expect(hook).toContain('positions,');
     expect(hook).toContain('rotations,');
+    expect(hook).toContain('scales,');
+    expect(hook).toContain('modelNames,');
+    expect(hook).toContain('selectedFileIds,');
     expect(hook).toContain('startPositions,');
     expect(hook).toContain('modelRegistry');
   });
@@ -21,5 +24,8 @@ describe('workspace model and transform history integration', () => {
     expect(workspace).toContain('onDragStart={workspace.beginTransformChange}');
     expect(workspace).toContain('workspace.setPositions((current)');
     expect(workspace).toContain('workspace.setRotations((current)');
+    expect(workspace).toContain('workspace.setScales((current)');
+    expect(workspace).toContain('workspace.duplicateSelected');
+    expect(workspace).toContain('workspace.autoArrange');
   });
 });

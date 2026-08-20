@@ -1,0 +1,127 @@
+import { Euler, Matrix3, Matrix4, Quaternion, Vector3 } from 'three';
+
+import type { BuildVolume, Position, Rotation, Scale } from '../types';
+
+export type ModelBounds = { x: number; y: number; z: number };
+
+type Footprint = { width: number; depth: number; height: number };
+
+const unitScale = (): Scale => ({ x: 1, y: 1, z: 1 });
+const zeroRotation = (): Rotation => ({ x: 0, y: 0, z: 0 });
+
+export function transformedFootprint(bounds: ModelBounds, scale = unitScale(), rotation = zeroRotation()): Footprint {
+  const matrix = new Matrix3().setFromMatrix4(new Matrix4().makeRotationFromEuler(new Euler(
+    rotation.x * Math.PI / 180,
+    rotation.y * Math.PI / 180,
+    rotation.z * Math.PI / 180,
+  )));
+  const elements = matrix.elements;
+  const sx = Math.abs(bounds.x * scale.x);
+  const sy = Math.abs(bounds.y * scale.y);
+  const sz = Math.abs(bounds.z * scale.z);
+  return {
+    width: Math.abs(elements[0]) * sx + Math.abs(elements[3]) * sy + Math.abs(elements[6]) * sz,
+    depth: Math.abs(elements[1]) * sx + Math.abs(elements[4]) * sy + Math.abs(elements[7]) * sz,
+    height: Math.abs(elements[2]) * sx + Math.abs(elements[5]) * sy + Math.abs(elements[8]) * sz,
+  };
+}
+
+export function analyzePlacement(
+  ids: string[],
+  positions: Record<string, Position>,
+  bounds: Record<string, ModelBounds>,
+  scales: Record<string, Scale> = {},
+  rotations: Record<string, Rotation> = {},
+  bed: BuildVolume,
+): Record<string, string[]> {
+  const issues: Record<string, string[]> = {};
+  const boxes = ids.flatMap((id) => {
+    if (!bounds[id]) return [];
+    const size = transformedFootprint(bounds[id], scales[id], rotations[id]);
+    const position = positions[id] ?? { x: bed.x / 2, y: bed.y / 2 };
+    const box = {
+      id,
+      minX: position.x - size.width / 2,
+      maxX: position.x + size.width / 2,
+      minY: position.y - size.depth / 2,
+      maxY: position.y + size.depth / 2,
+      height: size.height,
+    };
+    if (box.minX < 0 || box.maxX > bed.x || box.minY < 0 || box.maxY > bed.y || box.height > bed.z) {
+      issues[id] = [...(issues[id] ?? []), 'outside'];
+    }
+    return [box];
+  });
+  boxes.forEach((box, index) => boxes.slice(index + 1).forEach((other) => {
+    if (box.minX < other.maxX && box.maxX > other.minX && box.minY < other.maxY && box.maxY > other.minY) {
+      issues[box.id] = [...(issues[box.id] ?? []), 'overlap'];
+      issues[other.id] = [...(issues[other.id] ?? []), 'overlap'];
+    }
+  }));
+  return issues;
+}
+
+export function arrangeOnBed(
+  ids: string[],
+  bounds: Record<string, ModelBounds>,
+  scales: Record<string, Scale> = {},
+  rotations: Record<string, Rotation> = {},
+  bed: BuildVolume,
+  gap = 4,
+): Record<string, Position> {
+  const result: Record<string, Position> = {};
+  let x = gap;
+  let y = gap;
+  let rowDepth = 0;
+  ids.forEach((id) => {
+    const size = transformedFootprint(bounds[id] ?? { x: 20, y: 20, z: 20 }, scales[id], rotations[id]);
+    if (x + size.width + gap > bed.x && x > gap) {
+      x = gap;
+      y += rowDepth + gap;
+      rowDepth = 0;
+    }
+    result[id] = {
+      x: Math.min(bed.x - size.width / 2, x + size.width / 2),
+      y: Math.min(bed.y - size.depth / 2, y + size.depth / 2),
+    };
+    x += size.width + gap;
+    rowDepth = Math.max(rowDepth, size.depth);
+  });
+  return result;
+}
+
+export function duplicateDisplayName(name: string) {
+  const match = name.match(/^(.*? copy)(?: (\d+))?$/);
+  if (!match) return `${name} copy`;
+  return `${match[1]} ${Number(match[2] ?? 1) + 1}`;
+}
+
+export function largestFaceDownRotation(positions: ArrayLike<number>, indices?: ArrayLike<number>, scale = unitScale()): Rotation {
+  let bestNormal = new Vector3(0, 0, 1);
+  let bestArea = -1;
+  const a = new Vector3();
+  const b = new Vector3();
+  const c = new Vector3();
+  const ab = new Vector3();
+  const ac = new Vector3();
+  const readVertex = (target: Vector3, vertexIndex: number) => target.set(
+    positions[vertexIndex * 3] * scale.x,
+    positions[vertexIndex * 3 + 1] * scale.y,
+    positions[vertexIndex * 3 + 2] * scale.z,
+  );
+  const vertexCount = indices?.length ?? positions.length / 3;
+  for (let offset = 0; offset + 2 < vertexCount; offset += 3) {
+    readVertex(a, indices ? indices[offset] : offset);
+    readVertex(b, indices ? indices[offset + 1] : offset + 1);
+    readVertex(c, indices ? indices[offset + 2] : offset + 2);
+    const normal = ab.subVectors(b, a).cross(ac.subVectors(c, a));
+    const area = normal.lengthSq();
+    if (area > bestArea) {
+      bestArea = area;
+      bestNormal = normal.normalize().clone();
+    }
+  }
+  const target = new Vector3(0, 0, -1);
+  const euler = new Euler().setFromQuaternion(new Quaternion().setFromUnitVectors(bestNormal, target), 'XYZ');
+  return { x: euler.x * 180 / Math.PI, y: euler.y * 180 / Math.PI, z: euler.z * 180 / Math.PI };
+}

@@ -18,6 +18,7 @@ export type SlicerModel = {
 };
 
 export type Rotation = { x: number; y: number; z: number };
+export type Scale = { x: number; y: number; z: number };
 export type Position = { x: number; y: number };
 export type BuildVolume = { x: number; y: number; z: number };
 
@@ -31,7 +32,7 @@ export type SliceManifest = {
   config: ConfigBundle;
   fileOverrides: Record<string, Partial<ConfigBundle>>;
   rangeOverrides: Record<string, RangeOverride[]>;
-  transforms: Record<string, { position: Position; rotation: Rotation }>;
+  transforms: Record<string, { position: Position; rotation: Rotation; scale: Scale }>;
   customGcodeForZ: Array<Record<string, unknown>>;
   startPositions: Record<string, Position>;
 };
