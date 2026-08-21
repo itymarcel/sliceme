@@ -28,8 +28,9 @@ export function TransformPanel({
   const [focused, setFocused] = useState<string | null>(null);
   return (
     <div className="transform-panel panel">
-      <div className="transform-group">
+      <div className="transform-group position-group">
         <span><Move3D size={14} aria-hidden /></span>
+        <span className="transform-column-spacer" aria-hidden />
         {(['x', 'y'] as const).map((axis) => {
           const label = `Position ${axis.toUpperCase()}`;
           const id = `position-${axis}`;

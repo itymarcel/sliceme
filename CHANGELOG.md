@@ -2,6 +2,10 @@
 
 Changes are grouped into one consolidated summary per calendar day.
 
+## 2026-08-21
+
+- Aligned the transform panel to a consistent three-column axis grid: rotation uses all three columns at full width, while translation reserves the left axis column and right-aligns its X/Y inputs.
+
 ## 2026-08-20
 
 - Added essential object preparation tools: uniform scaling, per-axis mirroring, duplicate, center, click-to-select flat-surface placement, editable object names, modifier-key multi-selection, and visible out-of-bed/overlap warnings.

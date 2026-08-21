@@ -18,6 +18,9 @@ describe('transform controls', () => {
     });
     // The group heading should only carry the icon, not a "Position"/"Rotation" text label.
     expect(container.querySelector('.transform-group > span')?.textContent).not.toMatch(/Position|Rotation/);
+    expect(container.querySelector('.position-group .transform-column-spacer')).toBeTruthy();
+    expect(container.querySelectorAll('.position-group .transform-field')).toHaveLength(2);
+    expect(container.querySelectorAll('.rotation-group .transform-field')).toHaveLength(3);
   });
 
   it('renders editable number inputs so a leading zero can be replaced by typing', () => {
