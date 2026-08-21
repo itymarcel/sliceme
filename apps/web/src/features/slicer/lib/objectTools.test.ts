@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Euler, Vector3 } from 'three';
 
-import { analyzePlacement, arrangeOnBed, duplicateDisplayName, largestFaceDownRotation } from './objectTools';
+import { analyzePlacement, arrangeOnBed, duplicateDisplayName, flatSurfaceCandidates, largestFaceDownRotation, surfaceDownRotation } from './objectTools';
 
 describe('object placement tools', () => {
   it('detects scaled objects outside the bed and overlapping objects', () => {
@@ -61,5 +61,46 @@ describe('object placement tools', () => {
     expect(indexed.x).toBeCloseTo(direct.x, 5);
     expect(indexed.y).toBeCloseTo(direct.y, 5);
     expect(indexed.z).toBeCloseTo(direct.z, 5);
+  });
+
+  it('groups adjacent coplanar triangles into selectable flat surfaces', () => {
+    const surfaces = flatSurfaceCandidates(new Float32Array([
+      0, 0, 0, 1, 0, 0, 1, 1, 0,
+      0, 0, 0, 1, 1, 0, 0, 1, 0,
+      0, 0, 0, 0, 1, 0, 0, 1, 1,
+    ]));
+
+    expect(surfaces).toHaveLength(2);
+    expect(surfaces[0].triangleIndices).toEqual([0, 1]);
+    expect(surfaces[0].area).toBeCloseTo(1, 5);
+    expect(surfaces[1].triangleIndices).toEqual([2]);
+  });
+
+  it('keeps candidate normals outward after an odd-axis mirror', () => {
+    const positions = new Float32Array([
+      1, 0, 0, 1, 1, 0, 1, 0, 1,
+    ]);
+
+    const [surface] = flatSurfaceCandidates(positions, undefined, { x: -2, y: 1, z: 3 });
+
+    expect(surface.normal.x).toBeCloseTo(-1, 6);
+    expect(surface.normal.y).toBeCloseTo(0, 6);
+    expect(surface.normal.z).toBeCloseTo(0, 6);
+  });
+
+  it('rotates the clicked surface normal downward from the current orientation', () => {
+    const rotation = surfaceDownRotation(
+      { x: 1, y: 0, z: 0 },
+      { x: 0, y: 0, z: 90 },
+    );
+    const transformedNormal = new Vector3(1, 0, 0).applyEuler(new Euler(
+      rotation.x * Math.PI / 180,
+      rotation.y * Math.PI / 180,
+      rotation.z * Math.PI / 180,
+    ));
+
+    expect(transformedNormal.x).toBeCloseTo(0, 5);
+    expect(transformedNormal.y).toBeCloseTo(0, 5);
+    expect(transformedNormal.z).toBeCloseTo(-1, 5);
   });
 });

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Download, Eraser, FileUp, LoaderCircle, OctagonX, Redo2, ShieldCheck, SlidersHorizontal, Slice, Undo2, X } from 'lucide-react';
 
 import { GcodePreview } from './components/GcodePreview';
-import { AiPrefillPanel } from './components/AiPrefillPanel';
+
 import ModelViewport, { type ModelViewportHandle } from './components/ModelViewport';
 import { CameraPresetControls } from './components/CameraPresetControls';
 import { ObjectTree } from './components/ObjectTree';
@@ -30,6 +30,7 @@ export function SlicerWorkspace() {
     measurementActive: typeof value === 'function' ? value(current.measurementActive) : value,
   }));
   const [measurementPoints, setMeasurementPoints] = useState<MeasurementPoint[]>([]);
+  const [surfaceSelectionTarget, setSurfaceSelectionTarget] = useState<string | null>(null);
   const selectedFileId = workspace.selectedNode.type === 'scene' ? undefined : workspace.selectedNode.fileId;
   const activeRange = workspace.selectedNode.type === 'range'
     ? workspace.rangeOverrides[workspace.selectedNode.fileId]?.[workspace.selectedNode.rangeIndex]?.range
@@ -42,8 +43,20 @@ export function SlicerWorkspace() {
     if (workspace.models.length === 0) {
       setMeasurementActive(false);
       setMeasurementPoints([]);
+      setSurfaceSelectionTarget(null);
     }
   }, [workspace.models.length]);
+
+  useEffect(() => {
+    if (surfaceSelectionTarget && surfaceSelectionTarget !== selectedFileId) setSurfaceSelectionTarget(null);
+  }, [selectedFileId, surfaceSelectionTarget]);
+
+  useEffect(() => {
+    if (!surfaceSelectionTarget) return;
+    const cancel = (event: KeyboardEvent) => { if (event.key === 'Escape') setSurfaceSelectionTarget(null); };
+    window.addEventListener('keydown', cancel);
+    return () => window.removeEventListener('keydown', cancel);
+  }, [surfaceSelectionTarget]);
 
   useEffect(() => {
     setMeasurementPoints([]);
@@ -120,13 +133,13 @@ export function SlicerWorkspace() {
           <div className="mobile-settings-header"><span><SlidersHorizontal size={16} /><strong>Objects &amp; settings</strong></span><button className="icon-button" type="button" aria-label="Close objects and slicer settings" onClick={() => setMobileSettingsOpen(false)}><X size={18} /></button></div>
           <ObjectTree models={workspace.models} ranges={workspace.rangeOverrides} selected={workspace.selectedNode} selectedFileIds={workspace.selectedFileIds} modelNames={workspace.modelNames} placementIssues={workspace.placementIssues} onSelect={workspace.selectNode} onSelectFile={workspace.selectFile} onRename={workspace.renameModel} onArrange={workspace.autoArrange} onAddModels={openFilePicker} onRemoveModel={workspace.removeModel} onAddRange={workspace.addRange} onRemoveRange={workspace.removeRange} />
           <SlicerSettingsPanel selectedNode={workspace.selectedNode} config={workspace.config} fileOverrides={workspace.fileOverrides} rangeOverrides={workspace.rangeOverrides} onChange={workspace.setSetting} onApplyPrinterPreset={workspace.applyPrinterPreset} onRangeBoundary={workspace.setRangeBoundary} section={workspace.ui.settingsSection} query={workspace.ui.settingsQuery} onSectionChange={(settingsSection) => workspace.setUi((current) => ({ ...current, settingsSection }))} onQueryChange={(settingsQuery) => workspace.setUi((current) => ({ ...current, settingsQuery }))} highlightedFields={workspace.ui.aiHighlightedFields} onFieldInteract={workspace.clearAiFieldHighlight} />
-          <AiPrefillPanel description={workspace.ui.prefillDescription} loading={workspace.prefilling || workspace.status === 'slicing'} onDescriptionChange={(prefillDescription) => workspace.setUi((current) => ({ ...current, prefillDescription }))} onPrefill={workspace.prefillSettings} />
+
         </aside>
 
         <main className={`work-area ${workspace.gcode ? 'with-gcode' : ''} ${expandedViewer ? `expanded-${expandedViewer}` : ''}`}>
           <section className="model-stage">
             {workspace.models.length ? (
-              <ModelViewport ref={viewport} stlFiles={workspace.models} buildVolume={workspace.buildVolume} selectedFileId={selectedFileId} selectedFileIds={workspace.selectedFileIds} filePositions={workspace.positions} fileRotations={workspace.rotations} fileScales={workspace.scales} activeRange={activeRange} onSelectFile={workspace.selectFile} onSelectScene={workspace.selectScene} onDragStart={workspace.beginTransformChange} onPositionChange={(fileId, x, y) => workspace.setPositions((current) => ({ ...current, [fileId]: { x, y } }), false)} onGeometryBounds={workspace.setModelGeometryBounds} measurementActive={measurementActive} measurementPoints={measurementPoints} onMeasurementPoint={(point) => setMeasurementPoints((current) => addMeasurementPoint(current, point))} xray={workspace.ui.xrayModel} />
+              <ModelViewport ref={viewport} stlFiles={workspace.models} buildVolume={workspace.buildVolume} selectedFileId={selectedFileId} selectedFileIds={workspace.selectedFileIds} filePositions={workspace.positions} fileRotations={workspace.rotations} fileScales={workspace.scales} activeRange={activeRange} onSelectFile={workspace.selectFile} onSelectScene={workspace.selectScene} onDragStart={workspace.beginTransformChange} onPositionChange={(fileId, x, y) => workspace.setPositions((current) => ({ ...current, [fileId]: { x, y } }), false)} onGeometryBounds={workspace.setModelGeometryBounds} measurementActive={measurementActive} measurementPoints={measurementPoints} onMeasurementPoint={(point) => setMeasurementPoints((current) => addMeasurementPoint(current, point))} surfaceSelectionTarget={surfaceSelectionTarget} onSurfaceSelected={(fileId, rotation) => { workspace.setRotations((current) => ({ ...current, [fileId]: rotation })); setSurfaceSelectionTarget(null); }} xray={workspace.ui.xrayModel} />
             ) : (
               <button className="empty-state" onClick={openFilePicker}><span><Box size={28} /></span><strong>Drop a model here</strong><p>Open an STL or STEP file to begin slicing.</p><em>Choose files</em></button>
             )}
@@ -135,6 +148,7 @@ export function SlicerWorkspace() {
             <div className="model-edit-controls">
               <MeasurementPanel active={measurementActive} disabled={workspace.models.length === 0} points={measurementPoints} onToggle={() => {
                 if (measurementActive) setMeasurementPoints([]);
+                if (!measurementActive) setSurfaceSelectionTarget(null);
                 setMeasurementActive((active) => !active);
               }} onClear={() => setMeasurementPoints([])} />
               {selectedModel && selectedFileId && <TransformPanel
@@ -157,9 +171,11 @@ export function SlicerWorkspace() {
                 onMirror={workspace.mirrorSelected}
                 onDuplicate={workspace.duplicateSelected}
                 onCenter={workspace.centerSelected}
-                onLayFlat={() => {
-                  const rotation = viewport.current?.layFlat(selectedFileId);
-                  if (rotation) workspace.setRotations((current) => ({ ...current, [selectedFileId]: rotation }));
+                surfaceSelectionActive={surfaceSelectionTarget === selectedFileId}
+                onSelectSurface={() => {
+                  setMeasurementActive(false);
+                  setMeasurementPoints([]);
+                  setSurfaceSelectionTarget((current) => current === selectedFileId ? null : selectedFileId);
                 }}
               />}
             </div>

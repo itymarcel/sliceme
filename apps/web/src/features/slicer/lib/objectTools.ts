@@ -3,6 +3,8 @@ import { Euler, Matrix3, Matrix4, Quaternion, Vector3 } from 'three';
 import type { BuildVolume, Position, Rotation, Scale } from '../types';
 
 export type ModelBounds = { x: number; y: number; z: number };
+export type SurfaceNormal = { x: number; y: number; z: number };
+export type FlatSurfaceCandidate = { triangleIndices: number[]; normal: SurfaceNormal; area: number };
 
 type Footprint = { width: number; depth: number; height: number };
 
@@ -124,4 +126,90 @@ export function largestFaceDownRotation(positions: ArrayLike<number>, indices?: 
   const target = new Vector3(0, 0, -1);
   const euler = new Euler().setFromQuaternion(new Quaternion().setFromUnitVectors(bestNormal, target), 'XYZ');
   return { x: euler.x * 180 / Math.PI, y: euler.y * 180 / Math.PI, z: euler.z * 180 / Math.PI };
+}
+
+export function flatSurfaceCandidates(
+  positions: ArrayLike<number>,
+  indices?: ArrayLike<number>,
+  scale = unitScale(),
+  normalToleranceDegrees = 1,
+): FlatSurfaceCandidate[] {
+  type Triangle = {
+    faceIndex: number;
+    normal: Vector3;
+    area: number;
+    plane: number;
+    edges: string[];
+  };
+  const vertex = (index: number) => new Vector3(
+    positions[index * 3] * scale.x,
+    positions[index * 3 + 1] * scale.y,
+    positions[index * 3 + 2] * scale.z,
+  );
+  const key = (point: Vector3) => `${Math.round(point.x * 100000)},${Math.round(point.y * 100000)},${Math.round(point.z * 100000)}`;
+  const edgeKey = (a: Vector3, b: Vector3) => [key(a), key(b)].sort().join('|');
+  const elementCount = indices?.length ?? positions.length / 3;
+  const orientationSign = Math.sign(scale.x * scale.y * scale.z) || 1;
+  const triangles: Triangle[] = [];
+  for (let offset = 0; offset + 2 < elementCount; offset += 3) {
+    const a = vertex(indices ? indices[offset] : offset);
+    const b = vertex(indices ? indices[offset + 1] : offset + 1);
+    const c = vertex(indices ? indices[offset + 2] : offset + 2);
+    const cross = b.clone().sub(a).cross(c.clone().sub(a));
+    const area = cross.length() / 2;
+    if (area <= Number.EPSILON) continue;
+    const normal = cross.normalize().multiplyScalar(orientationSign);
+    triangles.push({
+      faceIndex: offset / 3,
+      normal,
+      area,
+      plane: normal.dot(a),
+      edges: [edgeKey(a, b), edgeKey(b, c), edgeKey(c, a)],
+    });
+  }
+  const edgeOwners = new Map<string, number[]>();
+  triangles.forEach((triangle, index) => triangle.edges.forEach((edge) => edgeOwners.set(edge, [...(edgeOwners.get(edge) ?? []), index])));
+  const cosineTolerance = Math.cos(normalToleranceDegrees * Math.PI / 180);
+  const visited = new Set<number>();
+  const surfaces: FlatSurfaceCandidate[] = [];
+  triangles.forEach((seed, seedIndex) => {
+    if (visited.has(seedIndex)) return;
+    const queue = [seedIndex];
+    const triangleIndices: number[] = [];
+    let area = 0;
+    visited.add(seedIndex);
+    while (queue.length) {
+      const currentIndex = queue.pop()!;
+      const current = triangles[currentIndex];
+      triangleIndices.push(current.faceIndex);
+      area += current.area;
+      current.edges.flatMap((edge) => edgeOwners.get(edge) ?? []).forEach((neighborIndex) => {
+        if (visited.has(neighborIndex)) return;
+        const neighbor = triangles[neighborIndex];
+        if (seed.normal.dot(neighbor.normal) < cosineTolerance || Math.abs(seed.plane - neighbor.plane) > 0.0001) return;
+        visited.add(neighborIndex);
+        queue.push(neighborIndex);
+      });
+    }
+    surfaces.push({
+      triangleIndices: triangleIndices.sort((a, b) => a - b),
+      normal: { x: seed.normal.x, y: seed.normal.y, z: seed.normal.z },
+      area,
+    });
+  });
+  return surfaces.sort((a, b) => b.area - a.area || a.triangleIndices[0] - b.triangleIndices[0]);
+}
+
+export function surfaceDownRotation(normal: SurfaceNormal, currentRotation = zeroRotation()): Rotation {
+  const currentEuler = new Euler(
+    currentRotation.x * Math.PI / 180,
+    currentRotation.y * Math.PI / 180,
+    currentRotation.z * Math.PI / 180,
+    'XYZ',
+  );
+  const currentQuaternion = new Quaternion().setFromEuler(currentEuler);
+  const worldNormal = new Vector3(normal.x, normal.y, normal.z).normalize().applyQuaternion(currentQuaternion);
+  const delta = new Quaternion().setFromUnitVectors(worldNormal, new Vector3(0, 0, -1));
+  const result = new Euler().setFromQuaternion(delta.multiply(currentQuaternion), 'XYZ');
+  return { x: result.x * 180 / Math.PI, y: result.y * 180 / Math.PI, z: result.z * 180 / Math.PI };
 }

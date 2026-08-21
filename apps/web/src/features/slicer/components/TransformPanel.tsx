@@ -1,4 +1,4 @@
-import { AlignCenter, Copy, FlipHorizontal2, FlipVertical2, Move3D, Rotate3D, RotateCw, Scaling } from 'lucide-react';
+import { AlignCenter, Copy, FlipHorizontal2, FlipVertical2, MousePointer2, Move3D, Rotate3D, RotateCw, Scaling } from 'lucide-react';
 
 import { useState } from 'react';
 
@@ -14,7 +14,8 @@ type Props = {
   onMirror?: (axis: keyof Scale) => void;
   onDuplicate?: () => void;
   onCenter?: () => void;
-  onLayFlat?: () => void;
+  onSelectSurface?: () => void;
+  surfaceSelectionActive?: boolean;
 };
 
 const wrapDegrees = (value: number) => ((value % 360) + 360) % 360;
@@ -22,7 +23,7 @@ const number = (value: string) => (Number.isFinite(Number(value)) ? Number(value
 
 export function TransformPanel({
   position, rotation, scale = { x: 1, y: 1, z: 1 }, onPosition, onRotation,
-  onScale, onMirror, onDuplicate, onCenter, onLayFlat,
+  onScale, onMirror, onDuplicate, onCenter, onSelectSurface, surfaceSelectionActive = false,
 }: Props) {
   const [focused, setFocused] = useState<string | null>(null);
   return (
@@ -110,11 +111,11 @@ export function TransformPanel({
           ))}
         </div>
       )}
-      {(onDuplicate || onCenter || onLayFlat) && (
+      {(onDuplicate || onCenter || onSelectSurface) && (
         <div className="object-quick-actions">
           {onDuplicate && <button type="button" aria-label="Duplicate object" onClick={onDuplicate}><Copy size={13} /> Duplicate</button>}
           {onCenter && <button type="button" aria-label="Center object" onClick={onCenter}><AlignCenter size={13} /> Center</button>}
-          {onLayFlat && <button type="button" aria-label="Lay largest face flat" onClick={onLayFlat}><FlipVertical2 size={13} /> Lay flat</button>}
+          {onSelectSurface && <button type="button" className={surfaceSelectionActive ? 'active' : undefined} aria-label={surfaceSelectionActive ? 'Cancel flat surface selection' : 'Select flat surface'} aria-pressed={surfaceSelectionActive} onClick={onSelectSurface}><MousePointer2 size={13} /> {surfaceSelectionActive ? 'Cancel' : 'Select flat surface'}</button>}
         </div>
       )}
     </div>

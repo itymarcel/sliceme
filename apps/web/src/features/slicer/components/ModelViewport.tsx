@@ -7,7 +7,7 @@ import type { Rotation, Scale, SlicerModel } from '../types';
 import { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { closestSnapCandidate, type MeasurementPoint } from '../lib/measurement';
 import { modelMaterialAppearance } from '../lib/modelAppearance';
-import { largestFaceDownRotation, type ModelBounds } from '../lib/objectTools';
+import { flatSurfaceCandidates, surfaceDownRotation, type FlatSurfaceCandidate, type ModelBounds } from '../lib/objectTools';
 
 const DEG2RAD = Math.PI / 180;
 const GROUND_PLANE = new Plane(new Vector3(0, 0, 1), 0);
@@ -75,14 +75,66 @@ type SlicerStlMeshProps = {
   measurementActive?: boolean;
   onMeasurementPoint?: (point: MeasurementPoint) => void;
   onSnapHover?: (point: MeasurementPoint | null) => void;
+  surfaceSelectionActive?: boolean;
+  onSurfaceSelected?: (rotation: Rotation) => void;
   xray?: boolean;
+};
+
+const SurfaceChoice: React.FC<{
+  source: BufferGeometry;
+  candidate: FlatSurfaceCandidate;
+  hovered: boolean;
+  onHover: (hovered: boolean) => void;
+  onSelect: () => void;
+}> = ({ source, candidate, hovered, onHover, onSelect }) => {
+  const pointerDown = useRef<{ x: number; y: number } | null>(null);
+  const geometry = useMemo(() => {
+    const positions = source.getAttribute('position');
+    const indices = source.index;
+    const values: number[] = [];
+    candidate.triangleIndices.forEach((faceIndex) => {
+      for (let corner = 0; corner < 3; corner += 1) {
+        const elementIndex = faceIndex * 3 + corner;
+        const vertexIndex = indices ? indices.getX(elementIndex) : elementIndex;
+        values.push(positions.getX(vertexIndex), positions.getY(vertexIndex), positions.getZ(vertexIndex));
+      }
+    });
+    const result = new BufferGeometry();
+    result.setAttribute('position', new BufferAttribute(new Float32Array(values), 3));
+    return result;
+  }, [candidate, source]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  return (
+    <mesh
+      geometry={geometry}
+      renderOrder={15}
+      onPointerDown={(event) => {
+        event.stopPropagation();
+        pointerDown.current = { x: event.clientX, y: event.clientY };
+      }}
+      onPointerOver={(event) => { event.stopPropagation(); onHover(true); }}
+      onPointerOut={() => onHover(false)}
+      onPointerUp={(event) => {
+        event.stopPropagation();
+        if (!pointerDown.current) return;
+        const dx = event.clientX - pointerDown.current.x;
+        const dy = event.clientY - pointerDown.current.y;
+        pointerDown.current = null;
+        if (dx * dx + dy * dy < 25) onSelect();
+      }}
+    >
+      <meshBasicMaterial color={hovered ? '#b8ff73' : '#59d8ff'} transparent opacity={hovered ? 0.72 : 0.24} side={DoubleSide} depthWrite={false} polygonOffset polygonOffsetFactor={-2} />
+    </mesh>
+  );
 };
 
 const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
   file, selected, position, rotation, scale, buildVolume, onSelect, onDragStart, onPositionChange, setOrbitEnabled, onGeometryLoaded,
-  seamPickActive = false, measurementActive = false, onMeasurementPoint, onSnapHover, xray = false,
+  seamPickActive = false, measurementActive = false, onMeasurementPoint, onSnapHover,
+  surfaceSelectionActive = false, onSurfaceSelected, xray = false,
 }) => {
   const [geometry, setGeometry] = useState<BufferGeometry | undefined>(undefined);
+  const [hoveredSurface, setHoveredSurface] = useState<number | null>(null);
   const { camera, gl, invalidate } = useThree();
 
   // Compute how far the mesh must be lifted in Z so that the lowest rotated point
@@ -98,6 +150,18 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
   const dragState = useRef({ active: false, offsetX: 0, offsetY: 0 });
   const pointerMoved = useRef(false);
   const pointerDownClient = useRef<{ x: number; y: number } | null>(null);
+  const surfaces = useMemo(() => {
+    if (!surfaceSelectionActive || !geometry) return [];
+    const positions = geometry.getAttribute('position');
+    const candidates = flatSurfaceCandidates(positions.array, geometry.index?.array, scale);
+    const largestArea = candidates[0]?.area ?? 0;
+    return candidates.filter((candidate, index) => index < 12 || candidate.area >= largestArea * 0.005).slice(0, 64);
+  }, [geometry, scale, surfaceSelectionActive]);
+
+  useEffect(() => {
+    setHoveredSurface(null);
+    if (surfaceSelectionActive) invalidate();
+  }, [surfaceSelectionActive, surfaces, invalidate]);
 
   useEffect(() => {
     if (!file.objectUrl) return;
@@ -154,13 +218,16 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
   };
 
   return (
-    <mesh
-      geometry={geometry}
-      position={[position.x, position.y, zLift]}
-      rotation={[rotation.x * DEG2RAD, rotation.y * DEG2RAD, rotation.z * DEG2RAD]}
-      scale={[scale.x, scale.y, scale.z]}
-      castShadow={!xray}
+    <>
+      <mesh
+        geometry={geometry}
+        position={[position.x, position.y, zLift]}
+        rotation={[rotation.x * DEG2RAD, rotation.y * DEG2RAD, rotation.z * DEG2RAD]}
+        scale={[scale.x, scale.y, scale.z]}
+        castShadow={!xray}
+        raycast={surfaceSelectionActive ? () => null : undefined}
       onPointerDown={(e) => {
+        if (surfaceSelectionActive) return;
         e.stopPropagation();
         pointerMoved.current = false;
         pointerDownClient.current = { x: e.clientX, y: e.clientY };
@@ -191,7 +258,7 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
         invalidate();
       }}
       onPointerUp={(e) => {
-        if (measurementActive) return;
+        if (measurementActive || surfaceSelectionActive) return;
         if (dragState.current.active) {
           dragState.current.active = false;
           (e.target as Element).releasePointerCapture(e.pointerId);
@@ -215,14 +282,33 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
         e.stopPropagation();
         onMeasurementPoint?.(getSnapPoint(e) ?? { x: e.point.x, y: e.point.y, z: e.point.z });
       }}
-      onPointerOut={() => { if (measurementActive) onSnapHover?.(null); }}
-    >
-      <meshStandardMaterial
-        {...modelMaterialAppearance(selected, xray)}
-        roughness={0.6}
-        metalness={0.1}
-      />
-    </mesh>
+        onPointerOut={() => { if (measurementActive) onSnapHover?.(null); }}
+      >
+        <meshStandardMaterial
+          {...modelMaterialAppearance(selected, xray)}
+          roughness={0.6}
+          metalness={0.1}
+        />
+      </mesh>
+      {surfaceSelectionActive && (
+        <group
+          position={[position.x, position.y, zLift]}
+          rotation={[rotation.x * DEG2RAD, rotation.y * DEG2RAD, rotation.z * DEG2RAD]}
+          scale={[scale.x, scale.y, scale.z]}
+        >
+          {surfaces.map((candidate, index) => (
+            <SurfaceChoice
+              key={candidate.triangleIndices.join('-')}
+              source={geometry}
+              candidate={candidate}
+              hovered={hoveredSurface === index}
+              onHover={(hovered) => { setHoveredSurface(hovered ? index : null); invalidate(); }}
+              onSelect={() => onSurfaceSelected?.(surfaceDownRotation(candidate.normal, rotation))}
+            />
+          ))}
+        </group>
+      )}
+    </>
   );
 };
 
@@ -363,11 +449,12 @@ type ModelViewportProps = {
   onMeasurementPoint?: (point: MeasurementPoint) => void;
   xray?: boolean;
   onGeometryBounds?: (fileId: string, bounds: ModelBounds) => void;
+  surfaceSelectionTarget?: string | null;
+  onSurfaceSelected?: (fileId: string, rotation: Rotation) => void;
 };
 
 export type ModelViewportHandle = {
   setCameraPreset: (preset: 'top' | 'front' | 'right' | 'center') => void;
-  layFlat: (fileId: string) => Rotation | null;
 };
 
 const CameraBridge: React.FC<{ cameraRef: React.MutableRefObject<any> }> = ({ cameraRef }) => {
@@ -382,6 +469,7 @@ const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>(({
   stlFiles, buildVolume = DEFAULT_BUILD_VOLUME, selectedFileId, selectedFileIds = [], fileRotations, filePositions, fileScales, activeRange, onSelectFile, onSelectScene, onDragStart, onPositionChange,
   startPositions = {}, startPositionPickTarget, onStartPositionPick, onStartPositionPickCancel,
   measurementActive = false, measurementPoints = [], onMeasurementPoint, xray = false, onGeometryBounds,
+  surfaceSelectionTarget, onSurfaceSelected,
 }, ref) => {
   const cameraRef = useRef<any>(null);
   const orbitControlsRef = useRef<OrbitControlsImpl | null>(null);
@@ -499,21 +587,16 @@ const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>(({
 
   useImperativeHandle(ref, () => ({
     setCameraPreset,
-    layFlat: (fileId) => {
-      const geometry = loadedGeometries.current.get(fileId);
-      const positions = geometry?.getAttribute('position');
-      return positions ? largestFaceDownRotation(positions.array, geometry?.index?.array, fileScalesRef.current?.[fileId]) : null;
-    },
   }), [setCameraPreset]);
 
   return (
     <Canvas
       camera={{ position: [buildVolume.x / 2, -Math.max(220, buildVolume.y + 10), Math.max(180, buildVolume.z * 1.8)], fov: 45, up: [0, 0, 1], near: 0.1, far: 100000 }}
-      style={{ height: '100%', width: '100%', cursor: measurementActive ? 'crosshair' : undefined }}
+      style={{ height: '100%', width: '100%', cursor: measurementActive || surfaceSelectionTarget ? 'crosshair' : undefined }}
       frameloop="demand"
       dpr={1}
       shadows="soft"
-      onPointerMissed={() => { if (!startPositionPickTargetRef.current && !measurementActive) onSelectScene?.(); }}
+      onPointerMissed={() => { if (!startPositionPickTargetRef.current && !measurementActive && !surfaceSelectionTarget) onSelectScene?.(); }}
     >
       <CameraBridge cameraRef={cameraRef} />
       <ZUpCamera buildVolume={buildVolume} />
@@ -544,6 +627,8 @@ const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>(({
             measurementActive={measurementActive}
             onMeasurementPoint={onMeasurementPoint}
             onSnapHover={setSnapHover}
+            surfaceSelectionActive={surfaceSelectionTarget === file.fileId}
+            onSurfaceSelected={(rotation) => onSurfaceSelected?.(file.fileId, rotation)}
             xray={xray}
           />
         );

@@ -4,8 +4,9 @@ Changes are grouped into one consolidated summary per calendar day.
 
 ## 2026-08-20
 
-- Added essential object preparation tools: uniform scaling, per-axis mirroring, duplicate, center, largest-face lay-flat, automatic bed arrangement, editable object names, modifier-key multi-selection, and visible out-of-bed/overlap warnings.
+- Added essential object preparation tools: uniform scaling, per-axis mirroring, duplicate, center, click-to-select flat-surface placement, automatic bed arrangement, editable object names, modifier-key multi-selection, and visible out-of-bed/overlap warnings.
 - Extended browser persistence, unified undo/redo history, viewport rendering, slice manifests, and native Orca 3MF transforms so scale and mirror state survive reloads and produce matching sliced geometry.
+- Replaced automatic largest-face placement with a one-shot viewer mode that visualizes planar STL surfaces, highlights the hovered candidate, rotates the clicked surface onto the bed, and exits automatically; removed the AI prefill panel from the objects/settings sidebar.
 
 ## 2026-08-15
 

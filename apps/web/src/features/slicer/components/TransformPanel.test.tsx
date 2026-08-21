@@ -45,11 +45,11 @@ describe('transform controls', () => {
     const onMirror = vi.fn();
     const onDuplicate = vi.fn();
     const onCenter = vi.fn();
-    const onLayFlat = vi.fn();
+    const onSelectSurface = vi.fn();
     render(<TransformPanel
       position={{ x: 0, y: 0 }} rotation={{ x: 0, y: 0, z: 0 }} scale={{ x: 1, y: 1, z: 1 }}
       onPosition={vi.fn()} onRotation={vi.fn()} onScale={onScale} onMirror={onMirror}
-      onDuplicate={onDuplicate} onCenter={onCenter} onLayFlat={onLayFlat}
+      onDuplicate={onDuplicate} onCenter={onCenter} onSelectSurface={onSelectSurface} surfaceSelectionActive
     />);
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Scale percent' }), { target: { value: '150' } });
     expect(onScale).toHaveBeenCalledWith({ x: 1.5, y: 1.5, z: 1.5 });
@@ -57,9 +57,12 @@ describe('transform controls', () => {
     expect(onMirror).toHaveBeenCalledWith('x');
     fireEvent.click(screen.getByRole('button', { name: 'Duplicate object' }));
     fireEvent.click(screen.getByRole('button', { name: 'Center object' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Lay largest face flat' }));
+    const selectSurface = screen.getByRole('button', { name: 'Cancel flat surface selection' });
+    expect(selectSurface.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.queryByRole('button', { name: 'Lay largest face flat' })).toBeNull();
+    fireEvent.click(selectSurface);
     expect(onDuplicate).toHaveBeenCalledOnce();
     expect(onCenter).toHaveBeenCalledOnce();
-    expect(onLayFlat).toHaveBeenCalledOnce();
+    expect(onSelectSurface).toHaveBeenCalledOnce();
   });
 });

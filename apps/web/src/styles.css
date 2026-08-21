@@ -211,7 +211,7 @@ button { color: inherit; }
 .transform-action small { font-size: 7px; }
 .object-quick-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
 .object-quick-actions button { min-height: 27px; padding: 0 6px; border: 1px solid #283747; border-radius: 6px; background: #101821; color: #8799aa; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 8px; cursor: pointer; }
-.object-quick-actions button:hover { color: var(--accent); border-color: rgba(137,255,142,.45); }
+.object-quick-actions button:hover, .object-quick-actions button.active { color: var(--accent); border-color: rgba(137,255,142,.45); background: #17222d; }
 
 .gcode-preview { min-width: 0; min-height: 0; position: relative; border-left: 1px solid var(--line); background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
 .gcode-viewport { min-width: 0; min-height: 0; position: relative; flex: 1; overflow: hidden; }
