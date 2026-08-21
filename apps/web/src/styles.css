@@ -190,7 +190,7 @@ button { color: inherit; }
 .axis-legend .axis-z { color: #5b8cff; }
 .transform-panel { position: absolute; top: 14px; right: 14px; width: 350px; box-sizing: border-box; padding: 8px; display: flex; flex-direction: column; gap: 7px; z-index: 10; }
 .transform-group { display: grid; grid-template-columns: 16px repeat(3, minmax(0, 1fr)); align-items: center; gap: 5px; }
-.scale-group { grid-template-columns: 16px minmax(0, 1fr) repeat(3, 27px); }
+.scale-group { grid-template-columns: 16px minmax(0, 1fr) repeat(4, 27px); }
 .transform-group > span { display: flex; align-items: center; gap: 6px; color: #71859a; font-size: 9px; }
 .position-group .transform-column-spacer { grid-column: 2; }
 .transform-field { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 3px; color: #65798e; font-size: 8px; }
@@ -211,7 +211,7 @@ button { color: inherit; }
 .transform-action { height: 25px; min-width: 28px; padding: 0 5px; border: 1px solid #283747; border-radius: 6px; background: #0a1016; color: #7f92a5; display: inline-flex; align-items: center; justify-content: center; gap: 2px; cursor: pointer; }
 .transform-action:hover { border-color: rgba(137,255,142,.45); color: var(--accent); }
 .transform-action small { font-size: 7px; }
-.object-quick-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.object-quick-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 4px; }
 .object-quick-actions button { min-height: 27px; padding: 0 6px; border: 1px solid #283747; border-radius: 6px; background: #101821; color: #8799aa; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 8px; cursor: pointer; }
 .object-quick-actions button:hover, .object-quick-actions button.active { color: var(--accent); border-color: rgba(137,255,142,.45); background: #17222d; }
 
@@ -353,7 +353,7 @@ button { color: inherit; }
   .model-edit-controls .measurement-panel.active, .model-edit-controls .measurement-readout { width: 140px; }
   .model-edit-controls .transform-panel { width: auto; min-width: 0; max-width: none; flex: 1 1 auto; padding: 6px; }
   .transform-group { display: grid; grid-template-columns: 16px repeat(3, minmax(0, 1fr)); align-items: center; }
-  .scale-group { grid-template-columns: 16px minmax(0, 1fr) repeat(3, 27px); }
+  .scale-group { grid-template-columns: 16px minmax(0, 1fr) repeat(4, 27px); }
   .transform-group > span { width: auto; }
   .transform-field { min-width: 0; }
   .transform-group input { width: 100%; min-width: 0; }

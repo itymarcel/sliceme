@@ -68,4 +68,18 @@ describe('transform controls', () => {
     expect(onCenter).toHaveBeenCalledOnce();
     expect(onSelectSurface).toHaveBeenCalledOnce();
   });
+
+  it('places Center beside the mirror controls and uses the short Select flat label', () => {
+    render(<TransformPanel
+      position={{ x: 0, y: 0 }} rotation={{ x: 0, y: 0, z: 0 }} scale={{ x: 1, y: 1, z: 1 }}
+      onPosition={vi.fn()} onRotation={vi.fn()} onScale={vi.fn()} onMirror={vi.fn()}
+      onCenter={vi.fn()} onSelectSurface={vi.fn()}
+    />);
+
+    const center = screen.getByRole('button', { name: 'Center object' });
+    expect(center.classList.contains('transform-action')).toBe(true);
+    expect(center.closest('.scale-group')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Select flat surface' }).textContent).toContain('Select flat');
+    expect(screen.getByRole('button', { name: 'Select flat surface' }).textContent).not.toContain('surface');
+  });
 });

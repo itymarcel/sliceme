@@ -5,6 +5,7 @@ Changes are grouped into one consolidated summary per calendar day.
 ## 2026-08-21
 
 - Aligned the transform panel to a consistent three-column axis grid: rotation uses all three columns at full width, while translation reserves the left axis column and right-aligns its X/Y inputs.
+- Moved Center beside the mirror controls with matching compact styling and shortened the surface-placement action label to “Select flat.”
 
 ## 2026-08-20
 

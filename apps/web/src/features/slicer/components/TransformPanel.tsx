@@ -110,13 +110,13 @@ export function TransformPanel({
               {axis === 'y' ? <FlipVertical2 size={13} /> : <FlipHorizontal2 size={13} />}<small>{axis.toUpperCase()}</small>
             </button>
           ))}
+          {onCenter && <button className="transform-action" type="button" aria-label="Center object" title="Center object" onClick={onCenter}><AlignCenter size={13} /></button>}
         </div>
       )}
-      {(onDuplicate || onCenter || onSelectSurface) && (
+      {(onDuplicate || onSelectSurface) && (
         <div className="object-quick-actions">
           {onDuplicate && <button type="button" aria-label="Duplicate object" onClick={onDuplicate}><Copy size={13} /> Duplicate</button>}
-          {onCenter && <button type="button" aria-label="Center object" onClick={onCenter}><AlignCenter size={13} /> Center</button>}
-          {onSelectSurface && <button type="button" className={surfaceSelectionActive ? 'active' : undefined} aria-label={surfaceSelectionActive ? 'Cancel flat surface selection' : 'Select flat surface'} aria-pressed={surfaceSelectionActive} onClick={onSelectSurface}><MousePointer2 size={13} /> {surfaceSelectionActive ? 'Cancel' : 'Select flat surface'}</button>}
+          {onSelectSurface && <button type="button" className={surfaceSelectionActive ? 'active' : undefined} aria-label={surfaceSelectionActive ? 'Cancel flat surface selection' : 'Select flat surface'} aria-pressed={surfaceSelectionActive} onClick={onSelectSurface}><MousePointer2 size={13} /> {surfaceSelectionActive ? 'Cancel' : 'Select flat'}</button>}
         </div>
       )}
     </div>
