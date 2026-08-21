@@ -33,6 +33,15 @@ describe('G-code toolbar presentation', () => {
     expect(styles).not.toMatch(/:hover[^\{]*\{[^}]*transform:\s*translateY\(\s*-\d/s);
   });
 
+  it('keeps source-line selection independent from preview extent and clear of view controls', () => {
+    const syncToLine = component.match(/const syncToLine[\s\S]*?\n\s*useEffect\(\(\) =>/)?.[0] ?? '';
+    expect(syncToLine).not.toContain('onUiChange');
+    expect(syncToLine).not.toContain('layerIndex:');
+    expect(syncToLine).not.toContain('moveCount:');
+    expect(styles).toMatch(/\.gcode-source-overlay\s*\{[^}]*bottom:\s*60px/s);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.gcode-source-overlay\s*\{[^}]*bottom:\s*50px/s);
+  });
+
   it('provides compact tappable mobile print info without hiding Toolpaths', () => {
     expect(component).toContain('statsCollapsed');
     expect(component).toContain('Print Info');

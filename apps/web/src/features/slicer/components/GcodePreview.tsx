@@ -411,13 +411,10 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, onSour
     const move = lineNumber === null ? undefined : moveIndexRef.current.byLine.get(lineNumber);
     if (lineNumber === null || !move) return;
     selectedLineRef.current = lineNumber;
-    const nextLayer = Math.max(0, move.layerIndex);
-    const nextMove = move.layerIndex < 0 ? 0 : move.moveNumber;
-    onUiChange({ ...uiRef.current, layerIndex: nextLayer, moveCount: nextMove });
     if (origin === 'preview') editorRef.current?.setLine(lineNumber);
     const preview = previewRef.current;
     if (preview) refreshEditMarkers(preview);
-  }, [onUiChange, refreshEditMarkers]);
+  }, [refreshEditMarkers]);
 
   useEffect(() => {
     let cancelled = false;
