@@ -7,14 +7,16 @@ const component = readFileSync(fileURLToPath(new URL('./GcodePreview.tsx', impor
 const styles = readFileSync(fileURLToPath(new URL('../../../styles.css', import.meta.url)), 'utf8');
 
 describe('G-code toolbar presentation', () => {
-  it('uses a boxed mode selector and the BroomSparkles enhancement icon', () => {
+  it('uses an edit-mode button and the BroomSparkles enhancement icon', () => {
     expect(component).toContain('BroomSparkles');
-    expect(component).toContain('className="segmented preview-mode-selector"');
+    expect(component).toContain('gcode-edit-mode-toggle');
+    expect(component).toContain('Edit G-code');
+    expect(component).toContain('gcode-source-overlay');
+    expect(component).not.toContain('preview-mode-selector');
     expect(component).toMatch(/<BroomSparkles size=\{14\} \/> Enhance/);
     expect(component).toMatch(/applied \? <Check size=\{14\} \/> : <BroomSparkles size=\{13\} \/>/);
-    expect(styles).toMatch(/\.preview-mode-selector\s*\{[^}]*padding:/s);
-    expect(styles).toMatch(/\.preview-mode-selector\s*\{[^}]*border:/s);
-    expect(styles).toMatch(/\.preview-mode-selector\s*\{[^}]*background:/s);
+    expect(styles).toMatch(/\.gcode-edit-mode-toggle\s*\{[^}]*padding:/s);
+    expect(styles).toMatch(/\.gcode-source-overlay\s*\{[^}]*position:\s*absolute/s);
     expect(component).not.toContain('className="preview-meta"');
     expect(component).toContain('className="gcode-toolbar-controls"');
     expect(component).not.toContain('label="Travel"');

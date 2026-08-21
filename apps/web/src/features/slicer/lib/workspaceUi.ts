@@ -8,7 +8,7 @@ export const defaultWorkspaceUi = (): WorkspaceUiState => ({
   measurementActive: false,
   xrayModel: false,
   gcodePreview: {
-    mode: 'preview',
+    editMode: false,
     layerIndex: -1,
     moveCount: -1,
     showTravel: true,

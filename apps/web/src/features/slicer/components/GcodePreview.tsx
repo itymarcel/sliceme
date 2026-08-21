@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box3, Color, ConeGeometry, Group, MathUtils, Mesh, MeshBasicMaterial, Vector3 } from 'three';
-import { Axis3d, BroomSparkles, Check, Code2, Cuboid, Layers3, LoaderCircle } from 'lucide-react';
+import { Axis3d, BroomSparkles, Check, Code2, Cuboid, Layers3, LoaderCircle, X } from 'lucide-react';
 
 import { CameraPresetControls } from './CameraPresetControls';
+import { GcodeSourceEditor, type GcodeSourceEditorHandle } from './GcodeSourceEditor';
 import { ToolpathControls } from './ToolpathControls';
 import { init, type WebGLPreview } from '../lib/gcode-preview/gcode-preview';
 import type { GCodeCommand, Layer } from '../lib/gcode-preview/gcode-parser';
@@ -11,7 +12,20 @@ import { isToolpathVisible, toolpathColor, toolpathTypesFromLayers } from '../li
 
 type CameraPreset = 'top' | 'front' | 'right' | 'fit';
 type PrinterPosition = { x: number; y: number; z: number };
+type IndexedMove = {
+  lineNumber: number;
+  layerIndex: number;
+  moveNumber: number;
+  extruding: boolean;
+  toolpathType?: string;
+  printer: PrinterPosition;
+  scene: Vector3;
+};
+type ProjectedMove = { lineNumber: number; x: number; y: number; depth: number };
+type MoveIndex = { byLine: Map<number, IndexedMove>; lineNumbers: number[] };
 const TRAVEL_TOOLPATH = 'Travel moves';
+const PICK_CELL_SIZE = 24;
+const PICK_RADIUS = 14;
 
 const enhancementOptions: Array<{ id: GcodeEnhancement; label: string; description: string }> = [
   { id: 'perimeter_echo', label: 'Perimeter echo', description: 'Blend the end of the first outer perimeter into its beginning.' },
@@ -27,6 +41,76 @@ const isPositionMove = (command: GCodeCommand) => {
   return moveCodes.has(command.gcode) && (params.x !== undefined || params.y !== undefined || params.z !== undefined);
 };
 const layerMoveCount = (layer?: Layer) => layer?.commands.filter(isPositionMove).length ?? 0;
+
+export const nearestIndexedLine = (lineNumbers: number[], requested: number) => {
+  if (!lineNumbers.length) return null;
+  let low = 0;
+  let high = lineNumbers.length - 1;
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const current = lineNumbers[middle];
+    if (current === requested) return current;
+    if (current < requested) low = middle + 1;
+    else high = middle - 1;
+  }
+  const previous = high >= 0 ? lineNumbers[high] : null;
+  const next = low < lineNumbers.length ? lineNumbers[low] : null;
+  if (previous === null) return next;
+  if (next === null) return previous;
+  return requested - previous <= next - requested ? previous : next;
+};
+
+export const buildMoveIndex = (preview: Pick<WebGLPreview, 'parser'>, buildVolume: BuildVolume): MoveIndex => {
+  const byLine = new Map<number, IndexedMove>();
+  const state = { x: 0, y: 0, z: 0, e: 0 };
+  let relativePosition = false;
+  let relativeExtrusion = false;
+  const layers = [preview.parser.preamble, ...preview.parser.layers];
+
+  layers.forEach((layer, parserLayerIndex) => {
+    const layerIndex = parserLayerIndex - 1;
+    let moveNumber = 0;
+    layer.commands.forEach((command, commandIndex) => {
+      const params = commandParams(command);
+      if (command.gcode === 'g90') relativePosition = false;
+      if (command.gcode === 'g91') relativePosition = true;
+      if (command.gcode === 'm82') relativeExtrusion = false;
+      if (command.gcode === 'm83') relativeExtrusion = true;
+      if (command.gcode === 'g92') {
+        if (params.x !== undefined) state.x = params.x;
+        if (params.y !== undefined) state.y = params.y;
+        if (params.z !== undefined) state.z = params.z;
+        if (params.e !== undefined) state.e = params.e;
+      }
+      if (!isPositionMove(command)) return;
+
+      const next = {
+        x: params.x === undefined ? state.x : relativePosition ? state.x + params.x : params.x,
+        y: params.y === undefined ? state.y : relativePosition ? state.y + params.y : params.y,
+        z: params.z === undefined ? state.z : relativePosition ? state.z + params.z : params.z,
+        e: params.e === undefined ? state.e : relativeExtrusion ? state.e + params.e : params.e,
+      };
+      const moved = next.x !== state.x || next.y !== state.y || next.z !== state.z;
+      const extruding = params.e !== undefined && (relativeExtrusion ? params.e > 0 : next.e > state.e);
+      moveNumber += 1;
+      if (moved) {
+        const lineNumber = (layer === preview.parser.preamble ? 0 : layer.lineNumber) + commandIndex + 1;
+        byLine.set(lineNumber, {
+          lineNumber,
+          layerIndex,
+          moveNumber,
+          extruding,
+          toolpathType: command.toolpathType,
+          printer: { x: next.x, y: next.y, z: next.z },
+          scene: new Vector3(next.x - buildVolume.x / 2, next.z, buildVolume.y / 2 - next.y),
+        });
+      }
+      Object.assign(state, next);
+    });
+  });
+
+  return { byLine, lineNumbers: [...byLine.keys()].sort((a, b) => a - b) };
+};
 
 const commandsThroughMove = (layer: Layer, visibleMoves: number) => {
   if (visibleMoves >= layerMoveCount(layer)) return layer.commands;
@@ -107,11 +191,12 @@ function ToolbarToggle({ checked, icon, label, onChange }: {
   );
 }
 
-export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, onUiChange, expanded, onToggleExpanded }: {
+export function GcodePreview({ result, buildVolume, enhancing, onEnhance, onSourceChange, ui, onUiChange, expanded, onToggleExpanded }: {
   result: GcodeResult;
   buildVolume: BuildVolume;
   enhancing: GcodeEnhancement | null;
   onEnhance: (operation: GcodeEnhancement) => void;
+  onSourceChange: (source: string) => void;
   ui: GcodePreviewUiState;
   onUiChange: (ui: GcodePreviewUiState) => void;
   expanded: boolean;
@@ -120,7 +205,18 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewRef = useRef<WebGLPreview>();
   const toolheadRef = useRef<Group>();
+  const editorRef = useRef<GcodeSourceEditorHandle>(null);
+  const moveIndexRef = useRef<MoveIndex>({ byLine: new Map(), lineNumbers: [] });
+  const projectedMovesRef = useRef<Map<string, ProjectedMove[]>>(new Map());
+  const selectedLineRef = useRef<number | null>(null);
+  const hoveredLineRef = useRef<number | null>(null);
+  const selectedMarkerRef = useRef<Group>();
+  const hoverMarkerRef = useRef<Group>();
+  const uiRef = useRef(ui);
+  const lastLocallySavedSourceRef = useRef<string | null>(null);
   const [source, setSource] = useState('');
+  const [editorSource, setEditorSource] = useState('');
+  const [updatingSource, setUpdatingSource] = useState(false);
   const [layerCount, setLayerCount] = useState(0);
   const [movesInLayer, setMovesInLayer] = useState(0);
   const [toolhead, setToolhead] = useState<PrinterPosition | null>(null);
@@ -130,8 +226,9 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
   const [statsCollapsed, setStatsCollapsed] = useState(false);
   const isMobile = typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 640px)').matches;
 
-  const { mode, layerIndex, moveCount, showGrid, showPrintPreview, mutedToolpaths = [], soloedToolpaths = [], colorToolpaths = false } = ui;
+  const { editMode, layerIndex, moveCount, showGrid, showPrintPreview, mutedToolpaths = [], soloedToolpaths = [], colorToolpaths = false } = ui;
   const updateUi = (patch: Partial<GcodePreviewUiState>) => onUiChange({ ...ui, ...patch });
+  uiRef.current = ui;
 
 
   const stats = useMemo(() => ({
@@ -210,18 +307,148 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
     preview.requestRender();
   }, [buildVolume.x, buildVolume.y, disposeToolhead]);
 
+  const disposeEditMarkers = useCallback(() => {
+    [selectedMarkerRef, hoverMarkerRef].forEach((markerRef) => {
+      const marker = markerRef.current;
+      if (!marker) return;
+      marker.removeFromParent();
+      marker.traverse((object) => {
+        const mesh = object as Mesh;
+        mesh.geometry?.dispose();
+        if (Array.isArray(mesh.material)) mesh.material.forEach((material) => material.dispose());
+        else mesh.material?.dispose();
+      });
+      markerRef.current = undefined;
+    });
+  }, []);
+
+  const moveIsVisible = useCallback((move: IndexedMove) => {
+    const current = uiRef.current;
+    if (move.layerIndex > current.layerIndex) return false;
+    if (move.layerIndex === current.layerIndex && move.moveNumber > current.moveCount) return false;
+    return move.extruding
+      ? isToolpathVisible(move.toolpathType ?? '', current.mutedToolpaths, current.soloedToolpaths)
+      : isToolpathVisible(TRAVEL_TOOLPATH, current.mutedToolpaths, current.soloedToolpaths);
+  }, []);
+
+  const refreshEditMarkers = useCallback((preview: WebGLPreview) => {
+    disposeEditMarkers();
+    if (!uiRef.current.editMode) return;
+
+    const addMarker = (lineNumber: number | null, opacity: number, target: React.MutableRefObject<Group | undefined>) => {
+      const move = lineNumber === null ? undefined : moveIndexRef.current.byLine.get(lineNumber);
+      if (!move || !moveIsVisible(move)) return;
+      const marker = new Group();
+      const coneHeight = 16;
+      const cone = new Mesh(
+        new ConeGeometry(5, coneHeight, 16),
+        new MeshBasicMaterial({ color: 0x89ff8e, transparent: true, opacity, depthTest: false }),
+      );
+      cone.position.y = coneHeight / 2;
+      cone.rotation.x = Math.PI;
+      cone.renderOrder = 1004;
+      marker.add(cone);
+      marker.position.copy(move.scene);
+      marker.position.y += 1.2;
+      marker.renderOrder = 1004;
+      preview.scene.add(marker);
+      target.current = marker;
+    };
+
+    addMarker(selectedLineRef.current, 0.9, selectedMarkerRef);
+    if (hoveredLineRef.current !== selectedLineRef.current) addMarker(hoveredLineRef.current, 0.38, hoverMarkerRef);
+    preview.requestRender();
+  }, [disposeEditMarkers, moveIsVisible]);
+
+  const rebuildProjectedMoves = useCallback((preview: WebGLPreview) => {
+    if (!uiRef.current.editMode) {
+      projectedMovesRef.current = new Map();
+      return;
+    }
+    const grid = new Map<string, ProjectedMove[]>();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    moveIndexRef.current.byLine.forEach((move) => {
+      if (!moveIsVisible(move)) return;
+      const projected = move.scene.clone();
+      projected.y += 1.2;
+      projected.project(preview.camera);
+      if (projected.z < -1 || projected.z > 1) return;
+      const x = (projected.x * 0.5 + 0.5) * rect.width;
+      const y = (-projected.y * 0.5 + 0.5) * rect.height;
+      const key = `${Math.floor(x / PICK_CELL_SIZE)}:${Math.floor(y / PICK_CELL_SIZE)}`;
+      const candidate = { lineNumber: move.lineNumber, x, y, depth: projected.z };
+      const bucket = grid.get(key);
+      if (bucket) bucket.push(candidate);
+      else grid.set(key, [candidate]);
+    });
+    projectedMovesRef.current = grid;
+  }, [moveIsVisible]);
+
+  const pickLine = useCallback((event: MouseEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const cellX = Math.floor(x / PICK_CELL_SIZE);
+    const cellY = Math.floor(y / PICK_CELL_SIZE);
+    const candidates: ProjectedMove[] = [];
+    for (let dx = -1; dx <= 1; dx += 1) {
+      for (let dy = -1; dy <= 1; dy += 1) {
+        candidates.push(...(projectedMovesRef.current.get(`${cellX + dx}:${cellY + dy}`) ?? []));
+      }
+    }
+    return candidates
+      .map((candidate) => ({ ...candidate, distance: (candidate.x - x) ** 2 + (candidate.y - y) ** 2 }))
+      .filter((candidate) => candidate.distance <= PICK_RADIUS ** 2)
+      .sort((a, b) => Math.abs(a.distance - b.distance) > 9 ? a.distance - b.distance : a.depth - b.depth)[0]?.lineNumber ?? null;
+  }, []);
+
+  const syncToLine = useCallback((requestedLine: number, origin: 'editor' | 'preview') => {
+    const lineNumber = nearestIndexedLine(moveIndexRef.current.lineNumbers, requestedLine);
+    const move = lineNumber === null ? undefined : moveIndexRef.current.byLine.get(lineNumber);
+    if (lineNumber === null || !move) return;
+    selectedLineRef.current = lineNumber;
+    const nextLayer = Math.max(0, move.layerIndex);
+    const nextMove = move.layerIndex < 0 ? 0 : move.moveNumber;
+    onUiChange({ ...uiRef.current, layerIndex: nextLayer, moveCount: nextMove });
+    if (origin === 'preview') editorRef.current?.setLine(lineNumber);
+    const preview = previewRef.current;
+    if (preview) refreshEditMarkers(preview);
+  }, [onUiChange, refreshEditMarkers]);
+
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     result.blob.text().then((text) => {
-      if (!cancelled) setSource(text);
+      if (!cancelled) {
+        setSource(text);
+        if (text !== lastLocallySavedSourceRef.current) setEditorSource(text);
+      }
     });
     return () => { cancelled = true; };
-  }, [result]);
+  }, [result.blob]);
+
+  useEffect(() => {
+    if (!source || editorSource === source) {
+      setUpdatingSource(false);
+      return;
+    }
+    setUpdatingSource(true);
+    const timeout = window.setTimeout(() => {
+      lastLocallySavedSourceRef.current = editorSource;
+      setSource(editorSource);
+      onSourceChange(editorSource);
+      setUpdatingSource(false);
+    }, 450);
+    return () => window.clearTimeout(timeout);
+  }, [editorSource, onSourceChange, source]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !source) return;
+    setLoading(true);
 
     const preview = init({
       canvas,
@@ -243,6 +470,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
     preview.camera.far = 100000;
     preview.camera.updateProjectionMatrix();
     preview.processGCode(source);
+    moveIndexRef.current = buildMoveIndex(preview, buildVolume);
     const count = preview.parser.layers.length;
     setToolpathTypes([TRAVEL_TOOLPATH, ...toolpathTypesFromLayers(preview.parser.layers).filter((type) => type !== TRAVEL_TOOLPATH)]);
     const lastLayer = Math.max(0, count - 1);
@@ -266,10 +494,12 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
       cancelAnimationFrame(fitFrame);
       resize.disconnect();
       disposeToolhead();
+      disposeEditMarkers();
+      projectedMovesRef.current = new Map();
       preview.dispose();
       if (previewRef.current === preview) previewRef.current = undefined;
     };
-  }, [applyGridVisibility, buildVolume.x, buildVolume.y, buildVolume.z, disposeToolhead, source]);
+  }, [applyGridVisibility, buildVolume.x, buildVolume.y, buildVolume.z, disposeEditMarkers, disposeToolhead, source]);
 
   useEffect(() => {
     const preview = previewRef.current;
@@ -284,11 +514,74 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
     preview.renderTubes = showPrintPreview;
     preview.toolpathVisible = (type) => isToolpathVisible(type, mutedToolpaths, soloedToolpaths);
     preview.toolpathColor = (type) => colorToolpaths && type ? toolpathColor(type) : undefined;
+    disposeEditMarkers();
     preview.render();
     layer.commands = originalCommands;
     applyGridVisibility(preview, showGrid);
     addToolhead(preview, toolheadAt(preview, layerIndex, moveCount));
-  }, [addToolhead, applyGridVisibility, colorToolpaths, layerCount, layerIndex, moveCount, mutedToolpaths, showGrid, showPrintPreview, soloedToolpaths]);
+    refreshEditMarkers(preview);
+    rebuildProjectedMoves(preview);
+  }, [addToolhead, applyGridVisibility, colorToolpaths, disposeEditMarkers, editMode, layerCount, layerIndex, moveCount, mutedToolpaths, rebuildProjectedMoves, refreshEditMarkers, showGrid, showPrintPreview, soloedToolpaths]);
+
+  useEffect(() => {
+    const preview = previewRef.current;
+    const canvas = canvasRef.current;
+    if (!editMode || !preview || !canvas) {
+      projectedMovesRef.current = new Map();
+      hoveredLineRef.current = null;
+      if (preview) refreshEditMarkers(preview);
+      return;
+    }
+
+    let projectionFrame = 0;
+    let hoverFrame = 0;
+    let pointerDown: { x: number; y: number } | null = null;
+    const scheduleProjection = () => {
+      if (projectionFrame) return;
+      projectionFrame = window.requestAnimationFrame(() => {
+        projectionFrame = 0;
+        rebuildProjectedMoves(preview);
+      });
+    };
+    const onMove = (event: MouseEvent) => {
+      if (hoverFrame) window.cancelAnimationFrame(hoverFrame);
+      hoverFrame = window.requestAnimationFrame(() => {
+        hoverFrame = 0;
+        hoveredLineRef.current = pickLine(event);
+        refreshEditMarkers(preview);
+      });
+    };
+    const onLeave = () => {
+      hoveredLineRef.current = null;
+      pointerDown = null;
+      refreshEditMarkers(preview);
+    };
+    const onDown = (event: MouseEvent) => { pointerDown = { x: event.clientX, y: event.clientY }; };
+    const onUp = (event: MouseEvent) => {
+      if (!pointerDown) return;
+      const distance = Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y);
+      pointerDown = null;
+      if (distance > 5) return;
+      const line = pickLine(event);
+      if (line !== null) syncToLine(line, 'preview');
+    };
+
+    rebuildProjectedMoves(preview);
+    preview.controls.addEventListener('change', scheduleProjection);
+    canvas.addEventListener('mousemove', onMove);
+    canvas.addEventListener('mouseleave', onLeave);
+    canvas.addEventListener('mousedown', onDown);
+    canvas.addEventListener('mouseup', onUp);
+    return () => {
+      preview.controls.removeEventListener('change', scheduleProjection);
+      canvas.removeEventListener('mousemove', onMove);
+      canvas.removeEventListener('mouseleave', onLeave);
+      canvas.removeEventListener('mousedown', onDown);
+      canvas.removeEventListener('mouseup', onUp);
+      if (projectionFrame) window.cancelAnimationFrame(projectionFrame);
+      if (hoverFrame) window.cancelAnimationFrame(hoverFrame);
+    };
+  }, [editMode, pickLine, rebuildProjectedMoves, refreshEditMarkers, source, syncToLine]);
 
   const selectLayer = (nextLayer: number) => {
     const preview = previewRef.current;
@@ -306,18 +599,17 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
   return (
     <section className="gcode-preview">
       <div className="preview-toolbar">
-        <div className="segmented preview-mode-selector">
-          <button className={mode === 'preview' ? 'active' : ''} onClick={() => updateUi({ mode: 'preview' })}><Layers3 size={14} /> Preview</button>
-          <button className={mode === 'source' ? 'active' : ''} onClick={() => updateUi({ mode: 'source' })}><Code2 size={14} /> Source</button>
-        </div>
-        {mode === 'preview' && <div className="gcode-toolbar-controls">
+        <button className={`gcode-edit-mode-toggle ${editMode ? 'active' : ''}`} type="button" aria-pressed={editMode} title="Link G-code lines with points in the preview" onClick={() => updateUi({ editMode: !editMode })}>
+          <Code2 size={14} /> Edit G-code
+        </button>
+        <div className="gcode-toolbar-controls">
           <ToolbarToggle checked={showPrintPreview} icon={<Cuboid size={14} />} label="Print preview" onChange={() => updateUi({ showPrintPreview: !showPrintPreview })} />
           <ToolbarToggle checked={showGrid} icon={<Axis3d size={14} />} label="Grid" onChange={() => updateUi({ showGrid: !showGrid })} />
           <ToolpathControls types={toolpathTypes} muted={mutedToolpaths} soloed={soloedToolpaths} colorByType={colorToolpaths} onColorByTypeChange={(colorToolpaths) => updateUi({ colorToolpaths })} onClear={() => updateUi({ mutedToolpaths: [], soloedToolpaths: [] })} onMutedChange={(types) => updateUi({ mutedToolpaths: types })} onSoloedChange={(types) => updateUi({ soloedToolpaths: types })} />
-        </div>}
+        </div>
       </div>
 
-      <div className={`gcode-viewport ${mode === 'source' ? 'is-hidden' : ''}`}>
+      <div className={`gcode-viewport ${editMode ? 'is-editing' : ''}`}>
         <canvas ref={canvasRef} />
         {loading && <div className="gcode-loading"><Layers3 size={22} /><span>Building 3D toolpath…</span></div>}
 
@@ -375,9 +667,22 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, ui, on
             {result.enhancements.length > 0 && <span>{result.enhancements.length}</span>}
           </button>
         </div>
-      </div>
 
-      {mode === 'source' && <pre>{source}</pre>}
+        {editMode && (
+          <section className="gcode-source-overlay panel" aria-label="G-code editor">
+            <header>
+              <div><strong>G-code source</strong><span>{updatingSource ? 'Updating preview…' : 'Changes are saved locally'}</span></div>
+              <button type="button" aria-label="Close G-code editor" onClick={() => updateUi({ editMode: false })}><X size={14} /></button>
+            </header>
+            <GcodeSourceEditor
+              ref={editorRef}
+              value={editorSource}
+              onChange={setEditorSource}
+              onSelectedLineChange={(lineNumber) => syncToLine(lineNumber, 'editor')}
+            />
+          </section>
+        )}
+      </div>
     </section>
   );
 }

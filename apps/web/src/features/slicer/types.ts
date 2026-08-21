@@ -54,7 +54,7 @@ export type SlicerRecommendation = {
 };
 
 export type GcodePreviewUiState = {
-  mode: 'preview' | 'source';
+  editMode: boolean;
   layerIndex: number;
   moveCount: number;
   showTravel: boolean;

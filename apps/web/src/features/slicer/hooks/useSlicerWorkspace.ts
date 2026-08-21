@@ -296,6 +296,17 @@ export function useSlicerWorkspace() {
     setGcode(next);
   }, []);
 
+  const updateGcodeSource = useCallback((source: string) => {
+    setGcode((current) => {
+      if (!current) return current;
+      if (gcodeUrl.current) URL.revokeObjectURL(gcodeUrl.current);
+      const blob = new Blob([source], { type: current.blob.type || 'text/x-gcode' });
+      const url = URL.createObjectURL(blob);
+      gcodeUrl.current = url;
+      return { ...current, blob, url };
+    });
+  }, []);
+
   const addModels = useCallback((files: FileList | File[]) => {
     const accepted = Array.from(files).filter((file) => /\.(stl|step|stp)$/i.test(file.name));
     if (!accepted.length) return;
@@ -725,7 +736,7 @@ export function useSlicerWorkspace() {
     status, error, defaultsLoading, buildVolume, startPositions, enhancing, prefilling, projectBusy, projectNotice, ui, setUi,
     setSelectedNode, selectFile, selectScene, selectNode, addModels, removeModel, renameModel, duplicateSelected, autoArrange, centerSelected, mirrorSelected, setModelGeometryBounds, setSetting, applyPrinterPreset, addRange, removeRange,
     setRangeBoundary, setPositions: setPositionsWithHistory, setRotations: setRotationsWithHistory, setScales: setScalesWithHistory, beginTransformChange, slice, cancelSlice, enhanceGcode, prefillSettings,
-    clearAiFieldHighlight, dismissError, dismissProjectNotice: () => setProjectNotice(null), importProject, exportProject, clear,
+    clearAiFieldHighlight, updateGcodeSource, dismissError, dismissProjectNotice: () => setProjectNotice(null), importProject, exportProject, clear,
     undo, redo, canUndo: history.past.length > 0, canRedo: history.future.length > 0,
   };
 }

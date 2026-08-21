@@ -181,7 +181,7 @@ export function SlicerWorkspace() {
             </div>
             {workspace.status === 'slicing' && <div className="slicing-overlay"><LoaderCircle size={28} className="spin" /><strong>Slicer engine is working</strong><span>This request remains temporary.</span></div>}
           </section>
-          {workspace.gcode && <GcodePreview result={workspace.gcode} buildVolume={workspace.buildVolume} enhancing={workspace.enhancing} onEnhance={workspace.enhanceGcode} ui={workspace.ui.gcodePreview} onUiChange={(gcodePreview) => workspace.setUi((current) => ({ ...current, gcodePreview }))} expanded={expandedViewer === 'gcode'} onToggleExpanded={() => setExpandedViewer((current) => current === 'gcode' ? null : 'gcode')} />}
+          {workspace.gcode && <GcodePreview result={workspace.gcode} buildVolume={workspace.buildVolume} enhancing={workspace.enhancing} onEnhance={workspace.enhanceGcode} onSourceChange={workspace.updateGcodeSource} ui={workspace.ui.gcodePreview} onUiChange={(gcodePreview) => workspace.setUi((current) => ({ ...current, gcodePreview }))} expanded={expandedViewer === 'gcode'} onToggleExpanded={() => setExpandedViewer((current) => current === 'gcode' ? null : 'gcode')} />}
         </main>
       </div>
 
