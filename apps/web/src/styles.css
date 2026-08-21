@@ -188,7 +188,7 @@ button { color: inherit; }
 .axis-legend .axis-x { color: #ff5d68; }
 .axis-legend .axis-y { color: #54d98c; }
 .axis-legend .axis-z { color: #5b8cff; }
-.transform-panel { position: absolute; top: 14px; right: 14px; width: 267px; box-sizing: border-box; padding: 8px; display: flex; flex-direction: column; gap: 7px; z-index: 10; }
+.transform-panel { position: absolute; top: 14px; right: 14px; width: 350px; box-sizing: border-box; padding: 8px; display: flex; flex-direction: column; gap: 7px; z-index: 10; }
 .transform-group { display: grid; grid-template-columns: 16px repeat(3, minmax(0, 1fr)); align-items: center; gap: 5px; }
 .scale-group { grid-template-columns: 16px minmax(0, 1fr) repeat(3, 27px); }
 .transform-group > span { display: flex; align-items: center; gap: 6px; color: #71859a; font-size: 9px; }
