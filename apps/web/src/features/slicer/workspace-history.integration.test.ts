@@ -26,6 +26,6 @@ describe('workspace model and transform history integration', () => {
     expect(workspace).toContain('workspace.setRotations((current)');
     expect(workspace).toContain('workspace.setScales((current)');
     expect(workspace).toContain('workspace.duplicateSelected');
-    expect(workspace).toContain('workspace.autoArrange');
+    expect(workspace).not.toContain('workspace.autoArrange');
   });
 });

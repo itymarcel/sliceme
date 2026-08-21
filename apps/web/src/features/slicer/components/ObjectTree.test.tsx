@@ -10,14 +10,13 @@ afterEach(cleanup);
 const model = { fileId: 'a', fileName: 'part.stl', fileSize: 1, objectUrl: 'blob:a', file: new File(['x'], 'part.stl') };
 
 describe('object tree tools', () => {
-  it('supports additive selection, renaming, arrange, and placement warnings', () => {
+  it('supports additive selection, renaming, and placement warnings', () => {
     const onSelectFile = vi.fn();
     const onRename = vi.fn();
-    const onArrange = vi.fn();
     render(<ObjectTree
       models={[model]} ranges={{}} selected={{ type: 'file', fileId: 'a' }} selectedFileIds={['a']}
       modelNames={{ a: 'Part' }} placementIssues={{ a: ['outside', 'overlap'] }}
-      onSelect={vi.fn()} onSelectFile={onSelectFile} onRename={onRename} onArrange={onArrange}
+      onSelect={vi.fn()} onSelectFile={onSelectFile} onRename={onRename}
       onAddModels={vi.fn()} onRemoveModel={vi.fn()} onAddRange={vi.fn()} onRemoveRange={vi.fn()}
     />);
     fireEvent.click(screen.getByRole('button', { name: 'Select Part' }), { ctrlKey: true });
@@ -30,8 +29,6 @@ describe('object tree tools', () => {
     fireEvent.blur(screen.getByRole('textbox', { name: 'Object name' }));
     expect((screen.getByRole('textbox', { name: 'Object name' }) as HTMLInputElement).value).toBe('Part');
     expect(onRename).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Auto arrange objects' }));
-    expect(onArrange).toHaveBeenCalledOnce();
     expect(screen.getByRole('status').getAttribute('aria-label')).toBe('Part is outside the bed and overlaps another object');
   });
 });

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Download, Eraser, FileUp, LoaderCircle, OctagonX, Redo2, ShieldCheck, SlidersHorizontal, Slice, Undo2, X } from 'lucide-react';
 
 import { GcodePreview } from './components/GcodePreview';
-
+import { AiPrefillPanel } from './components/AiPrefillPanel';
 import ModelViewport, { type ModelViewportHandle } from './components/ModelViewport';
 import { CameraPresetControls } from './components/CameraPresetControls';
 import { ObjectTree } from './components/ObjectTree';
@@ -131,9 +131,9 @@ export function SlicerWorkspace() {
       <div className="workspace-layout">
         <aside id="mobile-settings-panel" className={`sidebar ${mobileSettingsOpen ? 'mobile-settings-open' : ''}`} role={mobileSettingsOpen ? 'dialog' : undefined} aria-modal={mobileSettingsOpen ? 'true' : undefined} aria-label={mobileSettingsOpen ? 'Objects and slicer settings' : undefined}>
           <div className="mobile-settings-header"><span><SlidersHorizontal size={16} /><strong>Objects &amp; settings</strong></span><button className="icon-button" type="button" aria-label="Close objects and slicer settings" onClick={() => setMobileSettingsOpen(false)}><X size={18} /></button></div>
-          <ObjectTree models={workspace.models} ranges={workspace.rangeOverrides} selected={workspace.selectedNode} selectedFileIds={workspace.selectedFileIds} modelNames={workspace.modelNames} placementIssues={workspace.placementIssues} onSelect={workspace.selectNode} onSelectFile={workspace.selectFile} onRename={workspace.renameModel} onArrange={workspace.autoArrange} onAddModels={openFilePicker} onRemoveModel={workspace.removeModel} onAddRange={workspace.addRange} onRemoveRange={workspace.removeRange} />
+          <ObjectTree models={workspace.models} ranges={workspace.rangeOverrides} selected={workspace.selectedNode} selectedFileIds={workspace.selectedFileIds} modelNames={workspace.modelNames} placementIssues={workspace.placementIssues} onSelect={workspace.selectNode} onSelectFile={workspace.selectFile} onRename={workspace.renameModel} onAddModels={openFilePicker} onRemoveModel={workspace.removeModel} onAddRange={workspace.addRange} onRemoveRange={workspace.removeRange} />
           <SlicerSettingsPanel selectedNode={workspace.selectedNode} config={workspace.config} fileOverrides={workspace.fileOverrides} rangeOverrides={workspace.rangeOverrides} onChange={workspace.setSetting} onApplyPrinterPreset={workspace.applyPrinterPreset} onRangeBoundary={workspace.setRangeBoundary} section={workspace.ui.settingsSection} query={workspace.ui.settingsQuery} onSectionChange={(settingsSection) => workspace.setUi((current) => ({ ...current, settingsSection }))} onQueryChange={(settingsQuery) => workspace.setUi((current) => ({ ...current, settingsQuery }))} highlightedFields={workspace.ui.aiHighlightedFields} onFieldInteract={workspace.clearAiFieldHighlight} />
-
+          <AiPrefillPanel description={workspace.ui.prefillDescription} loading={workspace.prefilling || workspace.status === 'slicing'} onDescriptionChange={(prefillDescription) => workspace.setUi((current) => ({ ...current, prefillDescription }))} onPrefill={workspace.prefillSettings} />
         </aside>
 
         <main className={`work-area ${workspace.gcode ? 'with-gcode' : ''} ${expandedViewer ? `expanded-${expandedViewer}` : ''}`}>

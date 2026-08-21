@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, Box, CornerDownRight, Globe2, Layers3, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { AlertTriangle, Box, CornerDownRight, Globe2, Layers3, Plus, Trash2 } from 'lucide-react';
 
 import type { RangeOverride, SelectedNode, SlicerModel } from '../types';
 
@@ -13,7 +13,6 @@ type Props = {
   onSelect: (node: SelectedNode) => void;
   onSelectFile?: (fileId: string, additive: boolean) => void;
   onRename?: (fileId: string, name: string) => void;
-  onArrange?: () => void;
   onAddModels: () => void;
   onRemoveModel: (fileId: string) => void;
   onAddRange: (fileId: string) => void;
@@ -54,7 +53,6 @@ export function ObjectTree(props: Props) {
       <div className="panel-heading">
         <div><span className="eyebrow">Workspace</span><strong>Objects</strong></div>
         <div className="tree-heading-actions">
-          {props.onArrange && <button className="icon-button" type="button" aria-label="Auto arrange objects" title="Auto arrange objects" onClick={props.onArrange}><Sparkles size={15} /></button>}
           <button className="icon-button" title="Add models" aria-label="Add models" onClick={props.onAddModels}><Plus size={15} /></button>
         </div>
       </div>
