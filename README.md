@@ -187,46 +187,6 @@ endpoint is disabled with a clear error when `OPENAI_API_KEY` is absent. By
 default, each client can make 10 prefill requests per 10-minute window; set the
 rate limit to `0` only when another trusted gateway enforces usage limits.
 
-## Railway
-
-Deploy this repository as two Railway services in the same project and environment. Railway does not run the Compose stack directly; each service uses its own root directory and Dockerfile.
-
-### Slicer API service
-
-- Service name: `slicer-api`
-- Root directory: `/services/slicer`
-- Config file path: `/services/slicer/railway.json`
-- Do not generate a public domain
-- Variables:
-
-```text
-PORT=8080
-ORCA_RUNTIME_IMAGE=ghcr.io/itymarcel/custom-orca:sha-fd98397
-SLICER_CONCURRENCY=1
-SLICER_TIMEOUT_SECONDS=700
-SLICER_MAX_FILE_BYTES=209715200
-OPENAI_API_KEY=<server-only-key>
-OPENAI_SLICER_MODEL=gpt-5.4
-OPENAI_PREFILL_RATE_LIMIT=10
-OPENAI_PREFILL_RATE_WINDOW_SECONDS=600
-```
-
-### Web service
-
-- Service name: `web`
-- Root directory: `/apps/web`
-- Config file path: `/apps/web/railway.json`
-- Generate the public Railway domain for this service only
-- Variables:
-
-```text
-PORT=80
-SLICER_API_HOST=slicer-api.railway.internal
-SLICER_API_PORT=8080
-```
-
-The Nginx container substitutes the API host and port at startup. Compose uses the local hostname `slicer-api`; Railway uses its private DNS hostname. No persistent volume is required because uploads and generated G-code are request-scoped temporary files.
-
 ## API
 
 `POST /api/slice` accepts multipart form data:
