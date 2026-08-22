@@ -19,6 +19,8 @@ describe('object tree tools', () => {
       onSelect={vi.fn()} onSelectFile={onSelectFile} onRename={onRename}
       onAddModels={vi.fn()} onRemoveModel={vi.fn()} onAddRange={vi.fn()} onRemoveRange={vi.fn()}
     />);
+    expect(screen.queryByText('Workspace')).toBeNull();
+    expect(screen.getByText('Objects')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Select Part' }), { ctrlKey: true });
     expect(onSelectFile).toHaveBeenCalledWith('a', true);
     fireEvent.change(screen.getByRole('textbox', { name: 'Object name' }), { target: { value: 'Renamed' } });

@@ -51,7 +51,7 @@ export function ObjectTree(props: Props) {
   return (
     <section className="object-tree panel">
       <div className="panel-heading">
-        <div><span className="eyebrow">Workspace</span><strong>Objects</strong></div>
+        <div><strong>Objects</strong></div>
         <div className="tree-heading-actions">
           <button className="icon-button" title="Add models" aria-label="Add models" onClick={props.onAddModels}><Plus size={15} /></button>
         </div>

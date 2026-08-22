@@ -256,7 +256,7 @@ export function SlicerSettingsPanel(props: Props) {
   return (
     <section className="settings-panel panel">
       <div className="panel-heading">
-        <div><span className="eyebrow">Settings</span><strong>{props.selectedNode.type === 'scene' ? 'Global' : props.selectedNode.type === 'file' ? 'Object override' : 'Height-range override'}</strong></div>
+        <div><strong>{props.selectedNode.type === 'scene' ? 'Global' : props.selectedNode.type === 'file' ? 'Object override' : 'Height-range override'}</strong></div>
       </div>
       {range && rangeSelection && (
         <div className="range-boundaries">

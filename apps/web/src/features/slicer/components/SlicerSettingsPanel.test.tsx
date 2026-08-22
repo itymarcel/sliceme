@@ -39,6 +39,12 @@ const props = () => ({
 afterEach(cleanup);
 
 describe('G-code setting editor', () => {
+  it('shows only the selected settings scope in the panel heading', () => {
+    render(<SlicerSettingsPanel {...props()} />);
+    expect(screen.queryByText('Settings')).toBeNull();
+    expect(screen.getByText('Global')).toBeTruthy();
+  });
+
   it('offers distinct target G-code presets in the standard setting control', async () => {
     const user = userEvent.setup();
     const panelProps = props();
