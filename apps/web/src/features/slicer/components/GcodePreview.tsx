@@ -216,7 +216,6 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, onSour
   const lastLocallySavedSourceRef = useRef<string | null>(null);
   const [source, setSource] = useState('');
   const [editorSource, setEditorSource] = useState('');
-  const [updatingSource, setUpdatingSource] = useState(false);
   const [layerCount, setLayerCount] = useState(0);
   const [movesInLayer, setMovesInLayer] = useState(0);
   const [toolhead, setToolhead] = useState<PrinterPosition | null>(null);
@@ -429,15 +428,12 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, onSour
 
   useEffect(() => {
     if (!source || editorSource === source) {
-      setUpdatingSource(false);
       return;
     }
-    setUpdatingSource(true);
     const timeout = window.setTimeout(() => {
       lastLocallySavedSourceRef.current = editorSource;
       setSource(editorSource);
       onSourceChange(editorSource);
-      setUpdatingSource(false);
     }, 450);
     return () => window.clearTimeout(timeout);
   }, [editorSource, onSourceChange, source]);
@@ -668,7 +664,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, onSour
         {editMode && (
           <section className="gcode-source-overlay panel" aria-label="G-code editor">
             <header>
-              <div><strong>G-code source</strong><span>{updatingSource ? 'Updating preview…' : 'Changes are saved locally'}</span></div>
+              <div><strong>G-code source</strong></div>
               <button type="button" aria-label="Close G-code editor" onClick={() => updateUi({ editMode: false })}><X size={14} /></button>
             </header>
             <GcodeSourceEditor
