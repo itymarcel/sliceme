@@ -1,9 +1,28 @@
-# Standalone Slicer
+# SliceMe
 
-A browser-based 3D-printing workspace for preparing models, configuring
-OrcaSlicer, generating G-code, and reviewing print paths. Models, settings, UI
-preferences, and generated G-code are stored locally in the browser. Slicing
-inputs exist on the API only for the lifetime of one request.
+[![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-89ff8e.svg)](LICENSE)
+[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-89ff8e.svg)](CONTRIBUTING.md)
+
+SliceMe is an **open-source, community-driven** browser workspace for preparing
+3D models, configuring a slicer, generating G-code, and reviewing print paths.
+You are welcome to use it, self-host it, fork it, improve it, report problems,
+and submit pull requests.
+
+The project uses the strong-copyleft [GNU Affero General Public License v3.0 or
+later](LICENSE). Forks and commercial services are permitted by that license,
+but modified versions distributed or offered to users over a network must make
+their corresponding source available under the same license. The license does
+not grant rights to the SliceMe name or branding; see [TRADEMARKS.md](TRADEMARKS.md).
+
+Models, settings, UI preferences, and generated G-code are stored locally in
+the browser. Slicing inputs exist on the API only for the lifetime of one
+request.
+
+## Get involved
+
+- Read [CONTRIBUTING.md](CONTRIBUTING.md) to set up a fork and submit a pull request.
+- Use [GitHub Issues](https://github.com/itymarcel/sliceme/issues) for reproducible bugs and focused feature proposals.
+- Open pull requests against `dev`; reviewed changes are promoted to `master`.
 
 ## Architecture
 
@@ -19,6 +38,7 @@ Celery, product model, or object storage dependency.
 ## Credits
 
 - Perimeter Echo by Sam Beany.
+- G-code preview geometry adapted from [aligator/gcode-viewer](https://github.com/aligator/gcode-viewer); see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Browser-local workspace
 
@@ -232,3 +252,18 @@ python3 -m venv .venv
 ```
 
 An end-to-end slice requires the Orca runtime container. The engine unit tests mock only the final Orca process invocation; 3MF creation remains real.
+
+## License
+
+SliceMe is licensed under the [GNU Affero General Public License, version 3 or
+later](LICENSE). Copyright © 2026 itymarcel and SliceMe contributors.
+
+The AGPL is an open-source license and therefore allows commercial use,
+including paid distribution. Its protection is copyleft: redistributors and
+operators of modified network versions must preserve the license and provide
+the corresponding source. A distributed or network-served modified fork cannot
+remain closed source.
+
+No trademark rights are granted under the software license. See
+[TRADEMARKS.md](TRADEMARKS.md). Third-party components retain their own terms;
+see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

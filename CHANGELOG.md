@@ -5,6 +5,7 @@ Changes are grouped into one consolidated summary per calendar day.
 ## 2026-08-22
 
 - Simplified the sidebar panel headings by removing the redundant “Workspace” eyebrow above Objects and “Settings” eyebrow above the active settings scope.
+- Published SliceMe as an AGPL-3.0-or-later open-source project with clear forking and contribution guidance, protected project branding, pull-request guidance, and third-party notices.
 
 ## 2026-08-21
 
