@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Code2, Search, Sparkles, X } from 'lucide-react';
 
-import type { AiHighlightedFields, ConfigBundle, ConfigSection, RangeOverride, SelectedNode } from '../types';
+import type { AiHighlightedFields, ConfigBundle, ConfigSection, PrintPreset, PrinterPreset, RangeOverride, SelectedNode } from '../types';
 import { rangeHelp, settingHelp } from '../lib/settingHelp';
-import { buildDimensionsFromMachineConfig, findMatchingPrinterPreset, printerPresets } from '../lib/printerPresets';
+import { buildDimensionsFromMachineConfig, findMatchingPrinterPreset, findMatchingPrintPreset } from '../lib/printerPresets';
 import { ParameterHelp } from './ParameterHelp';
 
 type Field = {
@@ -149,7 +149,10 @@ type Props = {
   fileOverrides: Record<string, Partial<ConfigBundle>>;
   rangeOverrides: Record<string, RangeOverride[]>;
   onChange: (section: ConfigSection, key: string, value: unknown) => void;
+  printerPresets: PrinterPreset[];
+  printPresets: PrintPreset[];
   onApplyPrinterPreset: (presetId: string) => void;
+  onApplyPrintPreset: (presetId: string) => void;
 
   onRangeBoundary: (fileId: string, rangeIndex: number, key: 'min_z' | 'max_z', value: number) => void;
   section: ConfigSection;
@@ -229,7 +232,8 @@ export function SlicerSettingsPanel(props: Props) {
   })).filter((group) => group.fields.length), [query, section]);
   const rangeSelection = props.selectedNode.type === 'range' ? props.selectedNode : null;
   const range = rangeSelection ? props.rangeOverrides[rangeSelection.fileId]?.[rangeSelection.rangeIndex] : null;
-  const printerPresetId = findMatchingPrinterPreset(props.config.machine_config);
+  const printerPresetId = findMatchingPrinterPreset(props.config.machine_config, props.printerPresets);
+  const printPresetId = findMatchingPrintPreset(props.config.process_config, props.printPresets);
 
   const openEditor = (nextEditor: GcodeEditor) => {
     setEditor(nextEditor);
@@ -277,14 +281,30 @@ export function SlicerSettingsPanel(props: Props) {
           <div className="settings-group">
             <h3>Target printer</h3>
             <div className="setting-row">
-              <span><span id="setting-printer-preset">Printer preset</span><ParameterHelp label="Printer preset" text="Selects the additional start, end, pause, filament-change, and layer G-code from the target printer's bundled Orca profile. It does not change bed dimensions, nozzle, speeds, temperatures, or firmware settings." /></span>
+              <span><span id="setting-printer-preset">Printer profile</span><ParameterHelp label="Printer profile" text="Replaces the complete machine configuration with the selected Orca profile." /></span>
               <div className="setting-control">
                 <select id="printer-preset" aria-labelledby="setting-printer-preset" value={printerPresetId} onChange={(event) => props.onApplyPrinterPreset(event.target.value)}>
-                  <option value="custom">Custom</option>
-                  {printerPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.manufacturer} {preset.name}</option>)}
+                  <option value="custom">Custom machine</option>
+                  {props.printerPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.manufacturer} · {preset.name}</option>)}
                 </select>
               </div>
             </div>
+            <p className="settings-preset-note">Replaces the complete machine configuration, including build volume, nozzle, firmware, limits, and machine G-code.</p>
+          </div>
+        )}
+        {section === 'process_config' && props.selectedNode.type === 'scene' && (
+          <div className="settings-group">
+            <h3>Print profile</h3>
+            <div className="setting-row">
+              <span><span id="setting-print-preset">Print preset</span><ParameterHelp label="Print preset" text="Replaces the complete current process configuration with a curated quality preset." /></span>
+              <div className="setting-control">
+                <select id="print-preset" aria-labelledby="setting-print-preset" value={printPresetId} onChange={(event) => props.onApplyPrintPreset(event.target.value)}>
+                  <option value="custom">Custom print settings</option>
+                  {props.printPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <p className="settings-preset-note settings-preset-warning">Applying a print preset will overwrite all current print settings.</p>
           </div>
         )}
         {visibleGroups.map((group) => (

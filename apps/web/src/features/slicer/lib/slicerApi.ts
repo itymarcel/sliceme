@@ -1,6 +1,6 @@
 import { strFromU8, unzipSync } from 'fflate';
 
-import type { ConfigBundle, GcodeEnhancement, GcodeResult, SlicerRecommendation, SliceManifest, SlicerModel } from '../types';
+import type { ConfigBundle, GcodeEnhancement, GcodeResult, PrintPreset, PrinterPreset, SlicerRecommendation, SliceManifest, SlicerModel } from '../types';
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? '';
 
@@ -17,6 +17,34 @@ export async function loadDefaultConfig(signal?: AbortSignal): Promise<ConfigBun
   const response = await fetch(`${apiBase}/api/default-config`, { signal });
   if (!response.ok) throw new Error(await readError(response));
   return response.json();
+}
+
+export async function loadPrinterPresets(signal?: AbortSignal): Promise<PrinterPreset[]> {
+  const response = await fetch(`${apiBase}/api/printer-presets`, { signal });
+  if (!response.ok) throw new Error(await readError(response));
+  const body = await response.json();
+  return body.presets;
+}
+
+export async function loadPrinterPreset(presetId: string, signal?: AbortSignal): Promise<Record<string, unknown>> {
+  const response = await fetch(`${apiBase}/api/printer-presets/${encodeURIComponent(presetId)}`, { signal });
+  if (!response.ok) throw new Error(await readError(response));
+  const body = await response.json();
+  return body.machine_config;
+}
+
+export async function loadPrintPresets(signal?: AbortSignal): Promise<PrintPreset[]> {
+  const response = await fetch(`${apiBase}/api/print-presets`, { signal });
+  if (!response.ok) throw new Error(await readError(response));
+  const body = await response.json();
+  return body.presets;
+}
+
+export async function loadPrintPreset(presetId: string, signal?: AbortSignal): Promise<Record<string, unknown>> {
+  const response = await fetch(`${apiBase}/api/print-presets/${encodeURIComponent(presetId)}`, { signal });
+  if (!response.ok) throw new Error(await readError(response));
+  const body = await response.json();
+  return body.process_config;
 }
 
 export async function requestSettingsPrefill(description: string, config: ConfigBundle, signal?: AbortSignal): Promise<SlicerRecommendation> {
@@ -67,7 +95,12 @@ export async function requestEnhancement(
 
 export type ImportedProject = {
   config: ConfigBundle;
-  models: Array<{ file: File; position: { x: number; y: number } }>;
+  models: Array<{
+    file: File;
+    position: { x: number; y: number; z?: number };
+    overrides: Partial<ConfigBundle>;
+    modifierForIndex: number | null;
+  }>;
   warnings: string[];
 };
 
@@ -88,10 +121,24 @@ function parseImportedManifest(value: unknown) {
     if (!isRecord(model) || typeof model.path !== 'string' || !new RegExp(`^models/${index}\\.stl$`).test(model.path)
       || typeof model.name !== 'string' || model.name.length < 1 || model.name.length > 255
       || !isRecord(model.position) || typeof model.position.x !== 'number' || typeof model.position.y !== 'number'
-      || !Number.isFinite(model.position.x) || !Number.isFinite(model.position.y)) {
+      || !Number.isFinite(model.position.x) || !Number.isFinite(model.position.y)
+      || (model.position.z !== undefined && (typeof model.position.z !== 'number' || !Number.isFinite(model.position.z)))) {
       throw new Error('Imported project response contains invalid model metadata');
     }
-    return { path: model.path, name: model.name, position: { x: model.position.x, y: model.position.y } };
+    const overrides = model.overrides === undefined ? {} : model.overrides;
+    const modifierForIndex = model.modifierForIndex === undefined ? null : model.modifierForIndex;
+    if (!isRecord(overrides)
+      || Object.entries(overrides).some(([section, settings]) => !['machine_config', 'process_config', 'filament_config'].includes(section) || !isRecord(settings))
+      || (modifierForIndex !== null && (!Number.isInteger(modifierForIndex) || (modifierForIndex as number) < 0 || (modifierForIndex as number) >= index))) {
+      throw new Error('Imported project response contains invalid model metadata');
+    }
+    return {
+      path: model.path,
+      name: model.name,
+      position: { x: model.position.x, y: model.position.y, ...(typeof model.position.z === 'number' ? { z: model.position.z } : {}) },
+      overrides: overrides as Partial<ConfigBundle>,
+      modifierForIndex: modifierForIndex as number | null,
+    };
   });
   if (value.warnings !== undefined && (!Array.isArray(value.warnings) || value.warnings.some((warning) => typeof warning !== 'string'))) {
     throw new Error('Imported project response has invalid warnings');
@@ -114,7 +161,12 @@ export async function requestProjectImport(project: File, signal?: AbortSignal):
     models: manifest.models.map((model) => {
       const bytes = packageFiles[model.path];
       if (!bytes) throw new Error(`Imported project is missing ${model.path}`);
-      return { file: new File([bytes], model.name, { type: 'model/stl' }), position: model.position };
+      return {
+        file: new File([bytes], model.name, { type: 'model/stl' }),
+        position: model.position,
+        overrides: model.overrides,
+        modifierForIndex: model.modifierForIndex,
+      };
     }),
   };
 }

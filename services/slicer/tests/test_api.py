@@ -38,6 +38,35 @@ class ApiTest(unittest.TestCase):
         self.assertIn("machine_config", response.json())
         self.assertIn("layer_height", response.json()["process_config"])
 
+    @patch("app.main.list_printer_presets", return_value=[{"id": "printer-id", "manufacturer": "Maker", "name": "Model", "model": "Model", "nozzle_diameter": ["0.4"]}])
+    def test_lists_printer_presets(self, _mocked_presets):
+        response = self.client.get("/api/printer-presets")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["presets"][0]["id"], "printer-id")
+
+    @patch("app.main.printer_preset_config", return_value={"printable_height": "250", "machine_start_gcode": "START"})
+    def test_loads_complete_printer_preset(self, _mocked_config):
+        response = self.client.get("/api/printer-presets/printer-id")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["machine_config"]["printable_height"], "250")
+        self.assertEqual(response.json()["machine_config"]["machine_start_gcode"], "START")
+
+    @patch("app.main.list_print_presets", return_value=[{"id": "standard", "name": "Standard", "description": "Balanced"}])
+    def test_lists_print_presets(self, _mocked_presets):
+        response = self.client.get("/api/print-presets")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["presets"][0]["id"], "standard")
+
+    @patch("app.main.print_preset_config", return_value={"layer_height": "0.2", "wall_loops": "3"})
+    def test_loads_complete_print_preset(self, _mocked_config):
+        response = self.client.get("/api/print-presets/standard")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["process_config"], {"layer_height": "0.2", "wall_loops": "3"})
+
     @patch("app.main.slice_job", return_value=b"; transient output\n")
     def test_slice_returns_attachment(self, mocked_slice):
         response = self.client.post(
@@ -88,6 +117,24 @@ class ApiTest(unittest.TestCase):
         part_values = {item.get("key"): item.get("value") for item in obj.findall("./part/metadata")}
         self.assertEqual(object_values.get("layer_height"), "0.4")
         self.assertNotIn("layer_height", part_values)
+
+    def test_export_project_writes_modifier_mesh_as_a_modifier_part(self):
+        manifest = self.manifest()
+        manifest["models"].append({"id": "modifier-1", "name": "modifier.stl", "modifierFor": "model-1"})
+        manifest["fileOverrides"] = {"modifier-1": {"process_config": {"sparse_infill_density": "80%"}}}
+        response = self.client.post(
+            "/api/export-project",
+            data={"manifest": json.dumps(manifest)},
+            files=[
+                ("models", ("triangle.stl", io.BytesIO(triangle_stl()), "application/octet-stream")),
+                ("models", ("modifier.stl", io.BytesIO(triangle_stl()), "application/octet-stream")),
+            ],
+        )
+        self.assertEqual(response.status_code, 200)
+        with zipfile.ZipFile(io.BytesIO(response.content)) as package:
+            root = ET.fromstring(package.read("Metadata/model_settings.config"))
+        parts = root.findall("./object/part")
+        self.assertEqual([part.get("subtype") for part in parts], ["normal_part", "modifier_part"])
 
     def test_export_project_rejects_layer_height_above_nozzle_diameter(self):
         manifest = self.manifest()

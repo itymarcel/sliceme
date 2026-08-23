@@ -2,6 +2,16 @@
 
 Changes are grouped into one consolidated summary per calendar day.
 
+## 2026-08-23
+
+- Replaced the nine G-code-only printer targets with a broad catalog discovered from the bundled Orca machine profiles; selecting one now applies its complete inherited bed, nozzle, firmware, speed, limit, and start/end G-code configuration.
+- Added separate Draft, Standard, Fine, Strong, and Vase print presets with an explicit overwrite warning and full process-setting replacement, while keeping printer and print profiles independently selectable.
+- Added spatial STL/STEP modifier meshes with parent-child object-tree organization, independent per-modifier settings, translucent viewport rendering, browser persistence, native Orca `modifier_part` slicing/export, and safe parent deletion.
+- Extended Orca 3MF import to restore recognized per-object process/material settings and spatial modifier parts instead of flattening those components into one printable mesh.
+- Made modifier operations respect parent grouping across duplicate, mirror, arrange, and center, and excluded modifier meshes from placement warnings and build-volume bounds.
+- Hardened printer-profile loading against symlink traversal and inheritance cycles, preserved legacy preset IDs for existing workspaces, and recorded preset application as discrete undoable history steps with request cancellation.
+- Verified the full stack with unit tests (frontend, backend, engine, API), a production build, browser profile/modifier checks, and a real Orca slice of a Bambu A1 0.4 / Standard project with a 100% infill modifier mesh.
+
 ## 2026-08-22
 
 - Simplified the sidebar panel headings by removing the redundant “Workspace” eyebrow above Objects and “Settings” eyebrow above the active settings scope.

@@ -54,6 +54,20 @@ browser may still evict storage under exceptional space pressure. Nothing is
 synced between devices or uploaded anywhere except to the stateless slicer API
 during a slice or enhancement request.
 
+## Printer and print profiles
+
+The Target printer control is populated from the instantiated machine profiles
+bundled with the active OrcaSlicer runtime. SliceMe resolves profile inheritance
+and applies the complete machine configuration, including printable dimensions,
+nozzle data, firmware options, machine limits, speeds, and start/end G-code.
+The runtime profile bundle therefore determines the available manufacturers and
+machines.
+
+Print presets are independent from printer profiles. Draft, Standard, Fine,
+Strong, and Vase replace the complete current process configuration; the UI
+labels this overwrite behavior before selection. Individual process settings
+remain editable after applying a preset.
+
 ## OrcaSlicer 3MF projects
 
 **Import `*.3mf`** replaces the current browser workspace only after the API has
@@ -62,15 +76,16 @@ subset is:
 
 - mesh objects, component references, build items, object names, affine build
   transforms, and standard 3MF length units;
-- one SliceMe model per build item, with component/build transforms baked into
-  its temporary STL and its XY build position preserved;
+- printable component parts and recognized spatial modifier parts, with their
+  component/build transforms baked into temporary STLs and XY positions preserved;
 - global printer, process, and filament keys that exist in SliceMe's current
-  profiles.
+  profiles;
+- recognized per-object process/material settings and modifier-part settings.
 
 Unsafe or unsupported global settings are counted and reported. Import never
-applies custom G-code. Per-object settings, painted seams/supports, modifiers,
-variable layer height, plate thumbnails, and additional plate layouts are not
-currently imported. The API treats 3MF as an untrusted ZIP/XML package: archive
+applies custom G-code. Painted seams/supports, variable layer height, plate
+thumbnails, and additional plate layouts are not currently imported. The API
+treats 3MF as an untrusted ZIP/XML package: archive
 paths, entry count, expanded archive size, model XML size, component depth,
 component instances (10,000), imported model count (12), expanded geometry
 (500,000 vertices and triangles), generated model bytes (50 MiB), transforms,

@@ -3,35 +3,40 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDimensionsFromMachineConfig,
   findMatchingPrinterPreset,
+  findMatchingPrintPreset,
   machineConfigForPreset,
   machineConfigWithBuildDimension,
-  printerPresets,
+  printConfigForPreset,
 } from './printerPresets';
 
+const catalog = [{ id: 'prusa-id', manufacturer: 'Prusa', name: 'MK4S 0.4 nozzle', model: 'MK4S', nozzle_diameter: ['0.4'] }];
+
 describe('printer presets', () => {
-  it('stores only the target printer preset id', () => {
-    expect(machineConfigForPreset('bambu-a1')).toEqual({
-      sliceme_printer_preset: 'bambu-a1',
+  it('applies the complete machine profile and stores its stable id', () => {
+    expect(machineConfigForPreset('prusa-id', {
+      printable_area: ['0x0', '250x0', '250x210', '0x210'],
+      printable_height: '220',
+      nozzle_diameter: ['0.4'],
+      machine_start_gcode: 'START',
+    })).toEqual({
+      printable_area: ['0x0', '250x0', '250x210', '0x210'],
+      printable_height: '220',
+      nozzle_diameter: ['0.4'],
+      machine_start_gcode: 'START',
+      sliceme_printer_preset: 'prusa-id',
     });
   });
 
-  it('recognizes the persisted preset independently of dimensions and nozzle', () => {
-    const config = {
-      ...machineConfigForPreset('prusa-mk4s'),
-      printable_area: ['0x0', '123x0', '123x456', '0x456'],
-      printable_height: '789',
-      nozzle_diameter: ['0.8'],
-    };
-    expect(findMatchingPrinterPreset(config)).toBe('prusa-mk4s');
-    expect(findMatchingPrinterPreset({ ...config, sliceme_printer_preset: '' })).toBe('custom');
+  it('recognizes a persisted printer id only when it remains in the loaded catalog', () => {
+    const config = { sliceme_printer_preset: 'prusa-id' };
+    expect(findMatchingPrinterPreset(config, catalog)).toBe('prusa-id');
+    expect(findMatchingPrinterPreset(config, [])).toBe('custom');
   });
 
-  it('keeps separate presets for printers with different target G-code', () => {
-    expect(printerPresets.map((preset) => preset.id)).toEqual(expect.arrayContaining([
-      'bambu-a1', 'bambu-a1-mini', 'bambu-p1s', 'bambu-x1c',
-      'prusa-mk4s', 'creality-ender-3-v3-se', 'creality-k1c',
-      'elegoo-neptune-4-pro', 'anycubic-kobra-3',
-    ]));
+  it('marks a complete print-profile replacement with its preset id', () => {
+    const process = printConfigForPreset('standard', { layer_height: '0.2', wall_loops: '3' });
+    expect(process).toEqual({ layer_height: '0.2', wall_loops: '3', sliceme_print_preset: 'standard' });
+    expect(findMatchingPrintPreset(process, [{ id: 'standard', name: 'Standard', description: 'Balanced' }])).toBe('standard');
   });
 });
 

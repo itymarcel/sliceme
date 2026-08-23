@@ -36,6 +36,7 @@ class UploadedModel:
     file_id: str
     file_name: str
     data: bytes
+    modifier_for: str | None = None
 
 
 @dataclass
@@ -361,10 +362,11 @@ def load_project_config(session) -> dict:
         if k not in ('machine_config', 'process_config', 'filament_config'):
             overrides[k] = v
 
-    # SliceMe's target-printer preset selects only the G-code snippets from the
-    # corresponding bundled Orca machine profile. It intentionally does not
-    # import profile dimensions, nozzle, speeds, temperatures, or firmware.
+    # SliceMe persists profile IDs for UI state. The complete machine/process
+    # configuration has already been applied in the workspace; only machine
+    # G-code is re-resolved at execution so inherited snippets stay available.
     preset_id = overrides.pop('sliceme_printer_preset', '')
+    overrides.pop('sliceme_print_preset', None)
     if preset_id:
         overrides.update(printer_preset_gcode(str(preset_id)))
     overrides = _normalize_flat_overrides(overrides, base)
@@ -475,7 +477,32 @@ def _parse_binary_stl(stl_bytes: bytes) -> tuple:
     return vertices, triangles
 
 
-def _build_3dmodel_xml(stl_bytes_list: list, per_object_transforms: list = None, bed_center: tuple = (0.0, 0.0)) -> str:
+def _model_object_layout(model_files) -> list[tuple[object, int, list[tuple[object, int, str]]]]:
+    """Map printable models and modifier meshes to Orca object/part IDs."""
+    files = list(model_files)
+    by_id = {str(model.file_id): model for model in files}
+    if len(by_id) != len(files):
+        raise ValueError("Model IDs must be unique")
+    normal_files = [model for model in files if not getattr(model, "modifier_for", None)]
+    file_index = {str(model.file_id): index + 1 for index, model in enumerate(files)}
+    next_assembly_id = len(files) + 1
+    layout = []
+    for normal in normal_files:
+        modifiers = [model for model in files if str(getattr(model, "modifier_for", "")) == str(normal.file_id)]
+        object_id = next_assembly_id if modifiers else file_index[str(normal.file_id)]
+        if modifiers:
+            next_assembly_id += 1
+        parts = [(normal, file_index[str(normal.file_id)], "normal_part")]
+        parts.extend((modifier, file_index[str(modifier.file_id)], "modifier_part") for modifier in modifiers)
+        layout.append((normal, object_id, parts))
+    for model in files:
+        parent_id = getattr(model, "modifier_for", None)
+        if parent_id and (str(parent_id) not in by_id or getattr(by_id[str(parent_id)], "modifier_for", None)):
+            raise ValueError(f"Modifier {model.file_id} has an invalid parent object")
+    return layout
+
+
+def _build_3dmodel_xml(stl_bytes_list: list, per_object_transforms: list = None, bed_center: tuple = (0.0, 0.0), model_files=None) -> str:
     """
     Build 3dmodel.model XML with fully inline mesh data (vertices + triangles).
     stl_bytes_list: list of raw binary STL bytes, one per object.
@@ -492,6 +519,8 @@ def _build_3dmodel_xml(stl_bytes_list: list, per_object_transforms: list = None,
 
     objects_xml = []
     items_xml = []
+    transform_strings = []
+    has_modifiers = bool(model_files and any(getattr(model, "modifier_for", None) for model in model_files))
 
     for idx, (vertices, triangles) in enumerate(parsed):
         obj_id = idx + 1
@@ -589,14 +618,39 @@ def _build_3dmodel_xml(stl_bytes_list: list, per_object_transforms: list = None,
             f"{m20:.6f} {m21:.6f} {m22:.6f} "
             f"{tx:.6f} {ty:.6f} {tz:.6f}"
         )
-        # p:UUID is required for OrcaSlicer to recognize this as a native project and
-        # respect item transforms instead of auto-arranging
-        uuid_str = f"00000000-0000-0000-0000-{obj_id:012d}"
-        item_str = (
-            f'    <item objectid="{obj_id}" p:UUID="{uuid_str}" '
-            f'transform="{transform_str}" printable="1"/>'
-        )
-        items_xml.append(item_str)
+        transform_strings.append(transform_str)
+        if not has_modifiers:
+            # p:UUID is required for OrcaSlicer to recognize this as a native project and
+            # respect item transforms instead of auto-arranging
+            uuid_str = f"00000000-0000-0000-0000-{obj_id:012d}"
+            item_str = (
+                f'    <item objectid="{obj_id}" p:UUID="{uuid_str}" '
+                f'transform="{transform_str}" printable="1"/>'
+            )
+            items_xml.append(item_str)
+
+    if has_modifiers:
+        files = list(model_files)
+        file_index = {str(model.file_id): index for index, model in enumerate(files)}
+        for normal, object_id, parts in _model_object_layout(files):
+            if len(parts) > 1:
+                components = '\n'.join(
+                    f'        <component objectid="{part_id}" transform="{transform_strings[file_index[str(part.file_id)]]}"/>'
+                    for part, part_id, _subtype in parts
+                )
+                objects_xml.append(
+                    f'    <object id="{object_id}" type="model">\n'
+                    f'      <components>\n{components}\n      </components>\n'
+                    f'    </object>'
+                )
+                transform_str = "1 0 0 0 1 0 0 0 1 0 0 0"
+            else:
+                transform_str = transform_strings[file_index[str(normal.file_id)]]
+            uuid_str = f"00000000-0000-0000-0000-{object_id:012d}"
+            items_xml.append(
+                f'    <item objectid="{object_id}" p:UUID="{uuid_str}" '
+                f'transform="{transform_str}" printable="1"/>'
+            )
 
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -629,7 +683,7 @@ def _build_range_overrides_xml(session, stl_files) -> str:
     Object IDs match the 1-based indices used in 3dmodel.model.
     Returns None if there are no overrides.
     """
-    file_id_to_idx = {str(f.file_id): idx + 1 for idx, f in enumerate(stl_files)}
+    file_id_to_idx = {str(normal.file_id): object_id for normal, object_id, _parts in _model_object_layout(stl_files)}
     range_overrides = session.range_overrides or {}
 
     objects_xml = []
@@ -699,60 +753,57 @@ def _normalize_start_position(start_position):
 
 
 def _build_model_settings_xml(session, stl_files) -> str:
-    """
-    Build Metadata/model_settings.config in OrcaSlicer native format.
-    Every object must be listed so OrcaSlicer assigns extruders correctly.
-    Per-object settings from session.file_overrides are added as metadata on the part.
-    """
+    """Build Orca object/part metadata, including spatial modifier meshes."""
     file_overrides = session.file_overrides or {}
     start_positions = getattr(session, 'start_positions', None) or {}
-
     objects_xml = []
-    for idx, f in enumerate(stl_files):
-        obj_id = idx + 1
-        name = f"object{obj_id}"
-        overrides = file_overrides.get(str(f.file_id), {})
-        start_position = _normalize_start_position(start_positions.get(str(f.file_id)))
 
+    for normal, object_id, parts in _model_object_layout(stl_files):
+        name = escape(str(getattr(normal, 'file_name', f'object{object_id}')))
+        normal_overrides = file_overrides.get(str(normal.file_id), {})
         object_settings_meta = []
-        for opt_key, opt_val in overrides.get('process_config', {}).items():
+        for opt_key, opt_val in normal_overrides.get('process_config', {}).items():
             normalized_val = _normalize_orca_value(opt_val)
-            if normalized_val is None:
-                continue
-            object_settings_meta.append(
-                f'    <metadata key="{escape(str(opt_key))}" value="{escape(str(normalized_val))}"/>'
-            )
-
-        part_settings_meta = []
-        for config_key in ('machine_config', 'filament_config'):
-            for opt_key, opt_val in overrides.get(config_key, {}).items():
-                normalized_val = _normalize_orca_value(opt_val)
-                if normalized_val is None:
-                    continue
-                part_settings_meta.append(
-                    f'      <metadata key="{escape(str(opt_key))}" value="{escape(str(normalized_val))}"/>'
+            if normalized_val is not None:
+                object_settings_meta.append(
+                    f'    <metadata key="{escape(str(opt_key))}" value="{escape(str(normalized_val))}"/>'
                 )
 
-        part_lines = [
-            f'    <part id="{obj_id}" subtype="normal_part">',
-            f'      <metadata key="name" value="{name}"/>',
-            f'      <metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>',
-        ]
-        if start_position:
-            part_lines.extend([
-                '      <metadata key="model_start_point_enabled" value="1"/>',
-                f'      <metadata key="model_start_point_x" value="{escape(str(start_position["x"]))}"/>',
-                f'      <metadata key="model_start_point_y" value="{escape(str(start_position["y"]))}"/>',
-            ])
-        part_lines.extend(part_settings_meta)
-        part_lines.append('    </part>')
+        part_xml = []
+        for part, part_id, subtype in parts:
+            part_name = escape(str(getattr(part, 'file_name', f'part{part_id}')))
+            overrides = file_overrides.get(str(part.file_id), {})
+            config_sections = ('machine_config', 'filament_config') if subtype == 'normal_part' else ('process_config', 'machine_config', 'filament_config')
+            part_settings_meta = []
+            for config_key in config_sections:
+                for opt_key, opt_val in overrides.get(config_key, {}).items():
+                    normalized_val = _normalize_orca_value(opt_val)
+                    if normalized_val is not None:
+                        part_settings_meta.append(
+                            f'      <metadata key="{escape(str(opt_key))}" value="{escape(str(normalized_val))}"/>'
+                        )
+            part_lines = [
+                f'    <part id="{part_id}" subtype="{subtype}">',
+                f'      <metadata key="name" value="{part_name}"/>',
+                '      <metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>',
+            ]
+            start_position = _normalize_start_position(start_positions.get(str(part.file_id))) if subtype == 'normal_part' else None
+            if start_position:
+                part_lines.extend([
+                    '      <metadata key="model_start_point_enabled" value="1"/>',
+                    f'      <metadata key="model_start_point_x" value="{escape(str(start_position["x"]))}"/>',
+                    f'      <metadata key="model_start_point_y" value="{escape(str(start_position["y"]))}"/>',
+                ])
+            part_lines.extend(part_settings_meta)
+            part_lines.append('    </part>')
+            part_xml.append('\n'.join(part_lines))
 
         objects_xml.append(
-            f'  <object id="{obj_id}">\n'
+            f'  <object id="{object_id}">\n'
             f'    <metadata key="name" value="{name}"/>\n'
             f'    <metadata key="extruder" value="1"/>\n'
             + ('\n'.join(object_settings_meta) + '\n' if object_settings_meta else '')
-            + '\n'.join(part_lines) + '\n'
+            + '\n'.join(part_xml) + '\n'
             + '  </object>'
         )
 
@@ -953,6 +1004,7 @@ def _flatten_bucket_overrides(raw: dict) -> dict:
         if key not in ('machine_config', 'process_config', 'filament_config'):
             flat[key] = value
     flat.pop('sliceme_printer_preset', None)
+    flat.pop('sliceme_print_preset', None)
     return flat
 
 
@@ -1888,7 +1940,7 @@ def build_3mf(session) -> bytes:
             session.transforms.get(str(f.file_id)) for f in stl_files
         ]
         zf.writestr('3D/3dmodel.model', _build_3dmodel_xml(
-            stl_bytes_list, per_object_transforms, bed_center=bed_center,
+            stl_bytes_list, per_object_transforms, bed_center=bed_center, model_files=stl_files,
         ))
         # Embed the merged project config — OrcaSlicer reads this automatically
         zf.writestr('Metadata/project_settings.config', json.dumps(project_config, indent=2))

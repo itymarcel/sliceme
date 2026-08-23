@@ -43,6 +43,7 @@ type StoredModel = {
   fileType: string;
   lastModified: number;
   blob: Blob;
+  modifierFor?: string;
 };
 
 type StoredGcode = {
@@ -133,6 +134,7 @@ export async function persistModels(models: SlicerModel[]) {
     fileType: model.file.type,
     lastModified: model.file.lastModified,
     blob: model.file,
+    modifierFor: model.modifierFor,
   } satisfies StoredModel));
   await transactionDone(transaction);
 }

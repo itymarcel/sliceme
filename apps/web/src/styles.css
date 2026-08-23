@@ -102,6 +102,11 @@ button { color: inherit; }
 .tree-indent-arrow { color: #506276; margin-right: -3px; }
 .add-range { margin: 2px 0 0 38px; padding: 4px 7px; border: 1px dashed #2a3b4b; border-radius: 6px; background: transparent; color: #63778b; display: flex; gap: 5px; align-items: center; font-size: 10px; cursor: pointer; }
 .add-range:hover { color: var(--accent); border-color: rgba(137,255,142,.35); }
+.object-child-actions { display: flex; gap: 5px; flex-wrap: wrap; }
+.object-child-actions .add-range { margin-left: 38px; }
+.object-child-actions .add-range + .add-range { margin-left: 0; }
+.tree-modifier .tree-row { min-width: 0; }
+.modifier-label { color: #b56cff; font-size: 9px !important; text-transform: uppercase; letter-spacing: .05em; flex: 0 0 auto; }
 
 .settings-panel { min-height: 0; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .settings-tabs { padding: 8px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; border-bottom: 1px solid var(--line-soft); }

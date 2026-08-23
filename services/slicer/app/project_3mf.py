@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import io
 import json
 import math
@@ -34,6 +34,8 @@ class ImportedModel:
     name: str
     stl: bytes
     position: dict[str, float]
+    overrides: dict[str, dict] = field(default_factory=dict)
+    modifier_for_index: int | None = None
 
 
 @dataclass(frozen=True)
@@ -124,6 +126,20 @@ def _project_config(raw: dict, defaults: dict[str, dict]) -> tuple[dict[str, dic
     return result, warnings
 
 
+def _object_overrides(raw: dict[str, str], defaults: dict[str, dict]) -> dict[str, dict]:
+    result = {section: {} for section in ("machine_config", "process_config", "filament_config")}
+    section_for_key = {
+        key: section
+        for section in result
+        for key in defaults.get(section, {})
+    }
+    for key, value in raw.items():
+        section = section_for_key.get(key)
+        if section and "gcode" not in key.lower():
+            result[section][key] = value
+    return {section: values for section, values in result.items() if values}
+
+
 def import_orca_project(data: bytes, defaults: dict[str, dict]) -> ImportedProject:
     try:
         package = zipfile.ZipFile(io.BytesIO(data))
@@ -153,15 +169,41 @@ def import_orca_project(data: bytes, defaults: dict[str, dict]) -> ImportedProje
         unit_scale = UNIT_TO_MM[unit]
 
         names: dict[str, str] = {}
+        object_metadata: dict[str, dict] = {}
         if "Metadata/model_settings.config" in package.namelist():
             metadata = package.read("Metadata/model_settings.config")
             if b"<!DOCTYPE" not in metadata.upper():
                 try:
                     meta_root = ET.fromstring(metadata)
                     for obj in meta_root.findall(".//object"):
-                        name = next((item.get("value") for item in obj.findall("metadata") if item.get("key") == "name"), None)
+                        object_id = obj.get("id", "")
+                        raw_object_metadata = {
+                            item.get("key", ""): item.get("value", "")
+                            for item in obj.findall("metadata")
+                        }
+                        name = raw_object_metadata.pop("name", None)
+                        raw_object_metadata.pop("extruder", None)
                         if name:
-                            names[obj.get("id", "")] = name
+                            names[object_id] = name
+                        parts = []
+                        for part in obj.findall("part"):
+                            raw_part_metadata = {
+                                item.get("key", ""): item.get("value", "")
+                                for item in part.findall("metadata")
+                            }
+                            part_name = raw_part_metadata.pop("name", None)
+                            for structural_key in ("matrix", "model_start_point_enabled", "model_start_point_x", "model_start_point_y"):
+                                raw_part_metadata.pop(structural_key, None)
+                            parts.append({
+                                "id": part.get("id", ""),
+                                "subtype": part.get("subtype", "normal_part"),
+                                "name": part_name,
+                                "settings": raw_part_metadata,
+                            })
+                        object_metadata[object_id] = {
+                            "settings": raw_object_metadata,
+                            "parts": parts,
+                        }
                 except ET.ParseError:
                     pass
 
@@ -222,11 +264,33 @@ def import_orca_project(data: bytes, defaults: dict[str, dict]) -> ImportedProje
 
         imported: list[ImportedModel] = []
         generated_stl_bytes = 0
-        for index, item in enumerate(build_items, 1):
-            object_id = item.get("objectid", "")
-            vertices, triangles = resolve(object_id, _matrix(item.get("transform")), frozenset())
+
+        def append_model(
+            object_id: str | list[str],
+            transform: tuple[float, ...] | list[tuple[float, ...]],
+            name: str,
+            overrides: dict[str, dict],
+            modifier_for_index: int | None = None,
+            parent_min_z: float | None = None,
+        ) -> float | None:
+            nonlocal generated_stl_bytes
+            if isinstance(object_id, list):
+                if not isinstance(transform, list) or len(object_id) != len(transform):
+                    raise ValueError("Invalid multipart 3MF object")
+                sources = zip(object_id, transform)
+            else:
+                if isinstance(transform, list):
+                    raise ValueError("Invalid 3MF object transform")
+                sources = [(object_id, transform)]
+            vertices: list = []
+            triangles: list = []
+            for source_id, source_transform in sources:
+                source_vertices, source_triangles = resolve(source_id, source_transform, frozenset())
+                offset = len(vertices)
+                vertices.extend(source_vertices)
+                triangles.extend(tuple(vertex + offset for vertex in triangle) for triangle in source_triangles)
             if not vertices or not triangles:
-                continue
+                return None
             if unit_scale != 1.0:
                 vertices = [tuple(value * unit_scale for value in vertex) for vertex in vertices]
             xs, ys, zs = zip(*vertices)
@@ -234,12 +298,64 @@ def import_orca_project(data: bytes, defaults: dict[str, dict]) -> ImportedProje
             center_y = (min(ys) + max(ys)) / 2
             min_z = min(zs)
             local_vertices = [(x - center_x, y - center_y, z - min_z) for x, y, z in vertices]
-            name = _safe_name(names.get(object_id, f"Imported model {index}"), index)
-            stl = _binary_stl(local_vertices, triangles, name)
+            safe_name = _safe_name(name, len(imported) + 1)
+            stl = _binary_stl(local_vertices, triangles, safe_name)
             generated_stl_bytes += len(stl)
             if generated_stl_bytes > MAX_GENERATED_STL_BYTES:
                 raise ValueError("3MF generated model data exceeds safe limits")
-            imported.append(ImportedModel(name, stl, {"x": center_x, "y": center_y}))
+            position = {"x": center_x, "y": center_y}
+            if parent_min_z is not None:
+                position["z"] = min_z - parent_min_z
+            imported.append(ImportedModel(safe_name, stl, position, overrides, modifier_for_index))
+            if len(imported) > MAX_IMPORTED_MODELS:
+                raise ValueError(f"3MF projects may import at most {MAX_IMPORTED_MODELS} models")
+            return min_z
+
+        for index, item in enumerate(build_items, 1):
+            object_id = item.get("objectid", "")
+            item_transform = _matrix(item.get("transform"))
+            metadata_entry = object_metadata.get(object_id, {})
+            parts = metadata_entry.get("parts", [])
+            obj = objects.get(object_id)
+            components_node = obj.find(f"{CORE_NS}components") if obj is not None else None
+            components = {
+                component.get("objectid", ""): _compose(item_transform, _matrix(component.get("transform")))
+                for component in (list(components_node) if components_node is not None else [])
+            }
+
+            recognized_parts = [part for part in parts if part.get("id") in components]
+            normal_parts = [part for part in recognized_parts if part.get("subtype") != "modifier_part"]
+            modifier_parts = [part for part in recognized_parts if part.get("subtype") == "modifier_part"]
+            modifier_ids = {part["id"] for part in modifier_parts}
+            normal_source_ids = [component_id for component_id in components if component_id not in modifier_ids]
+            if normal_source_ids and recognized_parts:
+                normal_settings = dict(metadata_entry.get("settings", {}))
+                for normal_part in normal_parts:
+                    normal_settings.update(normal_part.get("settings", {}))
+                parent_index = len(imported)
+                parent_min_z = append_model(
+                    normal_source_ids,
+                    [components[source_id] for source_id in normal_source_ids],
+                    (normal_parts[0].get("name") if normal_parts else None) or names.get(object_id, f"Imported model {index}"),
+                    _object_overrides(normal_settings, defaults),
+                )
+                if len(imported) == parent_index or parent_min_z is None:
+                    continue
+                for modifier in modifier_parts:
+                    append_model(
+                        modifier["id"], components[modifier["id"]],
+                        modifier.get("name") or f"Modifier {len(imported) + 1}",
+                        _object_overrides(modifier.get("settings", {}), defaults),
+                        parent_index,
+                        parent_min_z,
+                    )
+                continue
+
+            append_model(
+                object_id, item_transform,
+                names.get(object_id, f"Imported model {index}"),
+                _object_overrides(metadata_entry.get("settings", {}), defaults),
+            )
 
         if not imported:
             raise ValueError("3MF project contains no buildable mesh objects")

@@ -14,6 +14,7 @@ type Props = {
   onSelectFile?: (fileId: string, additive: boolean) => void;
   onRename?: (fileId: string, name: string) => void;
   onAddModels: () => void;
+  onAddModifier: (fileId: string) => void;
   onRemoveModel: (fileId: string) => void;
   onAddRange: (fileId: string) => void;
   onRemoveRange: (fileId: string, rangeIndex: number) => void;
@@ -63,31 +64,53 @@ export function ObjectTree(props: Props) {
           </button>
           <span className="tree-action-spacer" />
         </div>
-        {props.models.map((model) => (
-          <div className="tree-object" key={model.fileId}>
-            <div className="tree-line">
-              <div className={`tree-row ${(props.selectedFileIds?.includes(model.fileId) || selected(props.selected, { type: 'file', fileId: model.fileId })) ? 'active' : ''}`}>
-                <button className="tree-select-button" type="button" aria-label={`Select ${props.modelNames?.[model.fileId] ?? model.fileName}`} onClick={(event) => props.onSelectFile?.(model.fileId, event.ctrlKey || event.metaKey || event.shiftKey) ?? props.onSelect({ type: 'file', fileId: model.fileId })}>
-                  <Box size={15} />
-                </button>
-                <ObjectName fileId={model.fileId} name={props.modelNames?.[model.fileId] ?? model.fileName} onRename={props.onRename} />
-                {!!props.placementIssues?.[model.fileId]?.length && (
-                  <AlertTriangle size={14} className="placement-warning" role="status" aria-label={placementIssueLabel(props.modelNames?.[model.fileId] ?? model.fileName, props.placementIssues[model.fileId])} />
-                )}
+        {props.models.filter((model) => !model.modifierFor).map((model) => {
+          const modifiers = props.models.filter((candidate) => candidate.modifierFor === model.fileId);
+          const displayName = props.modelNames?.[model.fileId] ?? model.fileName;
+          return (
+            <div className="tree-object" key={model.fileId}>
+              <div className="tree-line">
+                <div className={`tree-row ${(props.selectedFileIds?.includes(model.fileId) || selected(props.selected, { type: 'file', fileId: model.fileId })) ? 'active' : ''}`}>
+                  <button className="tree-select-button" type="button" aria-label={`Select ${displayName}`} onClick={(event) => props.onSelectFile?.(model.fileId, event.ctrlKey || event.metaKey || event.shiftKey) ?? props.onSelect({ type: 'file', fileId: model.fileId })}>
+                    <Box size={15} />
+                  </button>
+                  <ObjectName fileId={model.fileId} name={displayName} onRename={props.onRename} />
+                  {!!props.placementIssues?.[model.fileId]?.length && (
+                    <AlertTriangle size={14} className="placement-warning" role="status" aria-label={placementIssueLabel(displayName, props.placementIssues[model.fileId])} />
+                  )}
+                </div>
+                <button className="icon-button danger" title="Remove model" aria-label={`Remove ${displayName}`} onClick={() => props.onRemoveModel(model.fileId)}><Trash2 size={14} /></button>
               </div>
-              <button className="icon-button danger" title="Remove model" aria-label={`Remove ${props.modelNames?.[model.fileId] ?? model.fileName}`} onClick={() => props.onRemoveModel(model.fileId)}><Trash2 size={14} /></button>
+              {modifiers.map((modifier) => {
+                const modifierName = props.modelNames?.[modifier.fileId] ?? modifier.fileName;
+                return (
+                  <div className="tree-line tree-modifier" key={modifier.fileId}>
+                    <div className={`tree-row tree-child ${selected(props.selected, { type: 'file', fileId: modifier.fileId }) ? 'active' : ''}`}>
+                      <button className="tree-select-button" type="button" aria-label={`Select ${modifierName}`} onClick={() => props.onSelect({ type: 'file', fileId: modifier.fileId })}>
+                        <CornerDownRight className="tree-indent-arrow" size={14} /><Box size={13} />
+                      </button>
+                      <span className="modifier-label">Modifier</span>
+                      <ObjectName fileId={modifier.fileId} name={modifierName} onRename={props.onRename} />
+                    </div>
+                    <button className="icon-button danger" title="Remove modifier" aria-label={`Remove ${modifierName}`} onClick={() => props.onRemoveModel(modifier.fileId)}><Trash2 size={13} /></button>
+                  </div>
+                );
+              })}
+              {(props.ranges[model.fileId] ?? []).map((range, index) => (
+                <div className="tree-line" key={index}>
+                  <button className={`tree-row tree-child ${selected(props.selected, { type: 'range', fileId: model.fileId, rangeIndex: index }) ? 'active' : ''}`} onClick={() => props.onSelect({ type: 'range', fileId: model.fileId, rangeIndex: index })}>
+                    <CornerDownRight className="tree-indent-arrow" size={14} /><Layers3 size={14} /><span>{range.range.min_z}–{range.range.max_z} mm</span>
+                  </button>
+                  <button className="icon-button danger" title="Remove range" onClick={() => props.onRemoveRange(model.fileId, index)}><Trash2 size={13} /></button>
+                </div>
+              ))}
+              <div className="object-child-actions">
+                <button className="add-range" onClick={() => props.onAddRange(model.fileId)}><Plus size={12} /> Height range</button>
+                <button className="add-range" aria-label={`Add modifier to ${displayName}`} onClick={() => props.onAddModifier(model.fileId)}><Plus size={12} /> Modifier</button>
+              </div>
             </div>
-            {(props.ranges[model.fileId] ?? []).map((range, index) => (
-              <div className="tree-line" key={index}>
-                <button className={`tree-row tree-child ${selected(props.selected, { type: 'range', fileId: model.fileId, rangeIndex: index }) ? 'active' : ''}`} onClick={() => props.onSelect({ type: 'range', fileId: model.fileId, rangeIndex: index })}>
-                  <CornerDownRight className="tree-indent-arrow" size={14} /><Layers3 size={14} /><span>{range.range.min_z}–{range.range.max_z} mm</span>
-                </button>
-                <button className="icon-button danger" title="Remove range" onClick={() => props.onRemoveRange(model.fileId, index)}><Trash2 size={13} /></button>
-              </div>
-            ))}
-            <button className="add-range" onClick={() => props.onAddRange(model.fileId)}><Plus size={12} /> Height range</button>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

@@ -2,6 +2,7 @@ import io
 import json
 import struct
 import unittest
+import xml.etree.ElementTree as ET
 import zipfile
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -44,6 +45,32 @@ class EngineTest(unittest.TestCase):
             settings = json.loads(package.read("Metadata/project_settings.config"))
             self.assertEqual(settings["variable_layer_height"], "0")
             self.assertEqual(settings["single_extruder_multi_material"], "0")
+
+    def test_builds_modifier_mesh_as_a_modifier_part_of_its_parent_object(self):
+        job = SliceJob(
+            models=[
+                UploadedModel("model-1", "part.stl", triangle_stl()),
+                UploadedModel("modifier-1", "modifier.stl", triangle_stl(), modifier_for="model-1"),
+            ],
+            config=default_config(),
+            transforms={
+                "model-1": {"position": {"x": 100, "y": 100}, "rotation": {"x": 0, "y": 0, "z": 0}},
+                "modifier-1": {"position": {"x": 105, "y": 105}, "rotation": {"x": 0, "y": 0, "z": 0}},
+            },
+            file_overrides={"modifier-1": {"process_config": {"sparse_infill_density": "80%"}}},
+        )
+
+        archive = build_3mf(job)
+        with zipfile.ZipFile(io.BytesIO(archive)) as package:
+            model_root = ET.fromstring(package.read("3D/3dmodel.model"))
+            settings_root = ET.fromstring(package.read("Metadata/model_settings.config"))
+
+        namespace = {"m": "http://schemas.microsoft.com/3dmanufacturing/core/2015/02"}
+        self.assertEqual(len(model_root.findall("./m:build/m:item", namespace)), 1)
+        parts = settings_root.findall("./object/part")
+        self.assertEqual([part.get("subtype") for part in parts], ["normal_part", "modifier_part"])
+        modifier_values = {item.get("key"): item.get("value") for item in parts[1].findall("./metadata")}
+        self.assertEqual(modifier_values["sparse_infill_density"], "80%")
 
     def test_scale_and_mirror_are_embedded_in_build_transform(self):
         job = self.job()

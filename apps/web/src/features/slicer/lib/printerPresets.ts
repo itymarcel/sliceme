@@ -1,31 +1,24 @@
-export type PrinterPreset = {
-  id: string;
-  manufacturer: string;
-  name: string;
-};
-
-export const printerPresets: PrinterPreset[] = [
-  { id: 'bambu-a1', manufacturer: 'Bambu Lab', name: 'A1' },
-  { id: 'bambu-a1-mini', manufacturer: 'Bambu Lab', name: 'A1 mini' },
-  { id: 'bambu-p1s', manufacturer: 'Bambu Lab', name: 'P1S' },
-  { id: 'bambu-x1c', manufacturer: 'Bambu Lab', name: 'X1 Carbon' },
-  { id: 'prusa-mk4s', manufacturer: 'Prusa', name: 'MK4S' },
-  { id: 'creality-ender-3-v3-se', manufacturer: 'Creality', name: 'Ender-3 V3 SE' },
-  { id: 'creality-k1c', manufacturer: 'Creality', name: 'K1C' },
-  { id: 'elegoo-neptune-4-pro', manufacturer: 'Elegoo', name: 'Neptune 4 Pro' },
-  { id: 'anycubic-kobra-3', manufacturer: 'Anycubic', name: 'Kobra 3' },
-];
+import type { PrintPreset, PrinterPreset } from '../types';
 
 export const PRINTER_PRESET_CONFIG_KEY = 'sliceme_printer_preset';
+export const PRINT_PRESET_CONFIG_KEY = 'sliceme_print_preset';
 
-export function machineConfigForPreset(id: string): Record<string, unknown> {
-  if (!printerPresets.some((item) => item.id === id)) throw new Error(`Unknown printer preset: ${id}`);
-  return { [PRINTER_PRESET_CONFIG_KEY]: id };
+export function machineConfigForPreset(id: string, profileConfig: Record<string, unknown>): Record<string, unknown> {
+  return { ...profileConfig, [PRINTER_PRESET_CONFIG_KEY]: id };
 }
 
-export function findMatchingPrinterPreset(machineConfig: Record<string, unknown>) {
+export function findMatchingPrinterPreset(machineConfig: Record<string, unknown>, presets: PrinterPreset[]) {
   const id = String(machineConfig[PRINTER_PRESET_CONFIG_KEY] ?? '');
-  return printerPresets.some((preset) => preset.id === id) ? id : 'custom';
+  return presets.some((preset) => preset.id === id) ? id : 'custom';
+}
+
+export function printConfigForPreset(id: string, profileConfig: Record<string, unknown>): Record<string, unknown> {
+  return { ...profileConfig, [PRINT_PRESET_CONFIG_KEY]: id };
+}
+
+export function findMatchingPrintPreset(processConfig: Record<string, unknown>, presets: PrintPreset[]) {
+  const id = String(processConfig[PRINT_PRESET_CONFIG_KEY] ?? '');
+  return presets.some((preset) => preset.id === id) ? id : 'custom';
 }
 
 export type BuildDimension = 'width' | 'depth' | 'height';

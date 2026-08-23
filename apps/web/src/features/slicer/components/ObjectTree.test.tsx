@@ -17,7 +17,7 @@ describe('object tree tools', () => {
       models={[model]} ranges={{}} selected={{ type: 'file', fileId: 'a' }} selectedFileIds={['a']}
       modelNames={{ a: 'Part' }} placementIssues={{ a: ['outside', 'overlap'] }}
       onSelect={vi.fn()} onSelectFile={onSelectFile} onRename={onRename}
-      onAddModels={vi.fn()} onRemoveModel={vi.fn()} onAddRange={vi.fn()} onRemoveRange={vi.fn()}
+      onAddModels={vi.fn()} onAddModifier={vi.fn()} onRemoveModel={vi.fn()} onAddRange={vi.fn()} onRemoveRange={vi.fn()}
     />);
     expect(screen.queryByText('Workspace')).toBeNull();
     expect(screen.getByText('Objects')).toBeTruthy();
@@ -32,5 +32,20 @@ describe('object tree tools', () => {
     expect((screen.getByRole('textbox', { name: 'Object name' }) as HTMLInputElement).value).toBe('Part');
     expect(onRename).not.toHaveBeenCalled();
     expect(screen.getByRole('status').getAttribute('aria-label')).toBe('Part is outside the bed and overlaps another object');
+  });
+
+  it('nests modifier meshes under their parent and can add another modifier', () => {
+    const onAddModifier = vi.fn();
+    const modifier = { ...model, fileId: 'm', fileName: 'modifier.stl', modifierFor: 'a' };
+    render(<ObjectTree
+      models={[model, modifier]} ranges={{}} selected={{ type: 'scene' }} modelNames={{ a: 'Part', m: 'Dense zone' }}
+      onSelect={vi.fn()} onSelectFile={vi.fn()} onAddModels={vi.fn()} onAddModifier={onAddModifier}
+      onRemoveModel={vi.fn()} onAddRange={vi.fn()} onRemoveRange={vi.fn()}
+    />);
+
+    expect(screen.getByDisplayValue('Dense zone')).toBeTruthy();
+    expect(screen.getAllByText('Modifier')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Add modifier to Part' }));
+    expect(onAddModifier).toHaveBeenCalledWith('a');
   });
 });

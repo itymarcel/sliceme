@@ -19,8 +19,12 @@ afterEach(() => vi.unstubAllGlobals());
 describe('Orca 3MF project API', () => {
   it('imports extracted models and settings from the API package', async () => {
     const packageBytes = zipSync({
-      'manifest.json': strToU8(JSON.stringify({ config, models: [{ path: 'models/0.stl', name: 'part.stl', position: { x: 100, y: 90 } }] })),
+      'manifest.json': strToU8(JSON.stringify({ config, models: [
+        { path: 'models/0.stl', name: 'part.stl', position: { x: 100, y: 90 }, overrides: { process_config: { layer_height: '0.16' } }, modifierForIndex: null },
+        { path: 'models/1.stl', name: 'modifier.stl', position: { x: 104, y: 94, z: 5 }, overrides: { process_config: { sparse_infill_density: '80%' } }, modifierForIndex: 0 },
+      ] })),
       'models/0.stl': new Uint8Array(84),
+      'models/1.stl': new Uint8Array(84),
     });
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(packageBytes, { status: 200 })));
 
@@ -29,6 +33,10 @@ describe('Orca 3MF project API', () => {
     expect(result.config.machine_config.nozzle_diameter).toBe('0.8');
     expect(result.models[0].file.name).toBe('part.stl');
     expect(result.models[0].position).toEqual({ x: 100, y: 90 });
+    expect(result.models[0].overrides.process_config?.layer_height).toBe('0.16');
+    expect(result.models[1].modifierForIndex).toBe(0);
+    expect(result.models[1].position.z).toBe(5);
+    expect(result.models[1].overrides.process_config?.sparse_infill_density).toBe('80%');
     expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/import-project', expect.objectContaining({ method: 'POST' }));
   });
 

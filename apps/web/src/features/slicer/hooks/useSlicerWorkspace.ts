@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { loadDefaultConfig, requestEnhancement, requestProjectExport, requestProjectImport, requestSettingsPrefill, requestSlice } from '../lib/slicerApi';
+import { loadDefaultConfig, loadPrintPreset, loadPrintPresets, loadPrinterPreset, loadPrinterPresets, requestEnhancement, requestProjectExport, requestProjectImport, requestSettingsPrefill, requestSlice } from '../lib/slicerApi';
 import { createClientId } from '../lib/createClientId';
 import {
   clearPersistedWorkspace,
@@ -11,7 +11,7 @@ import {
   requestDurableStorage,
 } from '../lib/workspacePersistence';
 import { defaultWorkspaceUi } from '../lib/workspaceUi';
-import { machineConfigForPreset, machineConfigWithBuildDimension, PRINTER_PRESET_CONFIG_KEY } from '../lib/printerPresets';
+import { machineConfigForPreset, machineConfigWithBuildDimension, printConfigForPreset, PRINTER_PRESET_CONFIG_KEY } from '../lib/printerPresets';
 import { createWorkspaceHistory, recordWorkspaceChange as recordHistoryChange, redoWorkspaceChange, undoWorkspaceChange, type WorkspaceHistorySnapshot } from '../lib/workspaceHistory';
 import { analyzePlacement, arrangeOnBed, duplicateDisplayName, type ModelBounds } from '../lib/objectTools';
 import type {
@@ -21,6 +21,8 @@ import type {
   GcodeResult,
   GcodeEnhancement,
   Position,
+  PrintPreset,
+  PrinterPreset,
   RangeOverride,
   Rotation,
   Scale,
@@ -98,6 +100,8 @@ function temperatureEvents(config: ConfigBundle, ranges: Record<string, RangeOve
 export function useSlicerWorkspace() {
   const [models, setModels] = useState<SlicerModel[]>([]);
   const [config, setConfig] = useState<ConfigBundle>(emptyConfig);
+  const [printerPresets, setPrinterPresets] = useState<PrinterPreset[]>([]);
+  const [printPresets, setPrintPresets] = useState<PrintPreset[]>([]);
   const [fileOverrides, setFileOverrides] = useState<Record<string, Partial<ConfigBundle>>>({});
   const [rangeOverrides, setRangeOverrides] = useState<Record<string, RangeOverride[]>>({});
   const [positions, setPositions] = useState<Record<string, Position>>({});
@@ -121,6 +125,9 @@ export function useSlicerWorkspace() {
   const [history, setHistory] = useState(createWorkspaceHistory);
   const sliceController = useRef<AbortController | null>(null);
   const prefillController = useRef<AbortController | null>(null);
+  const printerProfileController = useRef<AbortController | null>(null);
+  const printProfileController = useRef<AbortController | null>(null);
+  const latestWorkspaceSnapshot = useRef<WorkspaceHistorySnapshot | null>(null);
   const modelUrls = useRef(new Set<string>());
   const modelRegistry = useRef(new Map<string, SlicerModel>());
   const gcodeUrl = useRef<string | null>(null);
@@ -141,7 +148,7 @@ export function useSlicerWorkspace() {
   }, [config.machine_config]);
 
   const placementIssues = useMemo(() => analyzePlacement(
-    models.map((model) => model.fileId), positions, modelBounds, scales, rotations, buildVolume,
+    models.filter((model) => !model.modifierFor).map((model) => model.fileId), positions, modelBounds, scales, rotations, buildVolume,
   ), [buildVolume, modelBounds, models, positions, rotations, scales]);
 
   const workspaceSnapshot = useCallback((): WorkspaceHistorySnapshot => ({
@@ -158,6 +165,13 @@ export function useSlicerWorkspace() {
     selectedNode,
   }), [config, fileOverrides, modelNames, models, positions, rangeOverrides, rotations, scales, selectedFileIds, selectedNode, startPositions]);
   const recordWorkspaceChange = useCallback(() => setHistory((current) => recordHistoryChange(current, workspaceSnapshot())), [workspaceSnapshot]);
+  useEffect(() => {
+    latestWorkspaceSnapshot.current = workspaceSnapshot();
+  }, [workspaceSnapshot]);
+  const recordLatestWorkspaceChange = useCallback(() => {
+    const snapshot = latestWorkspaceSnapshot.current;
+    if (snapshot) setHistory((current) => recordHistoryChange(current, snapshot));
+  }, []);
   const applyWorkspaceSnapshot = useCallback((snapshot: WorkspaceHistorySnapshot) => {
     setConfig(snapshot.config);
     setFileOverrides(snapshot.fileOverrides);
@@ -216,7 +230,7 @@ export function useSlicerWorkspace() {
         persisted.models.forEach((stored) => {
           const file = new File([stored.blob], stored.fileName, { type: stored.fileType, lastModified: stored.lastModified });
           const objectUrl = URL.createObjectURL(file);
-          const model = { fileId: stored.fileId, fileName: stored.fileName, fileSize: stored.fileSize, objectUrl, file };
+          const model: SlicerModel = { fileId: stored.fileId, fileName: stored.fileName, fileSize: stored.fileSize, objectUrl, file, ...(stored.modifierFor ? { modifierFor: stored.modifierFor } : {}) };
           modelUrls.current.add(objectUrl);
           modelRegistry.current.set(model.fileId, model);
           restoredById.set(model.fileId, model);
@@ -243,6 +257,19 @@ export function useSlicerWorkspace() {
       void requestDurableStorage().catch(() => undefined);
     });
     return () => { cancelled = true; controller.abort(); };
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.all([loadPrinterPresets(controller.signal), loadPrintPresets(controller.signal)])
+      .then(([machines, prints]) => {
+        setPrinterPresets(machines);
+        setPrintPresets(prints);
+      })
+      .catch((profileError) => {
+        if ((profileError as Error).name !== 'AbortError') setError(`Profiles could not be loaded: ${(profileError as Error).message}`);
+      });
+    return () => controller.abort();
   }, []);
 
   const reportPersistenceError = useCallback((storageError: unknown) => {
@@ -288,6 +315,8 @@ export function useSlicerWorkspace() {
     if (gcodeUrl.current) URL.revokeObjectURL(gcodeUrl.current);
     sliceController.current?.abort();
     prefillController.current?.abort();
+    printerProfileController.current?.abort();
+    printProfileController.current?.abort();
   }, []);
 
   const replaceGcode = useCallback((next: GcodeResult | null) => {
@@ -307,7 +336,7 @@ export function useSlicerWorkspace() {
     });
   }, []);
 
-  const addModels = useCallback((files: FileList | File[]) => {
+  const addModels = useCallback((files: FileList | File[], modifierFor?: string) => {
     const accepted = Array.from(files).filter((file) => /\.(stl|step|stp)$/i.test(file.name));
     if (!accepted.length) return;
     recordWorkspaceChange();
@@ -316,16 +345,20 @@ export function useSlicerWorkspace() {
       accepted.forEach((file, offset) => {
         const fileId = createClientId();
         const url = URL.createObjectURL(file);
-        const model = { fileId, fileName: file.name, fileSize: file.size, objectUrl: url, file };
+        const model: SlicerModel = { fileId, fileName: file.name, fileSize: file.size, objectUrl: url, file, ...(modifierFor ? { modifierFor } : {}) };
         modelUrls.current.add(url);
         modelRegistry.current.set(fileId, model);
         next.push(model);
         const index = current.length + offset;
-        setPositions((value) => ({ ...value, [fileId]: { x: buildVolume.x / 2 + index * 20, y: buildVolume.y / 2 } }));
+        const parentPosition = modifierFor ? positions[modifierFor] : undefined;
+        setPositions((value) => ({ ...value, [fileId]: parentPosition ?? { x: buildVolume.x / 2 + index * 20, y: buildVolume.y / 2 } }));
         setRotations((value) => ({ ...value, [fileId]: { x: 0, y: 0, z: 0 } }));
         setScales((value) => ({ ...value, [fileId]: { x: 1, y: 1, z: 1 } }));
         setModelNames((value) => ({ ...value, [fileId]: file.name.replace(/\.[^.]+$/, '') }));
         setRangeOverrides((value) => ({ ...value, [fileId]: [] }));
+        if (modifierFor) {
+          setFileOverrides((value) => ({ ...value, [fileId]: { process_config: { sparse_infill_density: '100%' } } }));
+        }
         setSelectedFileIds([fileId]);
         setSelectedNode({ type: 'file', fileId });
       });
@@ -333,10 +366,10 @@ export function useSlicerWorkspace() {
     });
     setError(null);
     setStatus('idle');
-  }, [buildVolume, recordWorkspaceChange]);
+  }, [buildVolume, positions, recordWorkspaceChange]);
 
   const sliceManifest = useCallback((): SliceManifest => ({
-    models: models.map((model) => ({ id: model.fileId, name: modelNames[model.fileId] || model.fileName })),
+    models: models.map((model) => ({ id: model.fileId, name: modelNames[model.fileId] || model.fileName, ...(model.modifierFor ? { modifierFor: model.modifierFor } : {}) })),
     config,
     fileOverrides,
     rangeOverrides,
@@ -360,17 +393,21 @@ export function useSlicerWorkspace() {
       const nextScales: Record<string, Scale> = {};
       const nextNames: Record<string, string> = {};
       const nextRanges: Record<string, RangeOverride[]> = {};
+      const nextOverrides: Record<string, Partial<ConfigBundle>> = {};
       const nextModels: SlicerModel[] = [];
+      const importedIds = imported.models.map(() => createClientId());
       try {
-        imported.models.forEach(({ file, position }) => {
-          const fileId = createClientId();
+        imported.models.forEach(({ file, position, overrides, modifierForIndex }, index) => {
+          const fileId = importedIds[index];
+          const modifierFor = modifierForIndex === null ? undefined : importedIds[modifierForIndex];
           const objectUrl = URL.createObjectURL(file);
           nextPositions[fileId] = position;
           nextRotations[fileId] = { x: 0, y: 0, z: 0 };
           nextScales[fileId] = { x: 1, y: 1, z: 1 };
           nextNames[fileId] = file.name.replace(/\.[^.]+$/, '');
           nextRanges[fileId] = [];
-          nextModels.push({ fileId, fileName: file.name, fileSize: file.size, objectUrl, file });
+          if (Object.keys(overrides).length) nextOverrides[fileId] = overrides;
+          nextModels.push({ fileId, fileName: file.name, fileSize: file.size, objectUrl, file, ...(modifierFor ? { modifierFor } : {}) });
         });
       } catch (urlError) {
         nextModels.forEach((model) => URL.revokeObjectURL(model.objectUrl));
@@ -383,7 +420,7 @@ export function useSlicerWorkspace() {
       setHistory(createWorkspaceHistory());
       setModels(nextModels);
       setConfig(imported.config);
-      setFileOverrides({});
+      setFileOverrides(nextOverrides);
       setRangeOverrides(nextRanges);
       setPositions(nextPositions);
       setRotations(nextRotations);
@@ -427,19 +464,25 @@ export function useSlicerWorkspace() {
 
   const removeModel = useCallback((fileId: string) => {
     if (!models.some((model) => model.fileId === fileId)) return;
+    const removedIds = new Set([fileId, ...models.filter((model) => model.modifierFor === fileId).map((model) => model.fileId)]);
     recordWorkspaceChange();
-    setModels((current) => current.filter((model) => model.fileId !== fileId));
-    setFileOverrides((current) => { const next = { ...current }; delete next[fileId]; return next; });
-    setRangeOverrides((current) => { const next = { ...current }; delete next[fileId]; return next; });
-    setPositions((current) => { const next = { ...current }; delete next[fileId]; return next; });
-    setRotations((current) => { const next = { ...current }; delete next[fileId]; return next; });
-    setScales((current) => { const next = { ...current }; delete next[fileId]; return next; });
-    setModelNames((current) => { const next = { ...current }; delete next[fileId]; return next; });
-    setModelBounds((current) => { const next = { ...current }; delete next[fileId]; return next; });
-    setStartPositions((current) => { const next = { ...current }; delete next[fileId]; return next; });
-    const remainingSelection = selectedFileIds.filter((id) => id !== fileId);
+    setModels((current) => current.filter((model) => !removedIds.has(model.fileId)));
+    const removeKeys = <T,>(current: Record<string, T>) => {
+      const next = { ...current };
+      removedIds.forEach((id) => delete next[id]);
+      return next;
+    };
+    setFileOverrides(removeKeys);
+    setRangeOverrides(removeKeys);
+    setPositions(removeKeys);
+    setRotations(removeKeys);
+    setScales(removeKeys);
+    setModelNames(removeKeys);
+    setModelBounds(removeKeys);
+    setStartPositions(removeKeys);
+    const remainingSelection = selectedFileIds.filter((id) => !removedIds.has(id));
     setSelectedFileIds(remainingSelection);
-    if (selectedNode.type !== 'scene' && selectedNode.fileId === fileId) {
+    if (selectedNode.type !== 'scene' && removedIds.has(selectedNode.fileId)) {
       setSelectedNode(remainingSelection.length ? { type: 'file', fileId: remainingSelection.at(-1)! } : { type: 'scene' });
     }
   }, [models, recordWorkspaceChange, selectedFileIds, selectedNode]);
@@ -470,16 +513,26 @@ export function useSlicerWorkspace() {
   }, [modelNames, recordWorkspaceChange]);
 
   const duplicateSelected = useCallback(() => {
-    const sources = models.filter((model) => selectedFileIds.includes(model.fileId));
+    const selected = new Set(selectedFileIds);
+    const sources = models.filter((model) => selected.has(model.fileId) || (model.modifierFor && selected.has(model.modifierFor)));
     if (!sources.length) return;
     recordWorkspaceChange();
+    const copiedIds = new Map(sources.map((source) => [source.fileId, createClientId()]));
+    const selectedRoots = models.filter((model) => selected.has(model.fileId) && !model.modifierFor);
+    const rootOffsets = new Map(selectedRoots.map((root, index) => [root.fileId, { x: 10 + index * 5, y: 10 }]));
     const occupiedNames = new Set(Object.values(modelNames));
     const copies = sources.map((source, index) => {
-      const fileId = createClientId();
-      const copy = { ...source, fileId };
+      const fileId = copiedIds.get(source.fileId)!;
+      const copiedParent = source.modifierFor ? copiedIds.get(source.modifierFor) : undefined;
+      const copy = { ...source, fileId, ...(source.modifierFor ? { modifierFor: copiedParent ?? source.modifierFor } : {}) };
       modelRegistry.current.set(fileId, copy);
       const sourcePosition = positions[source.fileId] ?? { x: buildVolume.x / 2, y: buildVolume.y / 2 };
-      setPositions((current) => ({ ...current, [fileId]: { x: sourcePosition.x + 10 + index * 5, y: sourcePosition.y + 10 } }));
+      const groupOffset = rootOffsets.get(source.modifierFor ?? source.fileId) ?? { x: 10 + index * 5, y: 10 };
+      setPositions((current) => ({ ...current, [fileId]: {
+        x: sourcePosition.x + groupOffset.x,
+        y: sourcePosition.y + groupOffset.y,
+        ...(sourcePosition.z !== undefined ? { z: sourcePosition.z } : {}),
+      } }));
       setRotations((current) => ({ ...current, [fileId]: { ...(rotations[source.fileId] ?? { x: 0, y: 0, z: 0 }) } }));
       setScales((current) => ({ ...current, [fileId]: { ...(scales[source.fileId] ?? { x: 1, y: 1, z: 1 }) } }));
       let copyName = duplicateDisplayName(modelNames[source.fileId] || source.fileName.replace(/\.[^.]+$/, ''));
@@ -493,15 +546,33 @@ export function useSlicerWorkspace() {
         : current);
       return copy;
     });
+    const selectedCopies = selectedFileIds.map((fileId) => copiedIds.get(fileId)).filter((fileId): fileId is string => !!fileId);
     setModels((current) => [...current, ...copies]);
-    setSelectedFileIds(copies.map((copy) => copy.fileId));
-    setSelectedNode({ type: 'file', fileId: copies.at(-1)!.fileId });
+    setSelectedFileIds(selectedCopies);
+    setSelectedNode({ type: 'file', fileId: selectedCopies.at(-1) ?? copies.at(-1)!.fileId });
   }, [buildVolume, modelNames, models, positions, recordWorkspaceChange, rotations, scales, selectedFileIds]);
 
   const autoArrange = useCallback(() => {
-    if (!models.length) return;
+    const normalIds = models.filter((model) => !model.modifierFor).map((model) => model.fileId);
+    if (!normalIds.length) return;
     recordWorkspaceChange();
-    setPositions(arrangeOnBed(models.map((model) => model.fileId), modelBounds, scales, rotations, buildVolume));
+    const arranged = arrangeOnBed(normalIds, modelBounds, scales, rotations, buildVolume);
+    setPositions((current) => {
+      const next = { ...current, ...arranged };
+      models.filter((model) => model.modifierFor).forEach((modifier) => {
+        const parentId = modifier.modifierFor!;
+        const previousParent = current[parentId];
+        const nextParent = arranged[parentId];
+        const previousModifier = current[modifier.fileId];
+        if (!previousParent || !nextParent || !previousModifier) return;
+        next[modifier.fileId] = {
+          ...previousModifier,
+          x: previousModifier.x + nextParent.x - previousParent.x,
+          y: previousModifier.y + nextParent.y - previousParent.y,
+        };
+      });
+      return next;
+    });
   }, [buildVolume, modelBounds, models, recordWorkspaceChange, rotations, scales]);
 
   const centerSelected = useCallback(() => {
@@ -512,12 +583,16 @@ export function useSlicerWorkspace() {
       const center = selectedPositions.reduce((sum, position) => ({ x: sum.x + position.x, y: sum.y + position.y }), { x: 0, y: 0 });
       const dx = buildVolume.x / 2 - center.x / selectedPositions.length;
       const dy = buildVolume.y / 2 - center.y / selectedPositions.length;
-      return { ...current, ...Object.fromEntries(selectedFileIds.map((id) => {
+      const movedIds = new Set([
+        ...selectedFileIds,
+        ...models.filter((model) => model.modifierFor && selectedFileIds.includes(model.modifierFor)).map((model) => model.fileId),
+      ]);
+      return { ...current, ...Object.fromEntries([...movedIds].map((id) => {
         const position = current[id] ?? { x: buildVolume.x / 2, y: buildVolume.y / 2 };
-        return [id, { x: position.x + dx, y: position.y + dy }];
+        return [id, { ...position, x: position.x + dx, y: position.y + dy }];
       })) };
     });
-  }, [buildVolume, recordWorkspaceChange, selectedFileIds]);
+  }, [buildVolume, models, recordWorkspaceChange, selectedFileIds]);
 
   const setModelGeometryBounds = useCallback((fileId: string, bounds: ModelBounds) => {
     setModelBounds((current) => ({ ...current, [fileId]: bounds }));
@@ -571,16 +646,45 @@ export function useSlicerWorkspace() {
     }
   }, [recordWorkspaceChange, selectedNode]);
 
-  const applyPrinterPreset = useCallback((presetId: string) => {
-    const presetConfig = presetId === 'custom'
-      ? { [PRINTER_PRESET_CONFIG_KEY]: '' }
-      : machineConfigForPreset(presetId);
-    recordWorkspaceChange();
-    setConfig((current) => ({
-      ...current,
-      machine_config: { ...current.machine_config, ...presetConfig },
-    }));
-  }, [recordWorkspaceChange]);
+  const applyPrinterPreset = useCallback(async (presetId: string) => {
+    printerProfileController.current?.abort();
+    if (presetId === 'custom') {
+      recordWorkspaceChange();
+      setConfig((current) => ({ ...current, machine_config: { ...current.machine_config, [PRINTER_PRESET_CONFIG_KEY]: '' } }));
+      return;
+    }
+    const controller = new AbortController();
+    printerProfileController.current = controller;
+    setError(null);
+    try {
+      const profile = await loadPrinterPreset(presetId, controller.signal);
+      if (printerProfileController.current !== controller) return;
+      recordLatestWorkspaceChange();
+      setConfig((current) => ({ ...current, machine_config: machineConfigForPreset(presetId, profile) }));
+    } catch (profileError) {
+      if ((profileError as Error).name !== 'AbortError') setError(`Printer profile could not be applied: ${(profileError as Error).message}`);
+    }
+  }, [recordLatestWorkspaceChange, recordWorkspaceChange]);
+
+  const applyPrintPreset = useCallback(async (presetId: string) => {
+    printProfileController.current?.abort();
+    if (presetId === 'custom') {
+      recordWorkspaceChange();
+      setConfig((current) => ({ ...current, process_config: { ...current.process_config, sliceme_print_preset: '' } }));
+      return;
+    }
+    const controller = new AbortController();
+    printProfileController.current = controller;
+    setError(null);
+    try {
+      const profile = await loadPrintPreset(presetId, controller.signal);
+      if (printProfileController.current !== controller) return;
+      recordLatestWorkspaceChange();
+      setConfig((current) => ({ ...current, process_config: printConfigForPreset(presetId, profile) }));
+    } catch (profileError) {
+      if ((profileError as Error).name !== 'AbortError') setError(`Print preset could not be applied: ${(profileError as Error).message}`);
+    }
+  }, [recordLatestWorkspaceChange, recordWorkspaceChange]);
 
 
   const addRange = useCallback((fileId: string) => {
@@ -628,11 +732,15 @@ export function useSlicerWorkspace() {
   const mirrorSelected = useCallback((axis: keyof Scale) => {
     if (!selectedFileIds.length) return;
     recordWorkspaceChange();
-    setScales((current) => ({ ...current, ...Object.fromEntries(selectedFileIds.map((id) => {
+    const movedIds = new Set([
+      ...selectedFileIds,
+      ...models.filter((model) => model.modifierFor && selectedFileIds.includes(model.modifierFor)).map((model) => model.fileId),
+    ]);
+    setScales((current) => ({ ...current, ...Object.fromEntries([...movedIds].map((id) => {
       const scale = current[id] ?? { x: 1, y: 1, z: 1 };
       return [id, { ...scale, [axis]: -scale[axis] }];
     })) }));
-  }, [recordWorkspaceChange, selectedFileIds]);
+  }, [models, recordWorkspaceChange, selectedFileIds]);
 
   const beginTransformChange = recordWorkspaceChange;
 
@@ -721,6 +829,8 @@ export function useSlicerWorkspace() {
   const clear = useCallback(() => {
     sliceController.current?.abort();
     prefillController.current?.abort();
+    printerProfileController.current?.abort();
+    printProfileController.current?.abort();
     modelUrls.current.forEach(URL.revokeObjectURL);
     modelUrls.current.clear();
     modelRegistry.current.clear();
@@ -732,9 +842,9 @@ export function useSlicerWorkspace() {
   }, [replaceGcode, reportPersistenceError]);
 
   return {
-    models, config, fileOverrides, rangeOverrides, positions, rotations, scales, modelNames, selectedFileIds, placementIssues, selectedNode, gcode,
+    models, config, printerPresets, printPresets, fileOverrides, rangeOverrides, positions, rotations, scales, modelNames, selectedFileIds, placementIssues, selectedNode, gcode,
     status, error, defaultsLoading, buildVolume, startPositions, enhancing, prefilling, projectBusy, projectNotice, ui, setUi,
-    setSelectedNode, selectFile, selectScene, selectNode, addModels, removeModel, renameModel, duplicateSelected, autoArrange, centerSelected, mirrorSelected, setModelGeometryBounds, setSetting, applyPrinterPreset, addRange, removeRange,
+    setSelectedNode, selectFile, selectScene, selectNode, addModels, removeModel, renameModel, duplicateSelected, autoArrange, centerSelected, mirrorSelected, setModelGeometryBounds, setSetting, applyPrinterPreset, applyPrintPreset, addRange, removeRange,
     setRangeBoundary, setPositions: setPositionsWithHistory, setRotations: setRotationsWithHistory, setScales: setScalesWithHistory, beginTransformChange, slice, cancelSlice, enhanceGcode, prefillSettings,
     clearAiFieldHighlight, updateGcodeSource, dismissError, dismissProjectNotice: () => setProjectNotice(null), importProject, exportProject, clear,
     undo, redo, canUndo: history.past.length > 0, canRedo: history.future.length > 0,

@@ -2,6 +2,20 @@ export type ConfigSection = 'machine_config' | 'process_config' | 'filament_conf
 
 export type ConfigBundle = Record<ConfigSection, Record<string, unknown>>;
 
+export type PrinterPreset = {
+  id: string;
+  manufacturer: string;
+  name: string;
+  model: string;
+  nozzle_diameter: string[];
+};
+
+export type PrintPreset = {
+  id: string;
+  name: string;
+  description: string;
+};
+
 export type RangeOverride = {
   range: { min_z: number; max_z: number };
   machine_config: Record<string, unknown>;
@@ -15,11 +29,12 @@ export type SlicerModel = {
   fileSize: number;
   objectUrl: string;
   file: File;
+  modifierFor?: string;
 };
 
 export type Rotation = { x: number; y: number; z: number };
 export type Scale = { x: number; y: number; z: number };
-export type Position = { x: number; y: number };
+export type Position = { x: number; y: number; z?: number };
 export type BuildVolume = { x: number; y: number; z: number };
 
 export type SelectedNode =
@@ -28,7 +43,7 @@ export type SelectedNode =
   | { type: 'range'; fileId: string; rangeIndex: number };
 
 export type SliceManifest = {
-  models: Array<{ id: string; name: string }>;
+  models: Array<{ id: string; name: string; modifierFor?: string }>;
   config: ConfigBundle;
   fileOverrides: Record<string, Partial<ConfigBundle>>;
   rangeOverrides: Record<string, RangeOverride[]>;

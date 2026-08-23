@@ -19,6 +19,8 @@ import { isEditableShortcutTarget } from './lib/historyShortcuts';
 export function SlicerWorkspace() {
   const workspace = useSlicerWorkspace();
   const fileInput = useRef<HTMLInputElement>(null);
+  const modifierInput = useRef<HTMLInputElement>(null);
+  const modifierTarget = useRef<string | null>(null);
   const projectInput = useRef<HTMLInputElement>(null);
   const viewport = useRef<ModelViewportHandle>(null);
   const [dragging, setDragging] = useState(false);
@@ -88,12 +90,21 @@ export function SlicerWorkspace() {
   }, [mobileSettingsOpen]);
 
   const openFilePicker = () => fileInput.current?.click();
+  const openModifierPicker = (fileId: string) => {
+    modifierTarget.current = fileId;
+    modifierInput.current?.click();
+  };
   const openProjectPicker = () => projectInput.current?.click();
   const receiveFiles = (files: FileList | null) => { if (files?.length) workspace.addModels(files); };
 
   return (
     <div className={`app-shell ${expandedViewer ? 'viewer-expanded' : ''}`} onDragEnter={(event) => { event.preventDefault(); setDragging(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { if (event.currentTarget === event.target) setDragging(false); }} onDrop={(event) => { event.preventDefault(); setDragging(false); receiveFiles(event.dataTransfer.files); }}>
       <input ref={fileInput} hidden type="file" multiple accept=".stl,.step,.stp" onChange={(event) => { receiveFiles(event.target.files); event.target.value = ''; }} />
+      <input ref={modifierInput} hidden type="file" multiple accept=".stl,.step,.stp" onChange={(event) => {
+        if (event.target.files?.length && modifierTarget.current) workspace.addModels(event.target.files, modifierTarget.current);
+        modifierTarget.current = null;
+        event.target.value = '';
+      }} />
       <input ref={projectInput} hidden type="file" accept=".3mf" onChange={(event) => { const project = event.target.files?.[0]; if (project) void workspace.importProject(project); event.target.value = ''; }} />
       <header className="app-header">
         <div className="header-left"><div className="privacy-note"><ShieldCheck size={14} /> Session saved locally in browser storage</div><SupportLink /></div>
@@ -131,8 +142,8 @@ export function SlicerWorkspace() {
       <div className="workspace-layout">
         <aside id="mobile-settings-panel" className={`sidebar ${mobileSettingsOpen ? 'mobile-settings-open' : ''}`} role={mobileSettingsOpen ? 'dialog' : undefined} aria-modal={mobileSettingsOpen ? 'true' : undefined} aria-label={mobileSettingsOpen ? 'Objects and slicer settings' : undefined}>
           <div className="mobile-settings-header"><span><SlidersHorizontal size={16} /><strong>Objects &amp; settings</strong></span><button className="icon-button" type="button" aria-label="Close objects and slicer settings" onClick={() => setMobileSettingsOpen(false)}><X size={18} /></button></div>
-          <ObjectTree models={workspace.models} ranges={workspace.rangeOverrides} selected={workspace.selectedNode} selectedFileIds={workspace.selectedFileIds} modelNames={workspace.modelNames} placementIssues={workspace.placementIssues} onSelect={workspace.selectNode} onSelectFile={workspace.selectFile} onRename={workspace.renameModel} onAddModels={openFilePicker} onRemoveModel={workspace.removeModel} onAddRange={workspace.addRange} onRemoveRange={workspace.removeRange} />
-          <SlicerSettingsPanel selectedNode={workspace.selectedNode} config={workspace.config} fileOverrides={workspace.fileOverrides} rangeOverrides={workspace.rangeOverrides} onChange={workspace.setSetting} onApplyPrinterPreset={workspace.applyPrinterPreset} onRangeBoundary={workspace.setRangeBoundary} section={workspace.ui.settingsSection} query={workspace.ui.settingsQuery} onSectionChange={(settingsSection) => workspace.setUi((current) => ({ ...current, settingsSection }))} onQueryChange={(settingsQuery) => workspace.setUi((current) => ({ ...current, settingsQuery }))} highlightedFields={workspace.ui.aiHighlightedFields} onFieldInteract={workspace.clearAiFieldHighlight} />
+          <ObjectTree models={workspace.models} ranges={workspace.rangeOverrides} selected={workspace.selectedNode} selectedFileIds={workspace.selectedFileIds} modelNames={workspace.modelNames} placementIssues={workspace.placementIssues} onSelect={workspace.selectNode} onSelectFile={workspace.selectFile} onRename={workspace.renameModel} onAddModels={openFilePicker} onAddModifier={openModifierPicker} onRemoveModel={workspace.removeModel} onAddRange={workspace.addRange} onRemoveRange={workspace.removeRange} />
+          <SlicerSettingsPanel selectedNode={workspace.selectedNode} config={workspace.config} fileOverrides={workspace.fileOverrides} rangeOverrides={workspace.rangeOverrides} printerPresets={workspace.printerPresets} printPresets={workspace.printPresets} onChange={workspace.setSetting} onApplyPrinterPreset={workspace.applyPrinterPreset} onApplyPrintPreset={workspace.applyPrintPreset} onRangeBoundary={workspace.setRangeBoundary} section={workspace.ui.settingsSection} query={workspace.ui.settingsQuery} onSectionChange={(settingsSection) => workspace.setUi((current) => ({ ...current, settingsSection }))} onQueryChange={(settingsQuery) => workspace.setUi((current) => ({ ...current, settingsQuery }))} highlightedFields={workspace.ui.aiHighlightedFields} onFieldInteract={workspace.clearAiFieldHighlight} />
           <AiPrefillPanel description={workspace.ui.prefillDescription} loading={workspace.prefilling || workspace.status === 'slicing'} onDescriptionChange={(prefillDescription) => workspace.setUi((current) => ({ ...current, prefillDescription }))} onPrefill={workspace.prefillSettings} />
         </aside>
 

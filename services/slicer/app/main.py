@@ -18,6 +18,8 @@ from pydantic import BaseModel, Field
 from .ai_prefill import generate_slicer_recommendation
 from .engine import SliceJob, UploadedModel, build_3mf, default_config, slice_job
 from .gcode_enhancements import ENHANCEMENTS, apply_enhancement
+from .print_presets import list_print_presets, print_preset_config
+from .printer_presets import list_printer_presets, printer_preset_config
 from .project_3mf import import_orca_project
 
 
@@ -118,6 +120,32 @@ def get_default_config():
     return default_config()
 
 
+@app.get("/api/printer-presets")
+def get_printer_presets():
+    return {"presets": list_printer_presets()}
+
+
+@app.get("/api/printer-presets/{preset_id}")
+def get_printer_preset(preset_id: str):
+    try:
+        return {"machine_config": printer_preset_config(preset_id)}
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@app.get("/api/print-presets")
+def get_print_presets():
+    return {"presets": list_print_presets()}
+
+
+@app.get("/api/print-presets/{preset_id}")
+def get_print_preset(preset_id: str):
+    try:
+        return {"process_config": print_preset_config(preset_id)}
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
 @app.get("/api/enhancements")
 def get_enhancements():
     return {"operations": list(ENHANCEMENTS)}
@@ -189,6 +217,7 @@ async def slice_models(
                 file_id=str(metadata.get("id") or ""),
                 file_name=filename,
                 data=data,
+                modifier_for=str(metadata.get("modifierFor")) if metadata.get("modifierFor") else None,
             )
         )
 
@@ -232,7 +261,10 @@ async def export_project(
         data = await upload.read(MAX_FILE_BYTES + 1)
         if len(data) > MAX_FILE_BYTES:
             raise HTTPException(status_code=413, detail=f"Model is too large: {filename}")
-        uploaded.append(UploadedModel(str(metadata.get("id") or ""), filename, data))
+        uploaded.append(UploadedModel(
+            str(metadata.get("id") or ""), filename, data,
+            modifier_for=str(metadata.get("modifierFor")) if metadata.get("modifierFor") else None,
+        ))
     if any(not model.file_id for model in uploaded):
         raise HTTPException(status_code=422, detail="Every model needs a stable client ID")
     if len({model.file_id for model in uploaded}) != len(uploaded):
@@ -265,6 +297,12 @@ async def import_project(project: UploadFile = File(...)):
         for index, model in enumerate(imported.models):
             path = f"models/{index}.stl"
             package.writestr(path, model.stl)
-            manifest_models.append({"path": path, "name": model.name, "position": model.position})
+            manifest_models.append({
+                "path": path,
+                "name": model.name,
+                "position": model.position,
+                "overrides": model.overrides,
+                "modifierForIndex": model.modifier_for_index,
+            })
         package.writestr("manifest.json", json.dumps({"config": imported.config, "models": manifest_models, "warnings": imported.warnings}))
     return Response(output.getvalue(), media_type="application/zip")

@@ -53,7 +53,42 @@ def component_bomb_archive(levels=20, build_items=1, fanout=2, empty_leaf=False)
     return output.getvalue()
 
 
+def modifier_project_archive():
+    mesh = '''<mesh><vertices><vertex x="0" y="0" z="0"/><vertex x="10" y="0" z="0"/><vertex x="0" y="10" z="0"/></vertices><triangles><triangle v1="0" v2="1" v3="2"/></triangles></mesh>'''
+    model = f'''<model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><resources>
+      <object id="1" type="model">{mesh}</object><object id="2" type="model">{mesh}</object><object id="4" type="model">{mesh}</object>
+      <object id="3" type="model"><components><component objectid="1" transform="1 0 0 0 1 0 0 0 1 100 80 0"/><component objectid="2" transform="1 0 0 0 1 0 0 0 1 104 84 5"/><component objectid="4" transform="1 0 0 0 1 0 0 0 1 120 80 0"/></components></object>
+    </resources><build><item objectid="3"/></build></model>'''
+    settings = '''<config><object id="3">
+      <metadata key="name" value="Bracket"/><metadata key="layer_height" value="0.16"/>
+      <part id="1" subtype="normal_part"><metadata key="name" value="Bracket body"/><metadata key="filament_type" value="PETG"/></part>
+      <part id="2" subtype="modifier_part"><metadata key="name" value="Dense zone"/><metadata key="sparse_infill_density" value="80%"/></part>
+    </object></config>'''
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as package:
+        package.writestr("3D/3dmodel.model", model)
+        package.writestr("Metadata/model_settings.config", settings)
+    return output.getvalue()
+
+
 class OrcaProjectImportTest(unittest.TestCase):
+    def test_imports_per_object_settings_and_spatial_modifier_parts(self):
+        defaults = {
+            "machine_config": {},
+            "process_config": {"layer_height": "0.2", "sparse_infill_density": "15%"},
+            "filament_config": {"filament_type": "PLA"},
+        }
+        imported = import_orca_project(modifier_project_archive(), defaults)
+
+        self.assertEqual([model.name for model in imported.models], ["Bracket body.stl", "Dense zone.stl"])
+        self.assertIsNone(imported.models[0].modifier_for_index)
+        self.assertEqual(imported.models[1].modifier_for_index, 0)
+        self.assertEqual(imported.models[1].position["z"], 5.0)
+        self.assertEqual(struct.unpack_from("<I", imported.models[0].stl, 80)[0], 2)
+        self.assertEqual(imported.models[0].overrides["process_config"]["layer_height"], "0.16")
+        self.assertEqual(imported.models[0].overrides["filament_config"]["filament_type"], "PETG")
+        self.assertEqual(imported.models[1].overrides["process_config"]["sparse_infill_density"], "80%")
+
     def test_imports_mesh_name_position_and_settings(self):
         defaults = {
             "machine_config": {"nozzle_diameter": "0.4"},

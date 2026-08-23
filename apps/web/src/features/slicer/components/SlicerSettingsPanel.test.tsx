@@ -25,7 +25,16 @@ const props = () => ({
   fileOverrides: {},
   rangeOverrides: {},
   onChange: vi.fn(),
+  printerPresets: [
+    { id: 'bambu-id', manufacturer: 'BBL', name: 'Bambu Lab A1 0.4 nozzle', model: 'A1', nozzle_diameter: ['0.4'] },
+    { id: 'prusa-id', manufacturer: 'Prusa', name: 'Prusa MK4S 0.4 nozzle', model: 'MK4S', nozzle_diameter: ['0.4'] },
+  ],
+  printPresets: [
+    { id: 'standard', name: 'Standard · 0.20 mm', description: 'Balanced quality and speed.' },
+    { id: 'strong', name: 'Strong · 0.20 mm', description: 'Functional parts.' },
+  ],
   onApplyPrinterPreset: vi.fn(),
+  onApplyPrintPreset: vi.fn(),
   onClear: vi.fn(),
   onRangeBoundary: vi.fn(),
   section: 'machine_config' as const,
@@ -45,20 +54,27 @@ describe('G-code setting editor', () => {
     expect(screen.getByText('Global')).toBeTruthy();
   });
 
-  it('offers distinct target G-code presets in the standard setting control', async () => {
+  it('offers the loaded complete printer profiles in the standard setting control', async () => {
     const user = userEvent.setup();
     const panelProps = props();
     render(<SlicerSettingsPanel {...panelProps} />);
-    const select = screen.getByRole('combobox', { name: 'Printer preset' });
-    expect(screen.getByRole('option', { name: 'Bambu Lab A1' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Bambu Lab P1S' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Bambu Lab X1 Carbon' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Prusa MK4S' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Creality Ender-3 V3 SE' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Creality K1C' })).toBeTruthy();
-    await user.selectOptions(select, 'bambu-a1');
-    expect(panelProps.onApplyPrinterPreset).toHaveBeenCalledWith('bambu-a1');
-    expect(select.closest('.setting-row')).toBeTruthy();
+    const select = screen.getByRole('combobox', { name: 'Printer profile' });
+    expect(screen.getByRole('option', { name: 'BBL · Bambu Lab A1 0.4 nozzle' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Prusa · Prusa MK4S 0.4 nozzle' })).toBeTruthy();
+    await user.selectOptions(select, 'bambu-id');
+    expect(panelProps.onApplyPrinterPreset).toHaveBeenCalledWith('bambu-id');
+    expect(screen.getByText('Replaces the complete machine configuration, including build volume, nozzle, firmware, limits, and machine G-code.')).toBeTruthy();
+  });
+
+  it('offers print presets with an explicit overwrite warning', async () => {
+    const user = userEvent.setup();
+    const panelProps = props();
+    render(<SlicerSettingsPanel {...panelProps} section="process_config" />);
+    const select = screen.getByRole('combobox', { name: 'Print preset' });
+    expect(screen.getByRole('option', { name: 'Standard · 0.20 mm' })).toBeTruthy();
+    expect(screen.getByText('Applying a print preset will overwrite all current print settings.')).toBeTruthy();
+    await user.selectOptions(select, 'strong');
+    expect(panelProps.onApplyPrintPreset).toHaveBeenCalledWith('strong');
   });
 
   it('exposes bed width, depth, and height as independent input settings', async () => {

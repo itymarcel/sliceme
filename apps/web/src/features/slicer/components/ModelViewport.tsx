@@ -16,7 +16,7 @@ const DEFAULT_BUILD_VOLUME = { x: 250, y: 210, z: 100 };
 type StartPosition = { x: number; y: number };
 
 export type FileRotation = { x: number; y: number; z: number };
-export type FilePosition = { x: number; y: number };
+export type FilePosition = { x: number; y: number; z?: number };
 export type BuildVolume = { x: number; y: number; z: number };
 
 const ZUpCamera: React.FC<{ buildVolume: BuildVolume }> = ({ buildVolume }) => {
@@ -221,7 +221,7 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
     <>
       <mesh
         geometry={geometry}
-        position={[position.x, position.y, zLift]}
+        position={[position.x, position.y, zLift + (position.z ?? 0)]}
         rotation={[rotation.x * DEG2RAD, rotation.y * DEG2RAD, rotation.z * DEG2RAD]}
         scale={[scale.x, scale.y, scale.z]}
         castShadow={!xray}
@@ -285,14 +285,14 @@ const SlicerStlMesh: React.FC<SlicerStlMeshProps> = ({
         onPointerOut={() => { if (measurementActive) onSnapHover?.(null); }}
       >
         <meshStandardMaterial
-          {...modelMaterialAppearance(selected, xray)}
+          {...modelMaterialAppearance(selected, xray, !!file.modifierFor)}
           roughness={0.6}
           metalness={0.1}
         />
       </mesh>
       {surfaceSelectionActive && (
         <group
-          position={[position.x, position.y, zLift]}
+          position={[position.x, position.y, zLift + (position.z ?? 0)]}
           rotation={[rotation.x * DEG2RAD, rotation.y * DEG2RAD, rotation.z * DEG2RAD]}
           scale={[scale.x, scale.y, scale.z]}
         >
