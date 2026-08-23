@@ -11,6 +11,7 @@ Changes are grouped into one consolidated summary per calendar day.
 - Made modifier operations respect parent grouping across duplicate, mirror, arrange, and center, and excluded modifier meshes from placement warnings and build-volume bounds.
 - Hardened printer-profile loading against symlink traversal and inheritance cycles, preserved legacy preset IDs for existing workspaces, and recorded preset application as discrete undoable history steps with request cancellation.
 - Verified the full stack with unit tests (frontend, backend, engine, API), a production build, browser profile/modifier checks, and a real Orca slice of a Bambu A1 0.4 / Standard project with a 100% infill modifier mesh.
+- Replaced the native profile dropdowns with a searchable combobox (filter by all typed terms) for both the printer/machine catalog and the print preset catalog; kept the small "overwrite all current print settings" warning on the print preset.
 
 ## 2026-08-22
 

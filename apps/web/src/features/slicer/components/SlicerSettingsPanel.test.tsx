@@ -54,26 +54,32 @@ describe('G-code setting editor', () => {
     expect(screen.getByText('Global')).toBeTruthy();
   });
 
-  it('offers the loaded complete printer profiles in the standard setting control', async () => {
+  it('offers the loaded complete printer profiles with search in the standard setting control', async () => {
     const user = userEvent.setup();
     const panelProps = props();
     render(<SlicerSettingsPanel {...panelProps} />);
-    const select = screen.getByRole('combobox', { name: 'Printer profile' });
+    const trigger = screen.getByRole('combobox', { name: 'Printer profile' });
+    await user.click(trigger);
     expect(screen.getByRole('option', { name: 'BBL · Bambu Lab A1 0.4 nozzle' })).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Prusa · Prusa MK4S 0.4 nozzle' })).toBeTruthy();
-    await user.selectOptions(select, 'bambu-id');
+    await user.type(screen.getByLabelText('Printer profile search'), 'bambu');
+    expect(screen.getByRole('option', { name: 'BBL · Bambu Lab A1 0.4 nozzle' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: 'Prusa · Prusa MK4S 0.4 nozzle' })).toBeNull();
+    await user.click(screen.getByRole('option', { name: 'BBL · Bambu Lab A1 0.4 nozzle' }));
     expect(panelProps.onApplyPrinterPreset).toHaveBeenCalledWith('bambu-id');
     expect(screen.getByText('Replaces the complete machine configuration, including build volume, nozzle, firmware, limits, and machine G-code.')).toBeTruthy();
   });
 
-  it('offers print presets with an explicit overwrite warning', async () => {
+  it('offers print presets with an explicit overwrite warning and search', async () => {
     const user = userEvent.setup();
     const panelProps = props();
     render(<SlicerSettingsPanel {...panelProps} section="process_config" />);
-    const select = screen.getByRole('combobox', { name: 'Print preset' });
+    const trigger = screen.getByRole('combobox', { name: 'Print preset' });
+    await user.click(trigger);
     expect(screen.getByRole('option', { name: 'Standard · 0.20 mm' })).toBeTruthy();
     expect(screen.getByText('Applying a print preset will overwrite all current print settings.')).toBeTruthy();
-    await user.selectOptions(select, 'strong');
+    await user.type(screen.getByLabelText('Print preset search'), 'strong');
+    await user.click(screen.getByRole('option', { name: 'Strong · 0.20 mm' }));
     expect(panelProps.onApplyPrintPreset).toHaveBeenCalledWith('strong');
   });
 

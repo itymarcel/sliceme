@@ -5,6 +5,7 @@ import type { AiHighlightedFields, ConfigBundle, ConfigSection, PrintPreset, Pri
 import { rangeHelp, settingHelp } from '../lib/settingHelp';
 import { buildDimensionsFromMachineConfig, findMatchingPrinterPreset, findMatchingPrintPreset } from '../lib/printerPresets';
 import { ParameterHelp } from './ParameterHelp';
+import { SearchableSelect } from './SearchableSelect';
 
 type Field = {
   key: string;
@@ -281,12 +282,19 @@ export function SlicerSettingsPanel(props: Props) {
           <div className="settings-group">
             <h3>Target printer</h3>
             <div className="setting-row">
-              <span><span id="setting-printer-preset">Printer profile</span><ParameterHelp label="Printer profile" text="Replaces the complete machine configuration with the selected Orca profile." /></span>
+              <span>
+                <span id="setting-printer-preset">Printer profile</span>
+                <ParameterHelp label="Printer profile" text="Replaces the complete machine configuration with the selected Orca profile." />
+              </span>
               <div className="setting-control">
-                <select id="printer-preset" aria-labelledby="setting-printer-preset" value={printerPresetId} onChange={(event) => props.onApplyPrinterPreset(event.target.value)}>
-                  <option value="custom">Custom machine</option>
-                  {props.printerPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.manufacturer} · {preset.name}</option>)}
-                </select>
+                <SearchableSelect
+                  id="printer-preset"
+                  label="Printer profile"
+                  value={printerPresetId}
+                  options={props.printerPresets.map((preset) => ({ value: preset.id, label: `${preset.manufacturer} · ${preset.name}` }))}
+                  placeholder="Custom machine"
+                  onChange={props.onApplyPrinterPreset}
+                />
               </div>
             </div>
             <p className="settings-preset-note">Replaces the complete machine configuration, including build volume, nozzle, firmware, limits, and machine G-code.</p>
@@ -296,12 +304,19 @@ export function SlicerSettingsPanel(props: Props) {
           <div className="settings-group">
             <h3>Print profile</h3>
             <div className="setting-row">
-              <span><span id="setting-print-preset">Print preset</span><ParameterHelp label="Print preset" text="Replaces the complete current process configuration with a curated quality preset." /></span>
+              <span>
+                <span id="setting-print-preset">Print preset</span>
+                <ParameterHelp label="Print preset" text="Replaces the complete current process configuration with a curated quality preset." />
+              </span>
               <div className="setting-control">
-                <select id="print-preset" aria-labelledby="setting-print-preset" value={printPresetId} onChange={(event) => props.onApplyPrintPreset(event.target.value)}>
-                  <option value="custom">Custom print settings</option>
-                  {props.printPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
-                </select>
+                <SearchableSelect
+                  id="print-preset"
+                  label="Print preset"
+                  value={printPresetId}
+                  options={props.printPresets.map((preset) => ({ value: preset.id, label: preset.name }))}
+                  placeholder="Custom print settings"
+                  onChange={props.onApplyPrintPreset}
+                />
               </div>
             </div>
             <p className="settings-preset-note settings-preset-warning">Applying a print preset will overwrite all current print settings.</p>

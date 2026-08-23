@@ -143,6 +143,21 @@ button { color: inherit; }
 .setting-control .icon-button { width: 24px; height: 24px; flex: 0 0 24px; }
 .settings-search { margin: 7px; height: 32px; padding: 0 9px; border: 1px solid var(--line); border-radius: 7px; display: flex; align-items: center; gap: 7px; color: #64778a; background: #0a1016; }
 .settings-search input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 11px; }
+
+.searchable-select { position: relative; width: 100%; }
+.searchable-select-trigger { width: 100%; min-height: 27px; padding: 4px 7px; border: 1px solid #283747; border-radius: 6px; outline: 0; background: #0a1016; color: #c9d7e4; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; text-align: left; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.searchable-select-trigger:focus-visible, .searchable-select-trigger[aria-expanded='true'] { border-color: rgba(137,255,142,.55); }
+.searchable-select-trigger .placeholder { color: #5f7387; }
+.searchable-select-caret { color: #5f7387; font-size: 9px; flex: 0 0 auto; }
+.searchable-select-popover { position: absolute; z-index: 60; top: calc(100% + 4px); left: 0; right: 0; border: 1px solid #304253; border-radius: 8px; background: #0b1219; box-shadow: 0 16px 55px rgba(0,0,0,.55); overflow: hidden; }
+.searchable-select-search { padding: 6px; border-bottom: 1px solid var(--line-soft); }
+.searchable-select-search input { width: 100%; min-height: 27px; padding: 4px 7px; border: 1px solid #283747; border-radius: 6px; outline: 0; background: #0a1016; color: #c9d7e4; font-size: 10px; }
+.searchable-select-search input:focus { border-color: rgba(137,255,142,.55); }
+.searchable-select-list { max-height: 240px; overflow-y: auto; margin: 0; padding: 4px; list-style: none; }
+.searchable-select-option { padding: 6px 8px; border-radius: 6px; color: #9fb0bf; font-size: 10px; cursor: pointer; }
+.searchable-select-option.active { background: rgba(137,255,142,.12); color: var(--text); }
+.searchable-select-option.selected { color: var(--accent); }
+.searchable-select-empty { padding: 8px; color: #5f7387; font-size: 10px; text-align: center; }
 .range-boundaries { padding: 8px 11px; display: flex; align-items: flex-end; gap: 7px; border-bottom: 1px solid var(--line-soft); }
 .range-field { display: flex; flex-direction: column; gap: 3px; color: var(--muted); font-size: 9px; }
 .range-field > span { display: flex; align-items: center; gap: 3px; }
