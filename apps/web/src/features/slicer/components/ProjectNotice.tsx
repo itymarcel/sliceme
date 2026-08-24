@@ -21,8 +21,10 @@ export function ProjectNotice({ message, onDismiss }: { message: string; onDismi
     <div className="project-notice" role="status" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
       <ShieldCheck size={17} />
       <span>{message}</span>
-      <span className="notice-countdown">{remaining}s</span>
-      <button type="button" aria-label="Dismiss notification" onClick={onDismiss}>Dismiss</button>
+      <div className="notice-actions">
+        <span className="notice-countdown">{remaining}s</span>
+        <button type="button" aria-label="Dismiss notification" onClick={onDismiss}>Dismiss</button>
+      </div>
     </div>
   );
 }

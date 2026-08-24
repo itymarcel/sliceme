@@ -330,6 +330,7 @@ button { color: inherit; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .project-notice { position: fixed; left: 50%; top: 74px; transform: translateX(-50%); width: min(680px, calc(100% - 32px)); padding: 11px 12px; border: 1px solid rgba(137,255,142,.3); border-radius: 11px; background: #122017; color: var(--text); box-shadow: 0 20px 70px rgba(0,0,0,.5); display: flex; align-items: center; gap: 10px; z-index: 99; font-size: 10px; }
+.notice-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .project-notice button { margin-left: auto; border: 0; background: transparent; color: var(--accent); font-size: 10px; cursor: pointer; }
 .notice-countdown { margin-left: 4px; padding: 1px 6px; border-radius: 999px; background: rgba(137,255,142,.12); color: var(--accent); font-size: 9px; font-variant-numeric: tabular-nums; min-width: 22px; text-align: center; }
 .error-toast { position: fixed; left: 50%; top: 74px; transform: translateX(-50%); width: min(600px, calc(100% - 32px)); padding: 11px 12px; border: 1px solid rgba(251,113,133,.3); border-radius: 11px; background: #24131a; color: #fda4af; box-shadow: 0 20px 70px rgba(0,0,0,.5); display: flex; align-items: center; gap: 10px; z-index: 100; }
