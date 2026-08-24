@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { AlertTriangle, Box, CornerDownRight, Globe2, Layers3, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { AlertTriangle, Box, CornerDownRight, Globe2, Layers3, Pencil, Plus, Trash2 } from 'lucide-react';
 
 import type { RangeOverride, SelectedNode, SlicerModel } from '../types';
 
@@ -21,18 +21,55 @@ type Props = {
 };
 
 function ObjectName({ fileId, name, onRename }: { fileId: string; name: string; onRename?: (fileId: string, name: string) => void }) {
+  const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(name);
+  const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => setValue(name), [name]);
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
   const commit = () => {
     const clean = value.trim();
-    if (!clean || clean === name) {
-      setValue(name);
-      return;
-    }
-    setValue(clean);
-    onRename?.(fileId, clean);
+    if (clean && clean !== name) onRename?.(fileId, clean);
+    setEditing(false);
   };
-  return <input aria-label="Object name" value={value} onClick={(event) => event.stopPropagation()} onChange={(event) => setValue(event.target.value)} onBlur={commit} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} />;
+  const cancel = () => {
+    setValue(name);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        aria-label="Object name"
+        className="object-name-input"
+        value={value}
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) => setValue(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') { event.preventDefault(); commit(); }
+          else if (event.key === 'Escape') { event.preventDefault(); cancel(); }
+        }}
+      />
+    );
+  }
+  return (
+    <span className="object-name">
+      {name}
+      <button
+        type="button"
+        className="icon-button object-name-edit"
+        aria-label="Rename object"
+        title="Rename"
+        onClick={(event) => { event.stopPropagation(); setEditing(true); }}
+      >
+        <Pencil size={13} />
+      </button>
+    </span>
+  );
 }
 
 const placementIssueLabel = (name: string, issues: string[]) => {
