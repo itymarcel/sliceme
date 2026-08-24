@@ -41,7 +41,7 @@ export type DevModeOptions = {
   statsContainer?: HTMLElement | undefined;
 };
 
-type RenderLayer = { extrusion: number[]; travel: number[]; z: number; height: number };
+type RenderLayer = { extrusion: number[]; travel: number[]; z: number; height: number; flowSum: number; flowCount: number; flowAvg?: number };
 type GVector3 = {
   x: number;
   y: number;
@@ -91,6 +91,7 @@ export type GCodePreviewOptions = {
   extrusionWidth?: number;
   /** @experimental */
   renderTubes?: boolean;
+  colorByFlow?: boolean;
   /**
    * @deprecated Please see the demo how to implement drag and drop.
    */
@@ -160,6 +161,11 @@ export class WebGLPreview {
   private _eRelative = false; // false = M82 absolute (default), true = M83 relative
   private _needsRender = true;
 
+  // flow coloring (volumetric extrusion = Δe / distance, in mm³/mm)
+  colorByFlow = false;
+  private _flowMin = Infinity;
+  private _flowMax = -Infinity;
+
   // colors
   private _backgroundColor = new Color(0xe0e0e0);
   private _travelColor = new Color(0x990000);
@@ -194,6 +200,7 @@ export class WebGLPreview {
     this.renderTravel = opts.renderTravel ?? this.renderTravel;
     this.nonTravelmoves = opts.nonTravelMoves ?? this.nonTravelmoves;
     this.renderTubes = opts.renderTubes ?? this.renderTubes;
+    this.colorByFlow = opts.colorByFlow ?? this.colorByFlow;
     this.extrusionWidth = opts.extrusionWidth ?? this.extrusionWidth;
     this.devMode = opts.devMode ?? this.devMode;
     this.stats = this.devMode ? new Stats() : undefined;
@@ -299,6 +306,63 @@ export class WebGLPreview {
       return;
     }
     this._extrusionColor = new Color(value);
+  }
+
+  /**
+   * Map a volumetric-flow value (mm³/mm) to a color along a blue→red ramp,
+   * normalized to the slice's actual flow range so the gradient stays usable
+   * (real values are typically ≤3, not a fixed wide scale).
+   */
+  private flowColorAt(value: number): Color {
+    const span = this._flowMax - this._flowMin;
+    const t = span > 0 ? (value - this._flowMin) / span : 0.5;
+    const clamped = Math.max(0, Math.min(1, t));
+    return new Color().setHSL((1 - clamped) * 0.66, 0.85, 0.55);
+  }
+
+  get flowRange(): { min: number; max: number } {
+    return { min: this._flowMin, max: this._flowMax };
+  }
+
+  private computeFlowRange(): void {
+    this._flowMin = Infinity;
+    this._flowMax = -Infinity;
+    const state = { x: 0, y: 0, z: 0, e: 0 };
+    let eRelative = false;
+    let lastE = 0;
+    const moveCodes = ['g0', 'g00', 'g1', 'g01', 'g2', 'g02', 'g3', 'g03'];
+    for (const layer of this.layers) {
+      for (const cmd of layer.commands) {
+        if (cmd.gcode === 'm82') { eRelative = false; continue; }
+        if (cmd.gcode === 'm83') { eRelative = true; continue; }
+        if (cmd.gcode === 'g92') {
+          if (!eRelative && cmd.params?.e !== undefined) lastE = cmd.params.e;
+          continue;
+        }
+        if (!moveCodes.includes(cmd.gcode)) continue;
+        const params = cmd.params ?? {};
+        const nextX = params.x ?? state.x;
+        const nextY = params.y ?? state.y;
+        const nextZ = params.z ?? state.z;
+        const e = params.e;
+        let eDelta = 0;
+        if (e !== undefined) {
+          if (eRelative) eDelta = e;
+          else { eDelta = e - lastE; lastE = e; }
+        }
+        const moving = nextX !== state.x || nextY !== state.y || nextZ !== state.z;
+        if (moving && eDelta > 0) {
+          const distance = Math.hypot(nextX - state.x, nextY - state.y, nextZ - state.z);
+          const flow = distance > 0 ? eDelta / distance : 0;
+          if (flow < this._flowMin) this._flowMin = flow;
+          if (flow > this._flowMax) this._flowMax = flow;
+        }
+        if (params.x !== undefined) state.x = params.x;
+        if (params.y !== undefined) state.y = params.y;
+        if (params.z !== undefined) state.z = params.z;
+      }
+    }
+    if (!isFinite(this._flowMin)) { this._flowMin = 0; this._flowMax = 1; }
   }
 
   // get tool color based on current state
@@ -441,6 +505,7 @@ export class WebGLPreview {
     this._tubeLine = undefined;
     this._tubeLastE = 0;
     this._eRelative = false;
+    if (this.colorByFlow) this.computeFlowRange();
     this.initScene();
 
     for (let index = 0; index < this.layers.length; index++) {
@@ -501,7 +566,9 @@ export class WebGLPreview {
       extrusion: [],
       travel: [],
       z: this.state.z,
-      height: l.height
+      height: l.height,
+      flowSum: 0,
+      flowCount: 0
     };
     let activeToolpathType: string | undefined;
 
@@ -574,11 +641,17 @@ export class WebGLPreview {
             const p1 = new Vector3(this.state.x, this.state.y, this.state.z);
             const distance = p1.distanceTo(new Vector3(next.x, next.y, next.z));
             const radius = distance > 0 ? Math.sqrt(eDelta / distance) : 0;
+            const flow = distance > 0 ? eDelta / distance : 0;
+            if (flow < this._flowMin) this._flowMin = flow;
+            if (flow > this._flowMax) this._flowMax = flow;
             if (!this._tubeLine) {
               this._tubeLine = new LineTubeGeometry(8);
             }
             const typeColor = this.toolpathColor(activeToolpathType);
-            this._tubeLine.add(new LinePoint(p1, radius, typeColor === undefined ? this.currentToolColor.clone() : new Color(typeColor)));
+            const segmentColor = this.colorByFlow
+              ? this.flowColorAt(flow)
+              : (typeColor === undefined ? this.currentToolColor.clone() : new Color(typeColor));
+            this._tubeLine.add(new LinePoint(p1, radius, segmentColor));
           } else if (moving) {
             // Travel or retraction (eDelta ≤ 0): break the tube to prevent stray segments
             if (this.renderTubes && this._tubeLine) {
@@ -591,6 +664,14 @@ export class WebGLPreview {
                 this.addLineSegment(currentLayer, this.state, next, extrude);
               }
             }
+            if (extrude && eDelta > 0) {
+              const distance = Math.hypot(next.x - this.state.x, next.y - this.state.y, next.z - this.state.z);
+              const flow = distance > 0 ? eDelta / distance : 0;
+              if (flow < this._flowMin) this._flowMin = flow;
+              if (flow > this._flowMax) this._flowMax = flow;
+              currentLayer.flowSum += flow;
+              currentLayer.flowCount += 1;
+            }
           }
         }
 
@@ -602,6 +683,8 @@ export class WebGLPreview {
       }
     }
 
+    currentLayer.flowAvg = currentLayer.flowCount > 0 ? currentLayer.flowSum / currentLayer.flowCount : undefined;
+
     this.doRenderExtrusion(currentLayer, index, activeToolpathType, true);
   }
 
@@ -611,7 +694,7 @@ export class WebGLPreview {
       const typeColor = this.toolpathColor(toolpathType);
       let extrusionColor = typeColor === undefined ? this.currentToolColor : new Color(typeColor);
 
-      if (typeColor === undefined && !this.singleLayerMode && !this.renderTubes && !this.disableGradient) {
+      if (typeColor === undefined && !this.singleLayerMode && !this.renderTubes && !this.disableGradient && !this.colorByFlow) {
         const brightness = 0.1 + (0.7 * index) / this.layers.length;
 
         extrusionColor.getHSL(target);
@@ -677,6 +760,8 @@ export class WebGLPreview {
     this._tubeLine = undefined;
     this._tubeLastE = 0;
     this._eRelative = false;
+    this._flowMin = Infinity;
+    this._flowMax = -Infinity;
   }
 
   resize(): void {

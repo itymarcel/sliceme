@@ -51,4 +51,16 @@ describe('G-code toolbar presentation', () => {
     expect(styles).toMatch(/\.gcode-toolbar-controls\s*\{[^}]*overflow:\s*visible/);
     expect(styles).toMatch(/\.toolpath-controls\s*\{[^}]*flex:\s*0 0 auto/);
   });
+
+  it('adds a Flow color-mode toggle next to Print preview and renders no separate legend', () => {
+    // Flow toggle sits right after the Print preview toggle in the toolbar.
+    expect(component).toMatch(/<ToolbarToggle checked=\{showPrintPreview\}[^>]*\/>[\s\S]*?<ToolbarToggle checked=\{showFlow\}/);
+    expect(component).toContain("label=\"Flow\"");
+    expect(component).toContain('colorByFlow: showFlow');
+    // Flow is only meaningful in Print preview (tube) mode, so the button is disabled otherwise.
+    expect(component).toMatch(/<ToolbarToggle checked=\{showFlow\} disabled=\{!showPrintPreview\}/);
+    // User explicitly scoped this as a color-mode toggle without a standalone legend.
+    expect(component).not.toContain('flow-legend');
+    expect(component).not.toContain('Flow scale');
+  });
 });

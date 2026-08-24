@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box3, Color, ConeGeometry, Group, MathUtils, Mesh, MeshBasicMaterial, Vector3 } from 'three';
-import { Axis3d, BroomSparkles, Check, Code2, Cuboid, Layers3, LoaderCircle, X } from 'lucide-react';
+import { Axis3d, BroomSparkles, Check, Code2, Cuboid, Droplets, Layers3, LoaderCircle, X } from 'lucide-react';
 
 import { CameraPresetControls } from './CameraPresetControls';
 import { GcodeSourceEditor, type GcodeSourceEditorHandle } from './GcodeSourceEditor';
@@ -178,14 +178,22 @@ const formatBytes = (bytes: number) => bytes < 1024 * 1024
   ? `${(bytes / 1024).toFixed(1)} KB`
   : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
-function ToolbarToggle({ checked, icon, label, onChange }: {
+function ToolbarToggle({ checked, icon, label, onChange, disabled = false }: {
   checked: boolean;
   icon: React.ReactNode;
   label: string;
   onChange: () => void;
+  disabled?: boolean;
 }) {
   return (
-    <button className={`toolbar-button ${checked ? 'active' : ''}`} type="button" aria-pressed={checked} onClick={onChange}>
+    <button
+      className={`toolbar-button ${checked ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
+      type="button"
+      aria-pressed={checked}
+      aria-disabled={disabled}
+      disabled={disabled}
+      onClick={() => !disabled && onChange()}
+    >
       {icon}<span>{label}</span>
     </button>
   );
@@ -225,7 +233,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, onSour
   const [statsCollapsed, setStatsCollapsed] = useState(false);
   const isMobile = typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 640px)').matches;
 
-  const { editMode, layerIndex, moveCount, showGrid, showPrintPreview, mutedToolpaths = [], soloedToolpaths = [], colorToolpaths = false } = ui;
+  const { editMode, layerIndex, moveCount, showGrid, showPrintPreview, showFlow, mutedToolpaths = [], soloedToolpaths = [], colorToolpaths = false } = ui;
   const updateUi = (patch: Partial<GcodePreviewUiState>) => onUiChange({ ...ui, ...patch });
   uiRef.current = ui;
 
@@ -455,6 +463,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, onSour
       renderExtrusion: true,
       renderTravel: isToolpathVisible(TRAVEL_TOOLPATH, mutedToolpaths, soloedToolpaths),
       renderTubes: showPrintPreview,
+      colorByFlow: showFlow,
       extrusionWidth: 0.6,
       devMode: false,
     });
@@ -493,6 +502,13 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, onSour
       if (previewRef.current === preview) previewRef.current = undefined;
     };
   }, [applyGridVisibility, buildVolume.x, buildVolume.y, buildVolume.z, disposeEditMarkers, disposeToolhead, source]);
+
+  useEffect(() => {
+    const preview = previewRef.current;
+    if (!preview || !source) return;
+    preview.colorByFlow = showFlow;
+    preview.render();
+  }, [showFlow, source]);
 
   useEffect(() => {
     const preview = previewRef.current;
@@ -596,7 +612,8 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, onSour
           <Code2 size={14} /> Edit G-code
         </button>
         <div className="gcode-toolbar-controls">
-          <ToolbarToggle checked={showPrintPreview} icon={<Cuboid size={14} />} label="Print preview" onChange={() => updateUi({ showPrintPreview: !showPrintPreview })} />
+          <ToolbarToggle checked={showPrintPreview} icon={<Cuboid size={14} />} label="Print preview" onChange={() => updateUi({ showPrintPreview: !showPrintPreview, showFlow: !showPrintPreview ? false : showFlow })} />
+          <ToolbarToggle checked={showFlow} disabled={!showPrintPreview} icon={<Droplets size={14} />} label="Flow" onChange={() => updateUi({ showFlow: !showFlow })} />
           <ToolbarToggle checked={showGrid} icon={<Axis3d size={14} />} label="Grid" onChange={() => updateUi({ showGrid: !showGrid })} />
           <ToolpathControls types={toolpathTypes} muted={mutedToolpaths} soloed={soloedToolpaths} colorByType={colorToolpaths} onColorByTypeChange={(colorToolpaths) => updateUi({ colorToolpaths })} onClear={() => updateUi({ mutedToolpaths: [], soloedToolpaths: [] })} onMutedChange={(types) => updateUi({ mutedToolpaths: types })} onSoloedChange={(types) => updateUi({ soloedToolpaths: types })} />
         </div>

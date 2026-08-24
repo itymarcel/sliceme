@@ -651,6 +651,7 @@ export function useSlicerWorkspace() {
     if (presetId === 'custom') {
       recordWorkspaceChange();
       setConfig((current) => ({ ...current, machine_config: { ...current.machine_config, [PRINTER_PRESET_CONFIG_KEY]: '' } }));
+      setProjectNotice('Custom machine selected — settings updated.');
       return;
     }
     const controller = new AbortController();
@@ -661,6 +662,7 @@ export function useSlicerWorkspace() {
       if (printerProfileController.current !== controller) return;
       recordLatestWorkspaceChange();
       setConfig((current) => ({ ...current, machine_config: machineConfigForPreset(presetId, profile) }));
+      setProjectNotice('Printer profile applied — settings updated.');
     } catch (profileError) {
       if ((profileError as Error).name !== 'AbortError') setError(`Printer profile could not be applied: ${(profileError as Error).message}`);
     }
@@ -671,6 +673,7 @@ export function useSlicerWorkspace() {
     if (presetId === 'custom') {
       recordWorkspaceChange();
       setConfig((current) => ({ ...current, process_config: { ...current.process_config, sliceme_print_preset: '' } }));
+      setProjectNotice('Custom print settings selected — settings updated.');
       return;
     }
     const controller = new AbortController();
@@ -681,6 +684,7 @@ export function useSlicerWorkspace() {
       if (printProfileController.current !== controller) return;
       recordLatestWorkspaceChange();
       setConfig((current) => ({ ...current, process_config: printConfigForPreset(presetId, profile) }));
+      setProjectNotice('Print preset applied — settings updated.');
     } catch (profileError) {
       if ((profileError as Error).name !== 'AbortError') setError(`Print preset could not be applied: ${(profileError as Error).message}`);
     }
@@ -804,12 +808,14 @@ export function useSlicerWorkspace() {
       setSelectedNode({ type: 'scene' });
       setUi((current) => ({
         ...current,
+        prefillDescription: '',
         aiHighlightedFields: {
           machine_config: Object.keys(machineConfig),
           process_config: Object.keys(processConfig),
           filament_config: Object.keys(filamentConfig),
         },
       }));
+      setProjectNotice('AI prefill applied — slicer settings updated.');
     } catch (prefillError) {
       if ((prefillError as Error).name !== 'AbortError') setError((prefillError as Error).message);
     } finally {

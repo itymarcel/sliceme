@@ -2,6 +2,13 @@
 
 Changes are grouped into one consolidated summary per calendar day.
 
+## 2026-08-24
+
+- Added a Flow color-mode toggle next to Print preview that colors tube/print-preview segments by volumetric extrusion (mm³/mm) along a blue→red ramp normalized to the slice's actual flow range (fixes the coarse >12 scale). The toggle is disabled unless Print preview is active.
+- Dimmed object/range settings that are inherited from the parent (global for files, effective file-level for ranges) while keeping explicit overrides at full opacity, with a unit test asserting the inherited/overridden row classes.
+- Added AI-prefill success and neutral preset-change notifications: after a successful prefill the description textbox is cleared and a confirmation toast appears; selecting any printer/print preset shows a neutral "settings updated" notice (including the custom reset path).
+- Gave the success/neutral notices a 5-second visible numeric countdown that auto-dismisses and pauses on hover, rendered with the countdown immediately before the Dismiss button.
+
 ## 2026-08-23
 
 - Replaced the nine G-code-only printer targets with a broad catalog discovered from the bundled Orca machine profiles; selecting one now applies its complete inherited bed, nozzle, firmware, speed, limit, and start/end G-code configuration.

@@ -75,6 +75,7 @@ export type GcodePreviewUiState = {
   showTravel: boolean;
   showGrid: boolean;
   showPrintPreview: boolean;
+  showFlow: boolean;
   mutedToolpaths: string[];
   soloedToolpaths: string[];
   colorToolpaths: boolean;

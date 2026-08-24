@@ -11,6 +11,7 @@ import { TransformPanel } from './components/TransformPanel';
 import { MeasurementPanel } from './components/MeasurementPanel';
 import { HeaderMoreMenu } from './components/HeaderMoreMenu';
 import { MobileActionsMenu } from './components/MobileActionsMenu';
+import { ProjectNotice } from './components/ProjectNotice';
 import { SupportLink } from './components/ProjectLinks';
 import { useSlicerWorkspace } from './hooks/useSlicerWorkspace';
 import { addMeasurementPoint, type MeasurementPoint } from './lib/measurement';
@@ -196,7 +197,7 @@ export function SlicerWorkspace() {
         </main>
       </div>
 
-      {workspace.projectNotice && <div className="project-notice" role="status"><span>{workspace.projectNotice}</span><button onClick={workspace.dismissProjectNotice}>Dismiss</button></div>}
+      {workspace.projectNotice && <ProjectNotice message={workspace.projectNotice} onDismiss={workspace.dismissProjectNotice} />}
       {workspace.error && <div className="error-toast"><OctagonX size={17} /><div><strong>Could not complete</strong><span>{workspace.error}</span></div><button onClick={workspace.dismissError}>Dismiss</button></div>}
       {dragging && <div className="drop-overlay"><FileUp size={34} /><strong>Drop models to add them</strong><span>STL, STEP, or STP</span></div>}
     </div>
