@@ -121,7 +121,7 @@ export function useSlicerWorkspace() {
   const [prefilling, setPrefilling] = useState(false);
   const [projectBusy, setProjectBusy] = useState<'importing' | 'exporting' | null>(null);
   const [projectNotice, setProjectNotice] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<number>(Date.now());
   const [persistenceReady, setPersistenceReady] = useState(false);
   const [history, setHistory] = useState(createWorkspaceHistory);
   const sliceController = useRef<AbortController | null>(null);
