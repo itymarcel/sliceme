@@ -37,6 +37,7 @@ button { color: inherit; }
 .header-history { justify-self: center; display: flex; align-items: center; gap: 3px; padding: 3px; border: 1px solid var(--line-soft); border-radius: 9px; background: #0b1118; }
 .header-history .icon-button:disabled { opacity: .3; cursor: default; }
 .header-actions { justify-self: end; display: flex; align-items: center; gap: 7px; }
+.last-updated { color: var(--muted); font-size: 9px; font-weight: 600; letter-spacing: .04em; white-space: nowrap; flex: 0 0 auto; }
 .header-more { position: relative; }
 .header-more-trigger { width: 36px; padding: 0; }
 .header-more-menu { position: absolute; top: 42px; right: 0; width: 230px; padding: 7px; background: rgba(14,20,28,.98); box-shadow: 0 22px 64px rgba(0,0,0,.52); }

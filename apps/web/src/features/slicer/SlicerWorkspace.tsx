@@ -114,6 +114,9 @@ export function SlicerWorkspace() {
           <button className="icon-button" type="button" aria-label="Redo" title="Redo (Ctrl/Cmd+Y)" disabled={!workspace.canRedo} onClick={workspace.redo}><Redo2 size={16} /></button>
         </div>
         <div className="header-actions">
+          {workspace.lastUpdated != null && (
+            <span className="last-updated" aria-live="polite">Last updated: {new Date(workspace.lastUpdated).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }).replace(/\//g, '.')}</span>
+          )}
           <HeaderMoreMenu onAddModel={openFilePicker} onImportProject={openProjectPicker} onExportProject={() => void workspace.exportProject()} importingDisabled={workspace.projectBusy !== null} exportingDisabled={!workspace.models.length || workspace.projectBusy !== null} />
           <button className="button ghost danger" disabled={!workspace.models.length} onClick={workspace.clear}><Eraser size={15} /> Clear</button>
           {workspace.gcode && <a className="button secondary download" href={workspace.gcode.url} download={workspace.gcode.fileName}><Download size={15} /> Download</a>}

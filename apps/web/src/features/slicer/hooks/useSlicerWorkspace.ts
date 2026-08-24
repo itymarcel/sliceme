@@ -121,6 +121,7 @@ export function useSlicerWorkspace() {
   const [prefilling, setPrefilling] = useState(false);
   const [projectBusy, setProjectBusy] = useState<'importing' | 'exporting' | null>(null);
   const [projectNotice, setProjectNotice] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [persistenceReady, setPersistenceReady] = useState(false);
   const [history, setHistory] = useState(createWorkspaceHistory);
   const sliceController = useRef<AbortController | null>(null);
@@ -164,13 +165,17 @@ export function useSlicerWorkspace() {
     selectedFileIds,
     selectedNode,
   }), [config, fileOverrides, modelNames, models, positions, rangeOverrides, rotations, scales, selectedFileIds, selectedNode, startPositions]);
-  const recordWorkspaceChange = useCallback(() => setHistory((current) => recordHistoryChange(current, workspaceSnapshot())), [workspaceSnapshot]);
+  const recordWorkspaceChange = useCallback(() => {
+    setHistory((current) => recordHistoryChange(current, workspaceSnapshot()));
+    setLastUpdated(Date.now());
+  }, [workspaceSnapshot]);
   useEffect(() => {
     latestWorkspaceSnapshot.current = workspaceSnapshot();
   }, [workspaceSnapshot]);
   const recordLatestWorkspaceChange = useCallback(() => {
     const snapshot = latestWorkspaceSnapshot.current;
     if (snapshot) setHistory((current) => recordHistoryChange(current, snapshot));
+    setLastUpdated(Date.now());
   }, []);
   const applyWorkspaceSnapshot = useCallback((snapshot: WorkspaceHistorySnapshot) => {
     setConfig(snapshot.config);
@@ -849,7 +854,7 @@ export function useSlicerWorkspace() {
 
   return {
     models, config, printerPresets, printPresets, fileOverrides, rangeOverrides, positions, rotations, scales, modelNames, selectedFileIds, placementIssues, selectedNode, gcode,
-    status, error, defaultsLoading, buildVolume, startPositions, enhancing, prefilling, projectBusy, projectNotice, ui, setUi,
+    status, error, defaultsLoading, buildVolume, startPositions, enhancing, prefilling, projectBusy, projectNotice, lastUpdated, ui, setUi,
     setSelectedNode, selectFile, selectScene, selectNode, addModels, removeModel, renameModel, duplicateSelected, autoArrange, centerSelected, mirrorSelected, setModelGeometryBounds, setSetting, applyPrinterPreset, applyPrintPreset, addRange, removeRange,
     setRangeBoundary, setPositions: setPositionsWithHistory, setRotations: setRotationsWithHistory, setScales: setScalesWithHistory, beginTransformChange, slice, cancelSlice, enhanceGcode, prefillSettings,
     clearAiFieldHighlight, updateGcodeSource, dismissError, dismissProjectNotice: () => setProjectNotice(null), importProject, exportProject, clear,
