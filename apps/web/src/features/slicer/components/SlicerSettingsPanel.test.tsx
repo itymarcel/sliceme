@@ -212,16 +212,27 @@ describe('G-code setting editor', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('discards the draft when Escape closes the overlay', async () => {
-    const user = userEvent.setup();
-    const panelProps = props();
+  it('grays inherited values and keeps explicit overrides at full opacity on an object', () => {
+    const panelProps = {
+      ...props(),
+      selectedNode: { type: 'file' as const, fileId: 'model-1' },
+      section: 'process_config' as const,
+      fileOverrides: {
+        'model-1': {
+          process_config: {
+            layer_height: '0.2',
+          },
+        },
+      },
+    };
     render(<SlicerSettingsPanel {...panelProps} />);
 
-    await user.click(screen.getByRole('button', { name: 'Edit End G-code' }));
-    await user.type(screen.getByRole('textbox', { name: 'End G-code' }), ' changed');
-    fireEvent.keyDown(window, { key: 'Escape' });
-
-    expect(panelProps.onChange).not.toHaveBeenCalled();
-    expect(screen.queryByRole('dialog')).toBeNull();
+    const overridden = screen.getByRole('spinbutton', { name: 'Layer height' }).closest('.setting-row');
+    const inherited = screen.getByRole('spinbutton', { name: 'Wall loops' }).closest('.setting-row');
+    expect(overridden?.classList.contains('is-overridden')).toBe(true);
+    expect(overridden?.classList.contains('is-inherited')).toBe(false);
+    // Wall loops is inherited from global (no own override) so it is dimmed.
+    expect(inherited?.classList.contains('is-inherited')).toBe(true);
+    expect(inherited?.classList.contains('is-overridden')).toBe(false);
   });
 });

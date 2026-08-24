@@ -123,6 +123,9 @@ button { color: inherit; }
 .setting-row:hover { background: #111a23; }
 .setting-row > span { min-width: 0; color: #9aabbb; font-size: 10px; line-height: 1.2; }
 .setting-row.is-overridden > span { color: var(--accent); }
+.setting-row.is-inherited > span { color: #5f7387; }
+.setting-row.is-inherited .setting-control { opacity: .5; }
+.setting-row.is-inherited .setting-control input[type='checkbox']:checked::after { background: #64778a; }
 .setting-row > span { display: inline-flex; align-items: center; gap: 4px; }
 .ai-recommended-icon { flex: 0 0 auto; color: var(--accent); }
 .parameter-help { position: relative; display: inline-flex; flex: 0 0 auto; }

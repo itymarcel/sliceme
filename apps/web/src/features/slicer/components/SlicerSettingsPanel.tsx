@@ -166,23 +166,29 @@ type Props = {
 
 const overrideConfig = (props: Props, section: ConfigSection) => {
   const { selectedNode, config, fileOverrides, rangeOverrides } = props;
-  if (selectedNode.type === 'scene') return { resolved: config[section], own: config[section] };
+  if (selectedNode.type === 'scene') return { resolved: config[section], own: config[section], parent: config[section] };
   const file = fileOverrides[selectedNode.fileId]?.[section] ?? {};
-  if (selectedNode.type === 'file') return { resolved: { ...config[section], ...file }, own: file };
+  const fileResolved = { ...config[section], ...file };
+  if (selectedNode.type === 'file') return { resolved: fileResolved, own: file, parent: config[section] };
   const range = rangeOverrides[selectedNode.fileId]?.[selectedNode.rangeIndex]?.[section] ?? {};
-  return { resolved: { ...config[section], ...file, ...range }, own: range };
+  return { resolved: { ...fileResolved, ...range }, own: range, parent: fileResolved };
 };
 
 type GcodeEditor = { section: ConfigSection; key: string; label: string; value: string };
 
 function FieldControl({ field, section, props, onEditGcode }: { field: Field; section: ConfigSection; props: Props; onEditGcode: (editor: GcodeEditor) => void }) {
-  const { resolved, own } = overrideConfig(props, section);
+  const { resolved, own, parent } = overrideConfig(props, section);
   const buildDimensions = section === 'machine_config' ? buildDimensionsFromMachineConfig(resolved) : null;
   const value = field.key === 'printable_width' ? buildDimensions?.width
     : field.key === 'printable_depth' ? buildDimensions?.depth
       : resolved[field.key];
   const scalarValue = Array.isArray(value) ? value[0] : value;
+  const parentValue = field.key === 'printable_width' ? buildDimensionsFromMachineConfig(parent)?.width
+    : field.key === 'printable_depth' ? buildDimensionsFromMachineConfig(parent)?.depth
+      : parent[field.key];
+  const parentScalar = Array.isArray(parentValue) ? parentValue[0] : parentValue;
   const overridden = props.selectedNode.type !== 'scene' && Object.hasOwn(own, field.key);
+  const inherited = props.selectedNode.type !== 'scene' && !overridden && scalarValue === parentScalar;
   const globalFromObject = field.key === 'spiral_mode' && props.selectedNode.type === 'file';
   const aiRecommended = props.selectedNode.type === 'scene' && props.highlightedFields[section]?.includes(field.key);
   const update = (raw: string | boolean) => {
@@ -197,7 +203,7 @@ function FieldControl({ field, section, props, onEditGcode }: { field: Field; se
   const help = settingHelp[field.key] ?? { text: `Controls the ${field.label.toLowerCase()} used by the slicer.` };
 
   return (
-    <div className={`setting-row ${overridden ? 'is-overridden' : ''} ${aiRecommended ? 'ai-recommended' : ''}`}>
+    <div className={`setting-row ${overridden ? 'is-overridden' : ''} ${inherited ? 'is-inherited' : ''} ${aiRecommended ? 'ai-recommended' : ''}`}>
       <span title={globalFromObject ? 'Spiral mode applies to the whole print' : undefined}>
         <span id={`setting-${field.key}`}>{field.label}{globalFromObject ? ' (global)' : ''}</span>
         <ParameterHelp label={field.label} text={help.text} diagram={help.diagram} />
