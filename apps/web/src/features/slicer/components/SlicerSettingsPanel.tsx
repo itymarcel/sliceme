@@ -284,7 +284,7 @@ export function SlicerSettingsPanel(props: Props) {
             <div className="setting-row">
               <span>
                 <span id="setting-printer-preset">Printer profile</span>
-                <ParameterHelp label="Printer profile" text="Replaces the complete machine configuration with the selected Orca profile." />
+                <ParameterHelp label="Printer profile" text="Replaces the complete machine configuration with the selected Orca profile, including build volume, nozzle, firmware, limits, and machine G-code." />
               </span>
               <div className="setting-control">
                 <SearchableSelect
@@ -297,7 +297,6 @@ export function SlicerSettingsPanel(props: Props) {
                 />
               </div>
             </div>
-            <p className="settings-preset-note">Replaces the complete machine configuration, including build volume, nozzle, firmware, limits, and machine G-code.</p>
           </div>
         )}
         {section === 'process_config' && props.selectedNode.type === 'scene' && (
@@ -306,7 +305,7 @@ export function SlicerSettingsPanel(props: Props) {
             <div className="setting-row">
               <span>
                 <span id="setting-print-preset">Print preset</span>
-                <ParameterHelp label="Print preset" text="Replaces the complete current process configuration with a curated quality preset." />
+                <ParameterHelp label="Print preset" text="Replaces the complete current process configuration with a curated quality preset. Applying one overwrites all current print settings." />
               </span>
               <div className="setting-control">
                 <SearchableSelect
@@ -319,7 +318,6 @@ export function SlicerSettingsPanel(props: Props) {
                 />
               </div>
             </div>
-            <p className="settings-preset-note settings-preset-warning">Applying a print preset will overwrite all current print settings.</p>
           </div>
         )}
         {visibleGroups.map((group) => (

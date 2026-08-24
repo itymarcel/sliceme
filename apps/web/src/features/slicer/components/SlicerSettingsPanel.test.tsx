@@ -67,7 +67,7 @@ describe('G-code setting editor', () => {
     expect(screen.queryByRole('option', { name: 'Prusa · Prusa MK4S 0.4 nozzle' })).toBeNull();
     await user.click(screen.getByRole('option', { name: 'BBL · Bambu Lab A1 0.4 nozzle' }));
     expect(panelProps.onApplyPrinterPreset).toHaveBeenCalledWith('bambu-id');
-    expect(screen.getByText('Replaces the complete machine configuration, including build volume, nozzle, firmware, limits, and machine G-code.')).toBeTruthy();
+    expect(screen.queryByText('Replaces the complete machine configuration, including build volume, nozzle, firmware, limits, and machine G-code.')).toBeNull();
   });
 
   it('offers print presets with an explicit overwrite warning and search', async () => {
@@ -77,7 +77,8 @@ describe('G-code setting editor', () => {
     const trigger = screen.getByRole('combobox', { name: 'Print preset' });
     await user.click(trigger);
     expect(screen.getByRole('option', { name: 'Standard · 0.20 mm' })).toBeTruthy();
-    expect(screen.getByText('Applying a print preset will overwrite all current print settings.')).toBeTruthy();
+    expect(screen.queryByText('Applying a print preset will overwrite all current print settings.')).toBeNull();
+    expect(screen.getByRole('button', { name: 'About Print preset' }).getAttribute('aria-label')).toContain('Print preset');
     await user.type(screen.getByLabelText('Print preset search'), 'strong');
     await user.click(screen.getByRole('option', { name: 'Strong · 0.20 mm' }));
     expect(panelProps.onApplyPrintPreset).toHaveBeenCalledWith('strong');
