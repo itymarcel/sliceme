@@ -20,7 +20,7 @@ type Props = {
   onRemoveRange: (fileId: string, rangeIndex: number) => void;
 };
 
-function ObjectName({ fileId, name, onRename }: { fileId: string; name: string; onRename?: (fileId: string, name: string) => void }) {
+function ObjectName({ fileId, name, onRename, onSelect }: { fileId: string; name: string; onRename?: (fileId: string, name: string) => void; onSelect: () => void }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -57,7 +57,10 @@ function ObjectName({ fileId, name, onRename }: { fileId: string; name: string; 
     );
   }
   return (
-    <span className="object-name">
+    <span
+      className="object-name"
+      onClick={(event) => { event.stopPropagation(); onSelect(); }}
+    >
       {name}
       <button
         type="button"
@@ -111,7 +114,7 @@ export function ObjectTree(props: Props) {
                   <button className="tree-select-button" type="button" aria-label={`Select ${displayName}`} onClick={(event) => props.onSelectFile?.(model.fileId, event.ctrlKey || event.metaKey || event.shiftKey) ?? props.onSelect({ type: 'file', fileId: model.fileId })}>
                     <Box size={15} />
                   </button>
-                  <ObjectName fileId={model.fileId} name={displayName} onRename={props.onRename} />
+                  <ObjectName fileId={model.fileId} name={displayName} onRename={props.onRename} onSelect={() => { props.onSelectFile?.(model.fileId, false) ?? props.onSelect({ type: 'file', fileId: model.fileId }); }} />
                   {!!props.placementIssues?.[model.fileId]?.length && (
                     <AlertTriangle size={14} className="placement-warning" role="status" aria-label={placementIssueLabel(displayName, props.placementIssues[model.fileId])} />
                   )}
@@ -127,7 +130,7 @@ export function ObjectTree(props: Props) {
                         <CornerDownRight className="tree-indent-arrow" size={14} /><Box size={13} />
                       </button>
                       <span className="modifier-label">Modifier</span>
-                      <ObjectName fileId={modifier.fileId} name={modifierName} onRename={props.onRename} />
+                      <ObjectName fileId={modifier.fileId} name={modifierName} onRename={props.onRename} onSelect={() => props.onSelect({ type: 'file', fileId: modifier.fileId })} />
                     </div>
                     <button className="icon-button danger" title="Remove modifier" aria-label={`Remove ${modifierName}`} onClick={() => props.onRemoveModel(modifier.fileId)}><Trash2 size={13} /></button>
                   </div>

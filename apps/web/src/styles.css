@@ -96,7 +96,7 @@ button { color: inherit; }
 .tree-row > svg { flex: 0 0 auto; }
 .tree-select-button { width: 18px; height: 24px; flex: 0 0 18px; padding: 0; border: 0; background: transparent; color: inherit; display: grid; place-items: center; cursor: pointer; }
 .tree-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
-.object-name { display: inline-flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.object-name { display: inline-flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .object-name-edit { width: 20px; height: 20px; flex: 0 0 20px; opacity: 0; color: #64778a; }
 .tree-row:hover .object-name-edit { opacity: .7; }
 .object-name-edit:hover { opacity: 1 !important; color: var(--accent); }
