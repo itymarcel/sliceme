@@ -279,7 +279,8 @@ select { -webkit-appearance: none; -moz-appearance: none; appearance: none; back
 .gcode-editor { width: min(820px, 100%); height: min(620px, 88vh); padding: 12px; display: grid; grid-template-rows: auto minmax(0,1fr) auto; gap: 11px; background: #0d141c; box-shadow: 0 28px 90px rgba(0,0,0,.58); }
 .gcode-editor header, .gcode-editor footer { display: flex; align-items: center; }
 .print-modal { width: min(440px, 100%); padding: 14px; display: grid; grid-template-rows: auto auto auto; gap: 12px; background: #0d141c; box-shadow: 0 28px 90px rgba(0,0,0,.58); }
-.print-modal header { display: flex; align-items: center; justify-content: space-between; padding: 1px 2px 8px; border-bottom: 1px solid var(--line-soft); }
+.print-modal header { display: flex; align-items: center; justify-content: space-between; padding: 8px 2px 8px; border-bottom: 1px solid var(--line-soft); }
+.print-modal header > div { display: flex; flex-direction: column; justify-content: center; }
 .print-modal-body { display: flex; flex-direction: column; gap: 11px; }
 .print-info-hint { display: flex; align-items: flex-start; gap: 6px; margin: 0; padding: 7px 9px; border: 1px solid rgba(137,255,142,.22); border-radius: 7px; background: rgba(137,255,142,.06); color: #9fb0bf; font-size: 10px; line-height: 1.4; }
 .print-info-hint svg { flex: 0 0 auto; margin-top: 1px; color: var(--accent); }
@@ -384,6 +385,7 @@ select { -webkit-appearance: none; -moz-appearance: none; appearance: none; back
   .mobile-actions { display: block; justify-self: start; }
   .mobile-navbar-actions { display: flex; align-items: center; justify-self: end; gap: 6px; }
   .mobile-navbar-slice { height: 32px; padding: 0 10px; font-size: 10px; }
+  .mobile-navbar-print { height: 32px; padding: 0 10px; font-size: 10px; display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-raised); color: var(--text); font-weight: 700; cursor: pointer; }
   .mobile-settings-trigger { width: auto; padding: 0 10px; display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; }
   .workspace-layout { grid-template-columns: minmax(0, 1fr); }
   .mobile-settings-backdrop { position: fixed; inset: 0; z-index: 70; display: block; border: 0; background: rgba(3,6,9,.7); backdrop-filter: blur(6px); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 180ms cubic-bezier(.215,.61,.355,1), visibility 0s linear 180ms; }

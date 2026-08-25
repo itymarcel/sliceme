@@ -136,7 +136,7 @@ export function SlicerWorkspace() {
           <button className="mobile-header-button" type="button" aria-label="Undo" disabled={!workspace.canUndo} onClick={workspace.undo}><Undo2 size={14} /></button>
           <button className="mobile-header-button" type="button" aria-label="Redo" disabled={!workspace.canRedo} onClick={workspace.redo}><Redo2 size={14} /></button>
           <button className="mobile-settings-trigger mobile-header-button" type="button" aria-label="Open objects and slicer settings" aria-expanded={mobileSettingsOpen} aria-controls="mobile-settings-panel" onClick={() => setMobileSettingsOpen(true)}><SlidersHorizontal size={14} /><span>Settings</span></button>
-          {workspace.gcode && <button className="mobile-header-button" type="button" aria-label="Send to printer" onClick={() => setPrintModalOpen(true)}><Printer size={14} /><span>Print</span></button>}
+          {workspace.gcode && <button className="mobile-navbar-print" type="button" aria-label="Send to printer" onClick={() => setPrintModalOpen(true)}><Printer size={14} /><span>Print</span></button>}
           {workspace.status === 'slicing'
             ? <button className="mobile-navbar-slice button danger" type="button" onClick={workspace.cancelSlice}><OctagonX size={14} /> Cancel</button>
             : <button className="mobile-navbar-slice button primary" type="button" disabled={!workspace.models.length || workspace.defaultsLoading} onClick={workspace.slice}><Slice size={14} /> Slice</button>}
