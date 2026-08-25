@@ -201,7 +201,7 @@ button { color: inherit; }
 .measurement-panel { position: absolute; left: 14px; top: 14px; z-index: 10; overflow: hidden; }
 .model-edit-controls { display: contents; }
 .measurement-panel.active { width: 190px; }
-.measurement-toggle { width: 100%; height: 34px; padding: 0 11px; border: 0; background: transparent; color: #8799aa; display: flex; align-items: center; gap: 7px; font-size: 10px; font-weight: 700; cursor: pointer; }
+.measurement-toggle { width: 100%; height: 36px; padding: 0 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: #8799aa; display: flex; align-items: center; gap: 7px; font-size: 10px; font-weight: 700; box-shadow: 0 18px 40px rgba(0,0,0,.12); cursor: pointer; }
 .measurement-toggle:disabled { opacity: .45; cursor: default; }
 .measurement-hint { padding: 0 11px 9px; color: #607386; font-size: 9px; }
 .measurement-panel.active .measurement-toggle { color: #fbbf24; background: rgba(251,191,36,.08); }
@@ -403,6 +403,7 @@ button { color: inherit; }
   .rotate-overlay { right: 4px; }
   .preview-toolbar { min-height: 34px; margin: 6px 6px 0; gap: 5px; }
   .gcode-edit-mode-toggle { height: 34px; padding: 0 9px; }
+  .measurement-toggle { height: 34px; padding: 0 9px; }
   .gcode-toolbar-controls { width: max-content; min-width: 0; max-width: none; flex: 0 0 auto; justify-content: flex-end; overflow: visible; }
   .gcode-toolbar-controls .toolbar-button > span { display: none; }
   .gcode-toolbar-controls .toolpath-trigger > span { display: inline; }
