@@ -278,7 +278,7 @@ select { -webkit-appearance: none; -moz-appearance: none; appearance: none; back
 .gcode-editor-backdrop { position: fixed; inset: 0; z-index: 200; padding: 28px; background: rgba(4,7,10,.76); backdrop-filter: blur(7px); display: grid; place-items: center; }
 .gcode-editor { width: min(820px, 100%); height: min(620px, 88vh); padding: 12px; display: grid; grid-template-rows: auto minmax(0,1fr) auto; gap: 11px; background: #0d141c; box-shadow: 0 28px 90px rgba(0,0,0,.58); }
 .gcode-editor header, .gcode-editor footer { display: flex; align-items: center; }
-.print-modal { width: min(440px, 100%); padding: 14px; display: grid; grid-template-rows: auto auto auto; gap: 12px; background: #0d141c; box-shadow: 0 28px 90px rgba(0,0,0,.58); }
+.print-modal { width: min(440px, 100%); padding: 14px; padding-top: 0px; display: grid; grid-template-rows: auto auto auto; gap: 12px; background: #0d141c; box-shadow: 0 28px 90px rgba(0,0,0,.58); }
 .print-modal header { display: flex; align-items: center; justify-content: space-between; padding: 8px 2px 8px; border-bottom: 1px solid var(--line-soft); }
 .print-modal header > div { display: flex; flex-direction: column; justify-content: center; }
 .print-modal-body { display: flex; flex-direction: column; gap: 11px; }
