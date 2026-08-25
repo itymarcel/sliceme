@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Download, Eraser, FileUp, LoaderCircle, OctagonX, Redo2, ShieldCheck, SlidersHorizontal, Slice, Undo2, X } from 'lucide-react';
+import { Box, Download, Eraser, FileUp, LoaderCircle, OctagonX, Redo2, ShieldCheck, SlidersHorizontal, Slice, Undo2, X, Printer } from 'lucide-react';
 
 import { GcodePreview } from './components/GcodePreview';
 import { AiPrefillPanel } from './components/AiPrefillPanel';
@@ -11,6 +11,7 @@ import { TransformPanel } from './components/TransformPanel';
 import { MeasurementPanel } from './components/MeasurementPanel';
 import { HeaderMoreMenu } from './components/HeaderMoreMenu';
 import { MobileActionsMenu } from './components/MobileActionsMenu';
+import { PrintToPrinterModal } from './components/PrintToPrinterModal';
 import { ProjectNotice } from './components/ProjectNotice';
 import { SupportLink } from './components/ProjectLinks';
 import { useSlicerWorkspace } from './hooks/useSlicerWorkspace';
@@ -27,6 +28,7 @@ export function SlicerWorkspace() {
   const [dragging, setDragging] = useState(false);
   const [expandedViewer, setExpandedViewer] = useState<'model' | 'gcode' | null>(null);
   const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
+  const [printModalOpen, setPrintModalOpen] = useState(false);
   const measurementActive = workspace.ui.measurementActive;
   const setMeasurementActive = (value: boolean | ((current: boolean) => boolean)) => workspace.setUi((current) => ({
     ...current,
@@ -117,6 +119,7 @@ export function SlicerWorkspace() {
           <HeaderMoreMenu onAddModel={openFilePicker} onImportProject={openProjectPicker} onExportProject={() => void workspace.exportProject()} importingDisabled={workspace.projectBusy !== null} exportingDisabled={!workspace.models.length || workspace.projectBusy !== null} />
           <button className="button ghost danger" disabled={!workspace.models.length} onClick={workspace.clear}><Eraser size={15} /> Clear</button>
           {workspace.gcode && <a className="button secondary download" href={workspace.gcode.url} download={workspace.gcode.fileName}><Download size={15} /> Download</a>}
+          {workspace.gcode && <button className="button secondary" type="button" onClick={() => setPrintModalOpen(true)}><Printer size={15} /> Print</button>}
           {workspace.status === 'slicing' ? <button className="button danger" onClick={workspace.cancelSlice}><OctagonX size={15} /> Cancel</button> : <button className="button primary" disabled={!workspace.models.length || workspace.defaultsLoading} onClick={workspace.slice}><Slice size={15} /> Slice</button>}
         </div>
         <MobileActionsMenu
@@ -133,6 +136,7 @@ export function SlicerWorkspace() {
           <button className="mobile-header-button" type="button" aria-label="Undo" disabled={!workspace.canUndo} onClick={workspace.undo}><Undo2 size={14} /></button>
           <button className="mobile-header-button" type="button" aria-label="Redo" disabled={!workspace.canRedo} onClick={workspace.redo}><Redo2 size={14} /></button>
           <button className="mobile-settings-trigger mobile-header-button" type="button" aria-label="Open objects and slicer settings" aria-expanded={mobileSettingsOpen} aria-controls="mobile-settings-panel" onClick={() => setMobileSettingsOpen(true)}><SlidersHorizontal size={14} /><span>Settings</span></button>
+          {workspace.gcode && <button className="mobile-header-button" type="button" aria-label="Send to printer" onClick={() => setPrintModalOpen(true)}><Printer size={14} /><span>Print</span></button>}
           {workspace.status === 'slicing'
             ? <button className="mobile-navbar-slice button danger" type="button" onClick={workspace.cancelSlice}><OctagonX size={14} /> Cancel</button>
             : <button className="mobile-navbar-slice button primary" type="button" disabled={!workspace.models.length || workspace.defaultsLoading} onClick={workspace.slice}><Slice size={14} /> Slice</button>}
@@ -199,6 +203,7 @@ export function SlicerWorkspace() {
 
       {workspace.projectNotice && <ProjectNotice message={workspace.projectNotice} onDismiss={workspace.dismissProjectNotice} />}
       {workspace.error && <div className="error-toast"><OctagonX size={17} /><div><strong>Could not complete</strong><span>{workspace.error}</span></div><button onClick={workspace.dismissError}>Dismiss</button></div>}
+      {printModalOpen && workspace.gcode && <PrintToPrinterModal gcode={workspace.gcode} onClose={() => setPrintModalOpen(false)} />}
       {dragging && <div className="drop-overlay"><FileUp size={34} /><strong>Drop models to add them</strong><span>STL, STEP, or STP</span></div>}
     </div>
   );

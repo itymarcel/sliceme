@@ -277,6 +277,17 @@ button { color: inherit; }
 .gcode-editor-backdrop { position: fixed; inset: 0; z-index: 200; padding: 28px; background: rgba(4,7,10,.76); backdrop-filter: blur(7px); display: grid; place-items: center; }
 .gcode-editor { width: min(820px, 100%); height: min(620px, 88vh); padding: 12px; display: grid; grid-template-rows: auto minmax(0,1fr) auto; gap: 11px; background: #0d141c; box-shadow: 0 28px 90px rgba(0,0,0,.58); }
 .gcode-editor header, .gcode-editor footer { display: flex; align-items: center; }
+.print-modal { width: min(440px, 100%); padding: 14px; display: grid; grid-template-rows: auto auto auto; gap: 12px; background: #0d141c; box-shadow: 0 28px 90px rgba(0,0,0,.58); }
+.print-modal header { display: flex; align-items: center; justify-content: space-between; padding: 1px 2px 8px; border-bottom: 1px solid var(--line-soft); }
+.print-modal-body { display: flex; flex-direction: column; gap: 11px; }
+.print-field { display: flex; flex-direction: column; gap: 5px; font-size: 10px; color: #8799aa; }
+.print-field select, .print-field input { height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; background: #0a1016; color: var(--text); font-size: 12px; outline: 0; }
+.print-field input:focus, .print-field select:focus { border-color: rgba(137,255,142,.45); }
+.print-status { margin: 0; font-size: 10px; line-height: 1.4; }
+.print-status-sending { color: #8799aa; }
+.print-status-done { color: var(--accent); }
+.print-status-error { color: var(--danger); }
+.print-modal footer { display: flex; justify-content: flex-end; gap: 8px; }
 .gcode-editor header { justify-content: space-between; padding: 1px 2px 8px; border-bottom: 1px solid var(--line-soft); }
 .gcode-editor header > div { display: flex; flex-direction: column; gap: 2px; }
 .gcode-editor header strong { font-size: 13px; }
