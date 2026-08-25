@@ -18,6 +18,17 @@ Models, settings, UI preferences, and generated G-code are stored locally in
 the browser. Slicing inputs exist on the API only for the lifetime of one
 request.
 
+## Screenshots
+
+| Desktop | Mobile |
+| --- | --- |
+| ![SliceMe desktop workspace](resources/desktop.png) | ![SliceMe mobile workspace](resources/phone.png) |
+
+The desktop workspace shows model objects, the slicer settings panel with AI
+settings prefill, and the G-code preview with print statistics. The mobile
+workspace adapts the same tools into a touch-first layout with the same
+slice, print, and settings actions.
+
 ## Get involved
 
 - Read [CONTRIBUTING.md](CONTRIBUTING.md) to set up a fork and submit a pull request.
