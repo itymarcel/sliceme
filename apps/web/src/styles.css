@@ -144,7 +144,7 @@ select { -webkit-appearance: none; -moz-appearance: none; appearance: none; back
 .parameter-help-popover strong { color: var(--text); font-size: 11px; }
 .parameter-help-diagram { width: 100%; height: 54px; padding: 3px; border: 1px solid var(--line-soft); border-radius: 7px; color: var(--accent); background: #0b1219; }
 .setting-control { width: 132px; flex: 0 0 132px; display: flex; justify-content: flex-end; align-items: center; gap: 3px; }
-.setting-control input[type='number'], .setting-control select, .setting-control textarea, .range-boundaries input, .transform-group input { width: 100%; min-height: 27px; padding: 4px 30px 4px 7px; border: 1px solid #283747; border-radius: 6px; outline: 0; background: #0a1016; color: #c9d7e4; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
+.setting-control input[type='number'], .setting-control select, .setting-control textarea, .range-boundaries input, .transform-group input { width: 100%; min-height: 27px; padding: 4px 30px 4px 7px; border: 1px solid #283747; border-radius: 6px; outline: 0; background-color: #0a1016; color: #c9d7e4; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
 .setting-control textarea { resize: vertical; }
 .setting-control input:focus, .setting-control select:focus, .setting-control textarea:focus, .range-boundaries input:focus, .transform-group input:focus { border-color: rgba(137,255,142,.55); }
 .setting-control input[type='checkbox'] { appearance: none; width: 30px; height: 17px; border: 1px solid #304152; border-radius: 99px; background: #101821; position: relative; cursor: pointer; }
@@ -285,7 +285,7 @@ select { -webkit-appearance: none; -moz-appearance: none; appearance: none; back
 .print-info-hint { display: flex; align-items: flex-start; gap: 6px; margin: 0; padding: 7px 9px; border: 1px solid rgba(137,255,142,.22); border-radius: 7px; background: rgba(137,255,142,.06); color: #9fb0bf; font-size: 10px; line-height: 1.4; }
 .print-info-hint svg { flex: 0 0 auto; margin-top: 1px; color: var(--accent); }
 .print-field { display: flex; flex-direction: column; gap: 5px; font-size: 10px; color: #8799aa; }
-.print-field select, .print-field input { height: 34px; padding: 0 30px 0 10px; border: 1px solid var(--line); border-radius: 7px; background: #0a1016; color: var(--text); font-size: 12px; outline: 0; }
+.print-field select, .print-field input { height: 34px; padding: 0 30px 0 10px; border: 1px solid var(--line); border-radius: 7px; background-color: #0a1016; color: var(--text); font-size: 12px; outline: 0; }
 .print-field input:focus, .print-field select:focus { border-color: rgba(137,255,142,.45); }
 .print-status { margin: 0; font-size: 10px; line-height: 1.4; }
 .print-status-sending { color: #8799aa; }
