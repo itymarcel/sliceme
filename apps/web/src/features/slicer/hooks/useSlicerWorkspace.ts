@@ -857,7 +857,7 @@ export function useSlicerWorkspace() {
     status, error, defaultsLoading, buildVolume, startPositions, enhancing, prefilling, projectBusy, projectNotice, lastUpdated, ui, setUi,
     setSelectedNode, selectFile, selectScene, selectNode, addModels, removeModel, renameModel, duplicateSelected, autoArrange, centerSelected, mirrorSelected, setModelGeometryBounds, setSetting, applyPrinterPreset, applyPrintPreset, addRange, removeRange,
     setRangeBoundary, setPositions: setPositionsWithHistory, setRotations: setRotationsWithHistory, setScales: setScalesWithHistory, beginTransformChange, slice, cancelSlice, enhanceGcode, prefillSettings,
-    clearAiFieldHighlight, updateGcodeSource, dismissError, dismissProjectNotice: () => setProjectNotice(null), importProject, exportProject, clear,
+    clearAiFieldHighlight, updateGcodeSource, dismissError, showNotice: (message: string) => setProjectNotice(message), dismissProjectNotice: () => setProjectNotice(null), importProject, exportProject, clear,
     undo, redo, canUndo: history.past.length > 0, canRedo: history.future.length > 0,
   };
 }

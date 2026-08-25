@@ -203,7 +203,7 @@ export function SlicerWorkspace() {
 
       {workspace.projectNotice && <ProjectNotice message={workspace.projectNotice} onDismiss={workspace.dismissProjectNotice} />}
       {workspace.error && <div className="error-toast"><OctagonX size={17} /><div><strong>Could not complete</strong><span>{workspace.error}</span></div><button onClick={workspace.dismissError}>Dismiss</button></div>}
-      {printModalOpen && workspace.gcode && <PrintToPrinterModal gcode={workspace.gcode} onClose={() => setPrintModalOpen(false)} />}
+      {printModalOpen && workspace.gcode && <PrintToPrinterModal gcode={workspace.gcode} onClose={() => setPrintModalOpen(false)} onSuccess={(host) => { workspace.showNotice(`Print job sent to ${host}.`); setPrintModalOpen(false); }} />}
       {dragging && <div className="drop-overlay"><FileUp size={34} /><strong>Drop models to add them</strong><span>STL, STEP, or STP</span></div>}
     </div>
   );

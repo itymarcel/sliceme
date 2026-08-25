@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { LoaderCircle, Printer, X } from 'lucide-react';
+import { Info, LoaderCircle, Printer, X } from 'lucide-react';
 
 import type { GcodeResult } from '../types';
 
@@ -33,9 +33,10 @@ function savePrinter(printer: SavedPrinter) {
 type Props = {
   gcode: GcodeResult;
   onClose: () => void;
+  onSuccess: (host: string) => void;
 };
 
-export function PrintToPrinterModal({ gcode, onClose }: Props) {
+export function PrintToPrinterModal({ gcode, onClose, onSuccess }: Props) {
   const saved = useRef<SavedPrinter | null>(loadSaved());
   const [type, setType] = useState<PrinterType>(saved.current?.type ?? 'octoprint');
   const [host, setHost] = useState(saved.current?.host ?? '');
@@ -94,8 +95,7 @@ export function PrintToPrinterModal({ gcode, onClose }: Props) {
         if (!start.ok) throw new Error(`Moonraker print start responded ${start.status}`);
       }
       savePrinter({ type, host: trimmedHost, apiKey: apiKey.trim() });
-      setStatus('done');
-      setMessage('Sent. Check the printer for the job.');
+      onSuccess(trimmedHost);
     } catch (error) {
       // CORS on LAN printers commonly blocks the response while the request still fires.
       const blocked = error instanceof TypeError;
@@ -116,12 +116,15 @@ export function PrintToPrinterModal({ gcode, onClose }: Props) {
         <header>
           <div>
             <span className="eyebrow">Send to printer</span>
-            <strong id="print-modal-title">Print {gcode.fileName}</strong>
           </div>
           <button className="icon-button" type="button" aria-label="Close" onClick={onClose}><X size={16} /></button>
         </header>
 
         <div className="print-modal-body">
+          <p className="print-info-hint">
+            <Info size={13} />
+            <span>Enable CORS in your printer host&rsquo;s system settings for the connection to work.</span>
+          </p>
           <label className="print-field">
             <span>Printer type</span>
             <select value={type} onChange={(event) => setType(event.target.value as PrinterType)}>
