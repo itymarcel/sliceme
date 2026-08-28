@@ -31,6 +31,7 @@ from .usage import start_session as usage_start_session
 
 logger = logging.getLogger("standalone-slicer")
 app = FastAPI(title="Standalone Slicer API", version="1.0.0")
+# Keep this service change visible to Railway's services/slicer watch pattern.
 slice_slots = asyncio.Semaphore(int(os.environ.get("SLICER_CONCURRENCY", "1")))
 prefill_slots = asyncio.Semaphore(int(os.environ.get("OPENAI_PREFILL_CONCURRENCY", "2")))
 prefill_rate_events: dict[str, deque[float]] = defaultdict(deque)
