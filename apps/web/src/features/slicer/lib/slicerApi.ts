@@ -14,6 +14,16 @@ const readError = async (response: Response) => {
   }
 };
 
+export function summarizeSliceFailure(raw: string): string {
+  const validation = raw.match(/got error when validate:\s*(.*?)(?=\s+\[?\d{4}-\d{2}-\d{2}|\s+record_exit_reson|$)/i)?.[1];
+  const candidate = (validation ?? raw.replace(/^OrcaSlicer exited with code \d+:\s*/i, '').split(/\s+\[?\d{4}-\d{2}-\d{2}/)[0]).trim();
+  const words = candidate.split(/\s+/);
+  const midpoint = Math.floor(words.length / 2);
+  const firstHalf = words.slice(0, midpoint).join(' ');
+  const secondHalf = words.slice(midpoint).join(' ');
+  return (firstHalf && firstHalf === secondHalf ? firstHalf : candidate).slice(0, 500) || 'Unknown slice error';
+}
+
 export async function loadDefaultConfig(signal?: AbortSignal): Promise<ConfigBundle> {
   const response = await fetch(`${apiBase}/api/default-config`, { signal });
   if (!response.ok) throw new Error(await readError(response));
@@ -77,7 +87,7 @@ export async function requestSlice(
     recordUsageEvent('slice_succeeded', true);
     return { blob, fileName, url: URL.createObjectURL(blob), enhancements: [] };
   } catch (error) {
-    recordUsageEvent('slice_failed', false, error instanceof Error ? error.message : 'Unknown slice error');
+    recordUsageEvent('slice_failed', false, summarizeSliceFailure(error instanceof Error ? error.message : 'Unknown slice error'));
     throw error;
   }
 }

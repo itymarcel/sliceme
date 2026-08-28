@@ -18,7 +18,7 @@ function send(path: string, payload: Record<string, unknown>, keepalive = false)
 }
 
 export function recordUsageEvent(eventType: string, success?: boolean, reason?: string) {
-  send('event', { session_id: getUsageSessionId(), event_type: eventType, ...(success === undefined ? {} : { success }), ...(reason ? { reason } : {}) });
+  send('event', { session_id: getUsageSessionId(), event_type: eventType, ...(success === undefined ? {} : { success }), ...(reason ? { reason } : {}) }, true);
 }
 
 export function useUsageSession() {
