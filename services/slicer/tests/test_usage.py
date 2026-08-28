@@ -18,7 +18,7 @@ class UsageTest(unittest.TestCase):
         start.assert_called_once()
 
     def test_update_sql_keeps_the_largest_client_active_duration(self):
-        self.assertIn("GREATEST(active_seconds, EXCLUDED.active_seconds)", update_session_sql())
+        self.assertIn("GREATEST(usage_sessions.active_seconds, EXCLUDED.active_seconds)", update_session_sql())
         self.assertIn("ON CONFLICT (id) DO UPDATE", update_session_sql())
 
     def test_usage_rejects_invalid_session_id(self):

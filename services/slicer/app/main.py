@@ -26,7 +26,9 @@ from .usage import end_session as usage_end_session
 from .usage import heartbeat_session as usage_heartbeat_session
 from .usage import init_usage_db
 from .usage import list_sessions as usage_list_sessions
+from .usage import record_event as usage_record_event
 from .usage import start_session as usage_start_session
+from .usage import usage_summary
 
 
 logger = logging.getLogger("standalone-slicer")
@@ -53,6 +55,13 @@ class PrefillSettingsRequest(BaseModel):
 class UsageSessionRequest(BaseModel):
     session_id: UUID
     active_seconds: int = Field(default=0, ge=0, le=604800)
+
+
+class UsageEventRequest(BaseModel):
+    session_id: UUID
+    event_type: str = Field(min_length=1, max_length=80, pattern=r"^[a-z0-9_.-]+$")
+    success: bool | None = None
+    reason: str | None = Field(default=None, max_length=500)
 
 
 @app.on_event("startup")
@@ -147,12 +156,17 @@ def end_usage_session(payload: UsageSessionRequest):
     usage_end_session(payload.session_id, payload.active_seconds)
 
 
+@app.post("/api/usage/event", status_code=204)
+def record_usage_event(payload: UsageEventRequest):
+    usage_record_event(payload.session_id, payload.event_type, payload.success, payload.reason)
+
+
 @app.get("/api/admin/usage/sessions")
 def get_usage_sessions(x_usage_admin_token: str | None = Header(default=None)):
     expected = os.environ.get("USAGE_ADMIN_TOKEN", "").strip()
     if not expected or x_usage_admin_token != expected:
         raise HTTPException(status_code=401, detail="Usage admin authentication required")
-    return {"sessions": usage_list_sessions()}
+    return {"summary": usage_summary(), "sessions": usage_list_sessions()}
 
 
 @app.get("/api/default-config")

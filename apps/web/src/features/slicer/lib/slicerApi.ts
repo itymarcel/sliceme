@@ -1,6 +1,7 @@
 import { strFromU8, unzipSync } from 'fflate';
 
 import type { ConfigBundle, GcodeEnhancement, GcodeResult, PrintPreset, PrinterPreset, SlicerRecommendation, SliceManifest, SlicerModel } from '../types';
+import { recordUsageEvent } from '../hooks/useUsageSession';
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? '';
 
@@ -66,12 +67,19 @@ export async function requestSlice(
   const body = new FormData();
   body.append('manifest', JSON.stringify(manifest));
   models.forEach((model) => body.append('models', model.file, model.fileName));
-  const response = await fetch(`${apiBase}/api/slice`, { method: 'POST', body, signal });
-  if (!response.ok) throw new Error(await readError(response));
-  const blob = await response.blob();
-  const disposition = response.headers.get('content-disposition') ?? '';
-  const fileName = disposition.match(/filename="?([^";]+)"?/i)?.[1] ?? 'slice.gcode';
-  return { blob, fileName, url: URL.createObjectURL(blob), enhancements: [] };
+  recordUsageEvent('slice_triggered');
+  try {
+    const response = await fetch(`${apiBase}/api/slice`, { method: 'POST', body, signal });
+    if (!response.ok) throw new Error(await readError(response));
+    const blob = await response.blob();
+    const disposition = response.headers.get('content-disposition') ?? '';
+    const fileName = disposition.match(/filename="?([^";]+)"?/i)?.[1] ?? 'slice.gcode';
+    recordUsageEvent('slice_succeeded', true);
+    return { blob, fileName, url: URL.createObjectURL(blob), enhancements: [] };
+  } catch (error) {
+    recordUsageEvent('slice_failed', false, error instanceof Error ? error.message : 'Unknown slice error');
+    throw error;
+  }
 }
 
 export async function requestEnhancement(

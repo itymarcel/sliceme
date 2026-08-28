@@ -4,7 +4,7 @@ Changes are grouped into one consolidated summary per calendar day.
 
 ## 2026-08-28
 
-- Added privacy-conscious PostgreSQL-backed usage sessions: visible-tab active-time tracking with start, heartbeat, and page-exit updates, plus a token-protected session listing endpoint. The storage module leaves room for future account and feature-event tables without coupling them to the session API.
+- Added privacy-conscious PostgreSQL-backed usage sessions: visible-tab active-time tracking with start, heartbeat, and page-exit updates, plus a token-protected session listing endpoint. Added generic usage events for slice-triggered/succeeded/failed counts and failure reasons, a summary in the admin page, and local storage for the admin token.
 
 ## 2026-08-24
 

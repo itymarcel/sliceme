@@ -447,6 +447,8 @@ select { -webkit-appearance: none; -moz-appearance: none; appearance: none; back
 .usage-admin-controls button { padding: 0 14px; border: 1px solid #5fe547; border-radius: 7px; background: #5fe547; color: #071007; font-weight: 600; cursor: pointer; }
 .usage-admin-controls button:disabled { opacity: .45; cursor: not-allowed; }
 .usage-admin-error { color: #ff9c9c; font-size: 13px; }
+.usage-admin-summary { margin: 18px 0; padding: 12px; border: 1px solid #26352d; border-radius: 7px; color: #b7c8b8; font-size: 13px; }
+.usage-admin-summary strong { color: #89ff8e; }
 .usage-admin-table-wrap { overflow-x: auto; }
 .usage-admin-table-wrap table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .usage-admin-table-wrap th, .usage-admin-table-wrap td { padding: 11px 10px; border-bottom: 1px solid #213028; text-align: left; white-space: nowrap; }

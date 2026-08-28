@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? '';
 const SESSION_KEY = 'sliceme.usage-session-id';
 
-function getSessionId(): string {
+export function getUsageSessionId(): string {
   const existing = sessionStorage.getItem(SESSION_KEY);
   if (existing) return existing;
   const created = crypto.randomUUID();
@@ -11,56 +11,42 @@ function getSessionId(): string {
   return created;
 }
 
-function sendSessionUpdate(path: string, sessionId: string, activeSeconds: number) {
-  const body = JSON.stringify({ session_id: sessionId, active_seconds: activeSeconds });
-  void fetch(`${apiBase}/api/usage/session/${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body,
-    keepalive: path === 'end',
-  }).catch(() => {
-    // Usage tracking must never affect the slicer workspace.
-  });
+function send(path: string, payload: Record<string, unknown>, keepalive = false) {
+  void fetch(`${apiBase}/api/usage/${path}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), keepalive,
+  }).catch(() => { /* Usage tracking must never affect the slicer workspace. */ });
+}
+
+export function recordUsageEvent(eventType: string, success?: boolean, reason?: string) {
+  send('event', { session_id: getUsageSessionId(), event_type: eventType, ...(success === undefined ? {} : { success }), ...(reason ? { reason } : {}) });
 }
 
 export function useUsageSession() {
-  const activeMilliseconds = useRef(0);
+  const activeSeconds = useRef(0);
   const visibleSince = useRef<number | null>(null);
   const ended = useRef(false);
 
   useEffect(() => {
-    const sessionId = getSessionId();
-    sendSessionUpdate('start', sessionId, 0);
-    visibleSince.current = document.visibilityState === 'visible' ? performance.now() : null;
-
-    const activeSeconds = () => {
-      const current = visibleSince.current === null ? 0 : performance.now() - visibleSince.current;
-      return Math.floor((activeMilliseconds.current + current) / 1000);
-    };
-    const pause = () => {
+    const sessionId = getUsageSessionId();
+    const now = () => Date.now();
+    const flushActiveTime = () => {
       if (visibleSince.current !== null) {
-        activeMilliseconds.current += performance.now() - visibleSince.current;
-        visibleSince.current = null;
+        activeSeconds.current += Math.max(0, Math.floor((now() - visibleSince.current) / 1000));
+        visibleSince.current = now();
       }
-      sendSessionUpdate('heartbeat', sessionId, activeSeconds());
+      return activeSeconds.current;
     };
-    const resume = () => {
-      if (!ended.current && visibleSince.current === null) visibleSince.current = performance.now();
-    };
-    const heartbeat = window.setInterval(() => {
-      if (!ended.current && document.visibilityState === 'visible') sendSessionUpdate('heartbeat', sessionId, activeSeconds());
-    }, 30000);
-    const end = () => {
-      if (ended.current) return;
-      ended.current = true;
-      pause();
-      sendSessionUpdate('end', sessionId, activeSeconds());
-    };
+    const update = (path: string, keepalive = false) => send(`session/${path}`, { session_id: sessionId, active_seconds: flushActiveTime() }, keepalive);
+    const pause = () => { if (visibleSince.current !== null) { flushActiveTime(); visibleSince.current = null; } update('heartbeat'); };
+    const resume = () => { if (!ended.current && visibleSince.current === null) visibleSince.current = now(); };
+    const visibilityChange = () => { if (document.visibilityState === 'visible') resume(); else pause(); };
+    const end = () => { if (ended.current) return; ended.current = true; update('end', true); };
 
-    const visibilityChange = () => {
-      if (document.visibilityState === 'visible') resume();
-      else pause();
-    };
+    send('session/start', { session_id: sessionId, active_seconds: 0 });
+    resume();
+    const heartbeat = window.setInterval(() => {
+      if (!ended.current && document.visibilityState === 'visible') update('heartbeat');
+    }, 30000);
     document.addEventListener('visibilitychange', visibilityChange);
     window.addEventListener('pagehide', end);
     return () => {
