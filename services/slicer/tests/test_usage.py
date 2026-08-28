@@ -4,7 +4,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.usage import update_session_sql
+from app.usage import init_usage_db, update_session_sql
 
 
 class UsageTest(unittest.TestCase):
@@ -25,6 +25,11 @@ class UsageTest(unittest.TestCase):
         response = self.client.post("/api/usage/session/heartbeat", json={"session_id": "not-a-uuid", "active_seconds": 10})
 
         self.assertEqual(response.status_code, 422)
+
+    @patch("app.usage.DATABASE_URL", "postgresql://unavailable")
+    @patch("app.usage._connect", side_effect=OSError("database unavailable"))
+    def test_database_unavailability_does_not_block_startup(self, _connect):
+        init_usage_db()
 
 
 if __name__ == "__main__":

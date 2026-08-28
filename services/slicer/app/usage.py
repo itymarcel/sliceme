@@ -1,9 +1,11 @@
 import os
+import logging
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+logger = logging.getLogger("standalone-slicer.usage")
 
 CREATE_USAGE_SESSIONS_SQL = """
 CREATE TABLE IF NOT EXISTS usage_sessions (
@@ -38,48 +40,57 @@ def _connect():
     if not DATABASE_URL:
         return None
     import psycopg
-    return psycopg.connect(DATABASE_URL)
+    return psycopg.connect(DATABASE_URL, connect_timeout=5)
 
 
 def init_usage_db() -> None:
     if not DATABASE_URL:
         return
-    with _connect() as connection:
-        connection.execute(CREATE_USAGE_SESSIONS_SQL)
-        connection.commit()
+    try:
+        with _connect() as connection:
+            connection.execute(CREATE_USAGE_SESSIONS_SQL)
+            connection.commit()
+    except Exception:
+        logger.exception("Usage database initialization failed; continuing without usage storage")
 
 
 def _write_session(session_id: UUID, active_seconds: int, ended: bool = False) -> None:
     if not DATABASE_URL:
         return
     now = _now()
-    with _connect() as connection:
-        connection.execute(
-            update_session_sql(),
-            {
-                "session_id": session_id,
-                "now": now,
-                "active_seconds": active_seconds,
-                "ended_at": now if ended else None,
-            },
-        )
-        connection.commit()
+    try:
+        with _connect() as connection:
+            connection.execute(
+                update_session_sql(),
+                {
+                    "session_id": session_id,
+                    "now": now,
+                    "active_seconds": active_seconds,
+                    "ended_at": now if ended else None,
+                },
+            )
+            connection.commit()
+    except Exception:
+        logger.exception("Usage session update failed")
 
 
 def start_session(session_id: UUID) -> None:
     if not DATABASE_URL:
         return
     now = _now()
-    with _connect() as connection:
-        connection.execute(
-            """
-            INSERT INTO usage_sessions (id, started_at, last_seen_at)
-            VALUES (%s, %s, %s)
-            ON CONFLICT (id) DO NOTHING
-            """,
-            (session_id, now, now),
-        )
-        connection.commit()
+    try:
+        with _connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO usage_sessions (id, started_at, last_seen_at)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (id) DO NOTHING
+                """,
+                (session_id, now, now),
+            )
+            connection.commit()
+    except Exception:
+        logger.exception("Usage session start failed")
 
 
 def heartbeat_session(session_id: UUID, active_seconds: int) -> None:
