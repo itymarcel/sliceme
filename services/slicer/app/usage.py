@@ -1,11 +1,22 @@
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 logger = logging.getLogger("standalone-slicer.usage")
+
+
+def summarize_failure_reason(raw: str) -> str:
+    validation = re.search(r"got error when validate:\s*(.*?)(?=\s+\[?\d{4}-\d{2}-\d{2}|\s+record_exit_reson|$)", raw, re.IGNORECASE)
+    candidate = (validation.group(1) if validation else re.sub(r"^OrcaSlicer exited with code \d+:\s*", "", raw, flags=re.IGNORECASE).split("[202", 1)[0]).strip()
+    words = candidate.split()
+    midpoint = len(words) // 2
+    if midpoint and " ".join(words[:midpoint]) == " ".join(words[midpoint:]):
+        candidate = " ".join(words[:midpoint])
+    return candidate[:500] or "Unknown slice error"
 
 CREATE_USAGE_SQL = """
 CREATE TABLE IF NOT EXISTS usage_sessions (
@@ -160,7 +171,7 @@ def list_failed_slices(session_id: UUID) -> list[dict[str, str]]:
                ORDER BY occurred_at DESC""",
             (session_id,),
         ).fetchall()
-    return [{"timestamp": row[0].isoformat(), "reason": row[1]} for row in rows]
+    return [{"timestamp": row[0].isoformat(), "reason": summarize_failure_reason(row[1])} for row in rows]
 
 
 def usage_summary() -> dict[str, Any]:

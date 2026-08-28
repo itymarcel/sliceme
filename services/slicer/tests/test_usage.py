@@ -4,7 +4,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.usage import init_usage_db, update_session_sql
+from app.usage import init_usage_db, summarize_failure_reason, update_session_sql
 
 
 class UsageTest(unittest.TestCase):
@@ -20,6 +20,10 @@ class UsageTest(unittest.TestCase):
     def test_update_sql_keeps_the_largest_client_active_duration(self):
         self.assertIn("GREATEST(usage_sessions.active_seconds, EXCLUDED.active_seconds)", update_session_sql())
         self.assertIn("ON CONFLICT (id) DO UPDATE", update_session_sql())
+
+    def test_summarizes_legacy_verbose_orca_reason(self):
+        raw = "OrcaSlicer exited with code 205: [error] got error when validate: Too large line width Too large line width"
+        self.assertEqual(summarize_failure_reason(raw), "Too large line width")
 
     def test_usage_rejects_invalid_session_id(self):
         response = self.client.post("/api/usage/session/heartbeat", json={"session_id": "not-a-uuid", "active_seconds": 10})
