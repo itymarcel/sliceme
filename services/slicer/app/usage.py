@@ -134,7 +134,8 @@ def list_sessions(limit: int = 100) -> list[dict[str, Any]]:
             SELECT s.id, s.started_at, s.last_seen_at, s.ended_at, s.active_seconds, s.heartbeat_count,
               COUNT(e.id) FILTER (WHERE e.event_type = 'slice_triggered') AS slices_triggered,
               COUNT(e.id) FILTER (WHERE e.event_type = 'slice_succeeded') AS slices_succeeded,
-              COUNT(e.id) FILTER (WHERE e.event_type = 'slice_failed') AS slices_failed
+              COUNT(e.id) FILTER (WHERE e.event_type = 'slice_failed') AS slices_failed,
+              COALESCE(json_agg(json_build_object('timestamp', e.occurred_at, 'reason', COALESCE(e.reason, 'Unknown error')) ORDER BY e.occurred_at DESC) FILTER (WHERE e.event_type = 'slice_failed'), '[]'::json) AS failed_slices
             FROM usage_sessions s LEFT JOIN usage_events e ON e.session_id = s.id
             GROUP BY s.id ORDER BY s.started_at DESC LIMIT %s
             """,
@@ -145,6 +146,7 @@ def list_sessions(limit: int = 100) -> list[dict[str, Any]]:
             "id": str(row[0]), "started_at": row[1].isoformat(), "last_seen_at": row[2].isoformat(),
             "ended_at": row[3].isoformat() if row[3] else None, "active_seconds": row[4],
             "heartbeat_count": row[5], "slices_triggered": row[6], "slices_succeeded": row[7], "slices_failed": row[8],
+            "failed_slices": row[9],
         }
         for row in rows
     ]

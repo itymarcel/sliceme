@@ -449,9 +449,21 @@ select { -webkit-appearance: none; -moz-appearance: none; appearance: none; back
 .usage-admin-error { color: #ff9c9c; font-size: 13px; }
 .usage-admin-summary { margin: 18px 0; padding: 12px; border: 1px solid #26352d; border-radius: 7px; color: #b7c8b8; font-size: 13px; }
 .usage-admin-summary strong { color: #89ff8e; }
+.usage-admin-more, .usage-admin-close { display: inline-grid; place-items: center; border: 0; border-radius: 5px; background: transparent; color: #89ff8e; cursor: pointer; }
+.usage-admin-more { width: 25px; height: 25px; margin-left: 6px; vertical-align: middle; }
+.usage-admin-more:hover, .usage-admin-close:hover { background: rgba(137,255,142,.14); }
+.usage-admin-modal-backdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 20px; background: rgba(0,0,0,.68); }
+.usage-admin-modal { width: min(680px, 100%); max-height: min(640px, 90vh); overflow: auto; padding: 18px; border: 1px solid #314339; border-radius: 10px; background: #0d1512; box-shadow: 0 28px 90px rgba(0,0,0,.58); }
+.usage-admin-modal header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding-bottom: 12px; border-bottom: 1px solid #26352d; }
+.usage-admin-modal h2 { margin: 4px 0 0; font-size: 19px; }
+.usage-admin-close { width: 28px; height: 28px; color: #9bac9d; }
+.usage-admin-failures { display: grid; gap: 8px; padding-top: 14px; }
+.usage-admin-failure { display: grid; grid-template-columns: minmax(150px, 210px) 1fr; gap: 14px; padding: 10px; border: 1px solid #26352d; border-radius: 6px; font-size: 12px; }
+.usage-admin-failure time { color: #9bac9d; }
+.usage-admin-failure span { color: #ffb4b4; overflow-wrap: anywhere; }
 .usage-admin-table-wrap { overflow-x: auto; }
 .usage-admin-table-wrap table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .usage-admin-table-wrap th, .usage-admin-table-wrap td { padding: 11px 10px; border-bottom: 1px solid #213028; text-align: left; white-space: nowrap; }
 .usage-admin-table-wrap th { color: #9bac9d; font-size: 11px; font-weight: 500; text-transform: uppercase; }
 .usage-admin-empty { color: #839486; text-align: center !important; }
-@media (max-width: 640px) { .usage-admin-page { padding: 14px; } .usage-admin-card { padding: 16px; } .usage-admin-controls { flex-direction: column; gap: 8px; } .usage-admin-controls button { min-height: 38px; } }
+@media (max-width: 640px) { .usage-admin-page { padding: 14px; } .usage-admin-card { padding: 16px; } .usage-admin-controls { flex-direction: column; gap: 8px; } .usage-admin-controls button { min-height: 38px; } .usage-admin-failure { grid-template-columns: 1fr; gap: 4px; } }

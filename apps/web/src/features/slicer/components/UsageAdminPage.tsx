@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { MoreHorizontal, X } from 'lucide-react';
+
+type FailedSlice = { timestamp: string; reason: string };
 
 type UsageSession = {
   id: string;
@@ -10,6 +13,7 @@ type UsageSession = {
   slices_triggered: number;
   slices_succeeded: number;
   slices_failed: number;
+  failed_slices: FailedSlice[];
 };
 
 type UsageSummary = { slices_triggered: number; slices_succeeded: number; slices_failed: number; failure_reasons: Array<{ reason: string; count: number }> };
@@ -31,6 +35,7 @@ export function UsageAdminPage() {
   const [summary, setSummary] = useState<UsageSummary | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [selectedFailures, setSelectedFailures] = useState<UsageSession | null>(null);
 
   const loadSessions = async () => {
     setLoading(true);
@@ -77,7 +82,7 @@ export function UsageAdminPage() {
           </div>
         </form>
         {error && <p className="usage-admin-error">{error}</p>}
-        {summary && <div className="usage-admin-summary"><strong>{summary.slices_triggered}</strong> triggered · <strong>{summary.slices_succeeded}</strong> successful · <strong>{summary.slices_failed}</strong> failed{summary.failure_reasons.length > 0 && <span> · {summary.failure_reasons.map((item) => `${item.reason} (${item.count})`).join(' · ')}</span>}</div>}
+        {summary && <div className="usage-admin-summary"><strong>{summary.slices_triggered}</strong> triggered · <strong>{summary.slices_succeeded}</strong> successful · <strong>{summary.slices_failed}</strong> failed</div>}
         <div className="usage-admin-table-wrap">
           <table>
             <thead><tr><th>Started</th><th>Last active</th><th>Active duration</th><th>Slices</th><th>Status</th></tr></thead>
@@ -89,13 +94,17 @@ export function UsageAdminPage() {
                     <td>{formatDate(session.started_at)}</td>
                     <td>{formatDate(session.last_seen_at)}</td>
                     <td>{formatDuration(session.active_seconds)}</td>
-                    <td>{session.slices_succeeded}/{session.slices_triggered} successful</td>
+                    <td><span>{session.slices_succeeded}/{session.slices_triggered} successful</span><button className="usage-admin-more" type="button" aria-label={`View failed slices for ${formatDate(session.started_at)}`} onClick={() => setSelectedFailures(session)}><MoreHorizontal size={16} /></button></td>
                     <td>{session.ended_at ? 'Ended' : 'Active'}</td>
                   </tr>
                 ))}
             </tbody>
           </table>
         </div>
+        {selectedFailures && <div className="usage-admin-modal-backdrop" role="presentation" onClick={() => setSelectedFailures(null)}><section className="usage-admin-modal" role="dialog" aria-modal="true" aria-labelledby="failed-slices-title" onClick={(event) => event.stopPropagation()}>
+          <header><div><span className="usage-admin-eyebrow">Session failures</span><h2 id="failed-slices-title">Unsuccessful slices</h2></div><button className="usage-admin-close" type="button" aria-label="Close" onClick={() => setSelectedFailures(null)}><X size={17} /></button></header>
+          {selectedFailures.failed_slices.length === 0 ? <p className="usage-admin-empty">No unsuccessful slices in this session.</p> : <div className="usage-admin-failures">{selectedFailures.failed_slices.map((failure, index) => <div className="usage-admin-failure" key={`${failure.timestamp}-${index}`}><time>{formatDate(failure.timestamp)}</time><span>{failure.reason}</span></div>)}</div>}
+        </section></div>}
       </section>
     </main>
   );

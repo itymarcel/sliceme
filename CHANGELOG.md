@@ -5,6 +5,7 @@ Changes are grouped into one consolidated summary per calendar day.
 ## 2026-08-28
 
 - Added privacy-conscious PostgreSQL-backed usage sessions: visible-tab active-time tracking with start, heartbeat, and page-exit updates, plus a token-protected session listing endpoint. Added generic usage events for slice-triggered/succeeded/failed counts and failure reasons, a summary in the admin page, and local storage for the admin token.
+- Updated the usage admin page to open per-session unsuccessful slice timestamps and reasons from a three-dots action instead of showing failure reasons in the summary bar.
 
 ## 2026-08-24
 
