@@ -2,6 +2,10 @@
 
 Changes are grouped into one consolidated summary per calendar day.
 
+## 2026-08-28
+
+- Added privacy-conscious PostgreSQL-backed usage sessions: visible-tab active-time tracking with start, heartbeat, and page-exit updates, plus a token-protected session listing endpoint. The storage module leaves room for future account and feature-event tables without coupling them to the session API.
+
 ## 2026-08-24
 
 - Added a Flow color-mode toggle next to Print preview that colors tube/print-preview segments by volumetric extrusion (mm³/mm) along a blue→red ramp normalized to the slice's actual flow range (fixes the coarse >12 scale). The toggle is disabled unless Print preview is active.

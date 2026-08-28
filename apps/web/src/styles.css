@@ -433,3 +433,23 @@ select { -webkit-appearance: none; -moz-appearance: none; appearance: none; back
   .project-notice, .error-toast { top: calc(60px + env(safe-area-inset-top)); }
   .drop-overlay { inset: calc(60px + env(safe-area-inset-top)) 8px 8px; }
 }
+/* Usage admin page */
+.usage-admin-page { min-height: 100vh; padding: 32px; background: #070b0f; color: #e8f0e8; }
+.usage-admin-card { max-width: 1080px; margin: 0 auto; padding: 24px; border: 1px solid #26352d; border-radius: 12px; background: #0d1512; }
+.usage-admin-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.usage-admin-header h1 { margin: 4px 0 0; font-size: 24px; }
+.usage-admin-header a { color: #89ff8e; font-size: 13px; }
+.usage-admin-eyebrow { color: #89ff8e; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+.usage-admin-form { display: grid; gap: 8px; max-width: 600px; margin-bottom: 18px; }
+.usage-admin-form label { color: #9bac9d; font-size: 12px; }
+.usage-admin-controls { display: flex; gap: 8px; }
+.usage-admin-controls input { min-width: 0; flex: 1; padding: 10px 12px; border: 1px solid #314339; border-radius: 7px; background: #070b0f; color: inherit; }
+.usage-admin-controls button { padding: 0 14px; border: 1px solid #5fe547; border-radius: 7px; background: #5fe547; color: #071007; font-weight: 600; cursor: pointer; }
+.usage-admin-controls button:disabled { opacity: .45; cursor: not-allowed; }
+.usage-admin-error { color: #ff9c9c; font-size: 13px; }
+.usage-admin-table-wrap { overflow-x: auto; }
+.usage-admin-table-wrap table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.usage-admin-table-wrap th, .usage-admin-table-wrap td { padding: 11px 10px; border-bottom: 1px solid #213028; text-align: left; white-space: nowrap; }
+.usage-admin-table-wrap th { color: #9bac9d; font-size: 11px; font-weight: 500; text-transform: uppercase; }
+.usage-admin-empty { color: #839486; text-align: center !important; }
+@media (max-width: 640px) { .usage-admin-page { padding: 14px; } .usage-admin-card { padding: 16px; } .usage-admin-controls { flex-direction: column; gap: 8px; } .usage-admin-controls button { min-height: 38px; } }

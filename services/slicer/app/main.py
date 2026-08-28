@@ -9,9 +9,10 @@ import time
 import zipfile
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 import httpx
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -21,6 +22,11 @@ from .gcode_enhancements import ENHANCEMENTS, apply_enhancement
 from .print_presets import list_print_presets, print_preset_config
 from .printer_presets import list_printer_presets, printer_preset_config
 from .project_3mf import import_orca_project
+from .usage import end_session as usage_end_session
+from .usage import heartbeat_session as usage_heartbeat_session
+from .usage import init_usage_db
+from .usage import list_sessions as usage_list_sessions
+from .usage import start_session as usage_start_session
 
 
 logger = logging.getLogger("standalone-slicer")
@@ -41,6 +47,16 @@ PREFILL_RATE_WINDOW_SECONDS = int(os.environ.get("OPENAI_PREFILL_RATE_WINDOW_SEC
 class PrefillSettingsRequest(BaseModel):
     description: str = Field(min_length=1, max_length=2000)
     config: dict[str, dict[str, Any]]
+
+
+class UsageSessionRequest(BaseModel):
+    session_id: UUID
+    active_seconds: int = Field(default=0, ge=0, le=604800)
+
+
+@app.on_event("startup")
+def initialize_usage_database():
+    init_usage_db()
 
 
 async def _enforce_prefill_rate_limit(request: Request) -> None:
@@ -113,6 +129,29 @@ def _parse_manifest(raw_manifest: str, files: list[UploadFile]) -> SliceJob:
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.post("/api/usage/session/start", status_code=204)
+def start_usage_session(payload: UsageSessionRequest):
+    usage_start_session(payload.session_id)
+
+
+@app.post("/api/usage/session/heartbeat", status_code=204)
+def heartbeat_usage_session(payload: UsageSessionRequest):
+    usage_heartbeat_session(payload.session_id, payload.active_seconds)
+
+
+@app.post("/api/usage/session/end", status_code=204)
+def end_usage_session(payload: UsageSessionRequest):
+    usage_end_session(payload.session_id, payload.active_seconds)
+
+
+@app.get("/api/admin/usage/sessions")
+def get_usage_sessions(x_usage_admin_token: str | None = Header(default=None)):
+    expected = os.environ.get("USAGE_ADMIN_TOKEN", "").strip()
+    if not expected or x_usage_admin_token != expected:
+        raise HTTPException(status_code=401, detail="Usage admin authentication required")
+    return {"sessions": usage_list_sessions()}
 
 
 @app.get("/api/default-config")

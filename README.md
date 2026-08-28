@@ -171,6 +171,17 @@ ORCA_RUNTIME_IMAGE=ghcr.io/itymarcel/custom-orca:main-arm64 docker compose build
 
 Open <http://localhost:3007>.
 
+### Railway usage statistics
+
+The API supports optional PostgreSQL-backed anonymous session statistics. In the Railway project:
+
+1. Add a PostgreSQL service.
+2. On the `slicer-api` service, add a reference to the database service's `DATABASE_URL` variable, also named `DATABASE_URL`.
+3. Set `USAGE_ADMIN_TOKEN` on `slicer-api` to a long random value. Do not commit it or send it in chat.
+4. Deploy the `master` branch. The API creates the `usage_sessions` table on startup.
+
+The protected read endpoint is `GET /api/admin/usage/sessions` with the header `X-Usage-Admin-Token`. Tracking itself is disabled when `DATABASE_URL` is absent, so local development continues to work without PostgreSQL.
+
 From another device on the same local network, open the Pi's LAN address on
 port 3007 (`http://<pi-lan-ip>:3007`). macOS may also resolve the
 mDNS hostname as `http://<device-hostname>.local:3007`. The Compose port is bound on all

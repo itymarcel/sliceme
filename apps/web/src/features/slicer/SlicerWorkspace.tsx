@@ -15,11 +15,13 @@ import { PrintToPrinterModal } from './components/PrintToPrinterModal';
 import { ProjectNotice } from './components/ProjectNotice';
 import { SupportLink } from './components/ProjectLinks';
 import { useSlicerWorkspace } from './hooks/useSlicerWorkspace';
+import { useUsageSession } from './hooks/useUsageSession';
 import { addMeasurementPoint, type MeasurementPoint } from './lib/measurement';
 import { isEditableShortcutTarget } from './lib/historyShortcuts';
 
 export function SlicerWorkspace() {
   const workspace = useSlicerWorkspace();
+  useUsageSession();
   const fileInput = useRef<HTMLInputElement>(null);
   const modifierInput = useRef<HTMLInputElement>(null);
   const modifierTarget = useRef<string | null>(null);
