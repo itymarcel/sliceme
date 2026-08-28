@@ -25,6 +25,7 @@ from .project_3mf import import_orca_project
 from .usage import end_session as usage_end_session
 from .usage import heartbeat_session as usage_heartbeat_session
 from .usage import init_usage_db
+from .usage import list_failed_slices as usage_list_failed_slices
 from .usage import list_sessions as usage_list_sessions
 from .usage import record_event as usage_record_event
 from .usage import start_session as usage_start_session
@@ -167,6 +168,14 @@ def get_usage_sessions(x_usage_admin_token: str | None = Header(default=None)):
     if not expected or x_usage_admin_token != expected:
         raise HTTPException(status_code=401, detail="Usage admin authentication required")
     return {"summary": usage_summary(), "sessions": usage_list_sessions()}
+
+
+@app.get("/api/admin/usage/sessions/{session_id}/failures")
+def get_usage_session_failures(session_id: UUID, x_usage_admin_token: str | None = Header(default=None)):
+    expected = os.environ.get("USAGE_ADMIN_TOKEN", "").strip()
+    if not expected or x_usage_admin_token != expected:
+        raise HTTPException(status_code=401, detail="Usage admin authentication required")
+    return {"failures": usage_list_failed_slices(session_id)}
 
 
 @app.get("/api/default-config")
