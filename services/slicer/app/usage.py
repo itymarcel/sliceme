@@ -94,15 +94,15 @@ def _write_session(session_id: UUID, active_seconds: int, ended: bool = False) -
         logger.exception("Usage session update failed")
 
 
-def start_session(session_id: UUID) -> None:
+def start_session(session_id: UUID, metadata: dict[str, Any] | None = None) -> None:
     if not DATABASE_URL:
         return
     now = _now()
     try:
         with _connect() as connection:
             connection.execute(
-                "INSERT INTO usage_sessions (id, started_at, last_seen_at) VALUES (%s, %s, %s) ON CONFLICT (id) DO NOTHING",
-                (session_id, now, now),
+                "INSERT INTO usage_sessions (id, started_at, last_seen_at, metadata) VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO NOTHING",
+                (session_id, now, now, metadata or {}),
             )
             connection.commit()
     except Exception:
@@ -142,7 +142,7 @@ def list_sessions(limit: int = 100) -> list[dict[str, Any]]:
     with _connect() as connection:
         rows = connection.execute(
             """
-            SELECT s.id, s.started_at, s.last_seen_at, s.ended_at, s.active_seconds, s.heartbeat_count,
+            SELECT s.id, s.started_at, s.last_seen_at, s.ended_at, s.active_seconds, s.heartbeat_count, s.metadata,
               COUNT(e.id) FILTER (WHERE e.event_type = 'slice_triggered') AS slices_triggered,
               COUNT(e.id) FILTER (WHERE e.event_type = 'slice_succeeded') AS slices_succeeded,
               COUNT(e.id) FILTER (WHERE e.event_type = 'slice_failed') AS slices_failed
@@ -155,7 +155,7 @@ def list_sessions(limit: int = 100) -> list[dict[str, Any]]:
         {
             "id": str(row[0]), "started_at": row[1].isoformat(), "last_seen_at": row[2].isoformat(),
             "ended_at": row[3].isoformat() if row[3] else None, "active_seconds": row[4],
-            "heartbeat_count": row[5], "slices_triggered": row[6], "slices_succeeded": row[7], "slices_failed": row[8],
+            "heartbeat_count": row[5], "metadata": row[6] or {}, "slices_triggered": row[7], "slices_succeeded": row[8], "slices_failed": row[9],
         }
         for row in rows
     ]

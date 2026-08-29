@@ -11,6 +11,13 @@ export function getUsageSessionId(): string {
   return created;
 }
 
+function getSessionMetadata(): Record<string, unknown> {
+  const userAgent = navigator.userAgent;
+  const browser = /Edg\//.test(userAgent) ? 'Edge' : /Chrome\//.test(userAgent) ? 'Chrome' : /Firefox\//.test(userAgent) ? 'Firefox' : /Safari\//.test(userAgent) ? 'Safari' : 'Other';
+  const os = /Windows/.test(userAgent) ? 'Windows' : /Mac OS X/.test(userAgent) ? 'macOS' : /Android/.test(userAgent) ? 'Android' : /iPhone|iPad/.test(userAgent) ? 'iOS' : /Linux/.test(userAgent) ? 'Linux' : 'Other';
+  return { browser, os, user_agent: userAgent, language: navigator.language, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, screen: `${screen.width}x${screen.height}`, viewport: `${window.innerWidth}x${window.innerHeight}`, touch: navigator.maxTouchPoints > 0 };
+}
+
 function send(path: string, payload: Record<string, unknown>, keepalive = false) {
   void fetch(`${apiBase}/api/usage/${path}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), keepalive,
@@ -42,7 +49,7 @@ export function useUsageSession() {
     const visibilityChange = () => { if (document.visibilityState === 'visible') resume(); else pause(); };
     const end = () => { if (ended.current) return; ended.current = true; update('end', true); };
 
-    send('session/start', { session_id: sessionId, active_seconds: 0 });
+    send('session/start', { session_id: sessionId, active_seconds: 0, metadata: getSessionMetadata() });
     resume();
     const heartbeat = window.setInterval(() => {
       if (!ended.current && document.visibilityState === 'visible') update('heartbeat');

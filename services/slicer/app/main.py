@@ -56,6 +56,7 @@ class PrefillSettingsRequest(BaseModel):
 class UsageSessionRequest(BaseModel):
     session_id: UUID
     active_seconds: int = Field(default=0, ge=0, le=604800)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class UsageEventRequest(BaseModel):
@@ -144,7 +145,7 @@ def health():
 
 @app.post("/api/usage/session/start", status_code=204)
 def start_usage_session(payload: UsageSessionRequest):
-    usage_start_session(payload.session_id)
+    usage_start_session(payload.session_id, payload.metadata)
 
 
 @app.post("/api/usage/session/heartbeat", status_code=204)

@@ -13,6 +13,7 @@ type UsageSession = {
   slices_triggered: number;
   slices_succeeded: number;
   slices_failed: number;
+  metadata: { browser?: string; os?: string; user_agent?: string; language?: string; timezone?: string; screen?: string; viewport?: string; touch?: boolean };
 
 };
 
@@ -102,13 +103,14 @@ export function UsageAdminPage() {
         {summary && <div className="usage-admin-summary"><strong>{summary.slices_triggered}</strong> triggered · <strong>{summary.slices_succeeded}</strong> successful · <strong>{summary.slices_failed}</strong> failed</div>}
         <div className="usage-admin-table-wrap">
           <table>
-            <thead><tr><th>Started</th><th>Last active</th><th>Active duration</th><th>Slices</th><th>Status</th></tr></thead>
+            <thead><tr><th>Started</th><th>Browser / OS</th><th>Last active</th><th>Active duration</th><th>Slices</th><th>Status</th></tr></thead>
             <tbody>
               {sessions.length === 0
-                ? <tr><td colSpan={5} className="usage-admin-empty">No sessions loaded.</td></tr>
+                ? <tr><td colSpan={6} className="usage-admin-empty">No sessions loaded.</td></tr>
                 : sessions.map((session) => (
                   <tr key={session.id}>
                     <td>{formatDate(session.started_at)}</td>
+                    <td title={session.metadata.user_agent}>{session.metadata.browser ?? 'Unknown'} · {session.metadata.os ?? 'Unknown'}</td>
                     <td>{formatDate(session.last_seen_at)}</td>
                     <td>{formatDuration(session.active_seconds)}</td>
                     <td><span>{session.slices_succeeded}/{session.slices_triggered} successful</span><button className="usage-admin-more" type="button" aria-label={`View failed slices for ${formatDate(session.started_at)}`} onClick={() => void openFailures(session)}><MoreHorizontal size={16} /></button></td>
