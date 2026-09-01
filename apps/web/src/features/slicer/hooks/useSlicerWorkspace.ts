@@ -240,7 +240,11 @@ export function useSlicerWorkspace() {
         persisted.models.forEach((stored) => {
           const file = new File([stored.blob], stored.fileName, { type: stored.fileType, lastModified: stored.lastModified });
           const objectUrl = URL.createObjectURL(file);
-          const model: SlicerModel = { fileId: stored.fileId, fileName: stored.fileName, fileSize: stored.fileSize, objectUrl, file, ...(stored.modifierFor ? { modifierFor: stored.modifierFor } : {}) };
+          const model: SlicerModel = {
+            fileId: stored.fileId, fileName: stored.fileName, fileSize: stored.fileSize, objectUrl, file,
+            ...(stored.modifierFor ? { modifierFor: stored.modifierFor } : {}),
+            ...(stored.assemblyFor ? { assemblyFor: stored.assemblyFor } : {}),
+          };
           modelUrls.current.add(objectUrl);
           modelRegistry.current.set(model.fileId, model);
           restoredById.set(model.fileId, model);
@@ -420,6 +424,11 @@ export function useSlicerWorkspace() {
         modelRegistry.current.set(nextId, model);
         return { model, displayName, position: finalized.position, zOffset, partHeight };
       });
+      const assemblyRootId = generatedRoots.length > 1 ? generatedRoots[0].model.fileId : null;
+      if (assemblyRootId) generatedRoots.slice(1).forEach(({ model }) => {
+        model.assemblyFor = assemblyRootId;
+        modelRegistry.current.set(model.fileId, model);
+      });
 
       const generatedModels: SlicerModel[] = [];
       const generatedPositions: Record<string, Position> = {};
@@ -429,14 +438,16 @@ export function useSlicerWorkspace() {
       const generatedFileOverrides: Record<string, Partial<ConfigBundle>> = {};
       const generatedRanges: Record<string, RangeOverride[]> = {};
       const generatedStarts: Record<string, Position> = {};
-      generatedRoots.forEach(({ model, displayName, position, zOffset, partHeight }) => {
+      generatedRoots.forEach(({ model, displayName, position, zOffset, partHeight }, index) => {
         generatedModels.push(model);
         generatedPositions[model.fileId] = position;
         generatedRotations[model.fileId] = { x: 0, y: 0, z: 0 };
         generatedScales[model.fileId] = { x: 1, y: 1, z: 1 };
         generatedNames[model.fileId] = displayName;
         generatedFileOverrides[model.fileId] = structuredClone(fileOverrides[fileId] ?? {});
-        generatedRanges[model.fileId] = remapRangesToGeneratedPart(rangeOverrides[fileId] ?? [], zOffset, partHeight);
+        generatedRanges[model.fileId] = assemblyRootId
+          ? (index === 0 ? structuredClone(rangeOverrides[fileId] ?? []) : [])
+          : remapRangesToGeneratedPart(rangeOverrides[fileId] ?? [], zOffset, partHeight);
         if (startPositions[fileId]) generatedStarts[model.fileId] = { ...startPositions[fileId] };
         modifiers.forEach((modifier) => {
           const modifierId = createClientId();
@@ -493,7 +504,12 @@ export function useSlicerWorkspace() {
   }, [buildVolume, fileOverrides, modelNames, modelToolBusy, models, positions, rangeOverrides, recordWorkspaceChange, replaceGcode, rotations, scales, startPositions]);
 
   const sliceManifest = useCallback((): SliceManifest => ({
-    models: models.map((model) => ({ id: model.fileId, name: modelNames[model.fileId] || model.fileName, ...(model.modifierFor ? { modifierFor: model.modifierFor } : {}) })),
+    models: models.map((model) => ({
+      id: model.fileId,
+      name: modelNames[model.fileId] || model.fileName,
+      ...(model.modifierFor ? { modifierFor: model.modifierFor } : {}),
+      ...(model.assemblyFor ? { assemblyFor: model.assemblyFor } : {}),
+    })),
     config,
     fileOverrides,
     rangeOverrides,

@@ -16,6 +16,7 @@ describe('workspace model and transform history integration', () => {
     expect(hook).toContain('selectedFileIds,');
     expect(hook).toContain('startPositions,');
     expect(hook).toContain('modelRegistry');
+    expect(hook).toContain('assemblyFor');
   });
 
   it('records model add/remove and one drag-start history point', () => {

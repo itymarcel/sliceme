@@ -25,6 +25,7 @@ services:
     environment:
       SLICER_API_HOST: ${SLICER_API_HOST:-slicer-api}
       SLICER_API_PORT: ${SLICER_API_PORT:-8080}
+      NGINX_LOCAL_RESOLVERS: ${NGINX_LOCAL_RESOLVERS:-127.0.0.11}
     depends_on:
       - slicer-api
     ports:

@@ -72,6 +72,31 @@ class EngineTest(unittest.TestCase):
         modifier_values = {item.get("key"): item.get("value") for item in parts[1].findall("./metadata")}
         self.assertEqual(modifier_values["sparse_infill_density"], "80%")
 
+    def test_builds_generated_parts_as_one_printable_assembly(self):
+        job = SliceJob(
+            models=[
+                UploadedModel("lower", "lower.stl", triangle_stl()),
+                UploadedModel("upper", "upper.stl", triangle_stl(), assembly_for="lower"),
+            ],
+            config=default_config(),
+            transforms={
+                "lower": {"position": {"x": 100, "y": 100, "z": 0}, "rotation": {"x": 0, "y": 0, "z": 0}},
+                "upper": {"position": {"x": 100, "y": 100, "z": 10}, "rotation": {"x": 0, "y": 0, "z": 0}},
+            },
+        )
+
+        archive = build_3mf(job)
+        with zipfile.ZipFile(io.BytesIO(archive)) as package:
+            model_root = ET.fromstring(package.read("3D/3dmodel.model"))
+            settings_root = ET.fromstring(package.read("Metadata/model_settings.config"))
+
+        namespace = {"m": "http://schemas.microsoft.com/3dmanufacturing/core/2015/02"}
+        self.assertEqual(len(model_root.findall("./m:build/m:item", namespace)), 1)
+        self.assertEqual(
+            [part.get("subtype") for part in settings_root.findall("./object/part")],
+            ["normal_part", "normal_part"],
+        )
+
     def test_range_height_uses_logical_object_id_with_modifier(self):
         job = SliceJob(
             models=[

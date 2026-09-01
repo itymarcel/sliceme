@@ -30,6 +30,7 @@ export type SlicerModel = {
   objectUrl: string;
   file: File;
   modifierFor?: string;
+  assemblyFor?: string;
 };
 
 export type Rotation = { x: number; y: number; z: number };
@@ -43,7 +44,7 @@ export type SelectedNode =
   | { type: 'range'; fileId: string; rangeIndex: number };
 
 export type SliceManifest = {
-  models: Array<{ id: string; name: string; modifierFor?: string }>;
+  models: Array<{ id: string; name: string; modifierFor?: string; assemblyFor?: string }>;
   config: ConfigBundle;
   fileOverrides: Record<string, Partial<ConfigBundle>>;
   rangeOverrides: Record<string, RangeOverride[]>;

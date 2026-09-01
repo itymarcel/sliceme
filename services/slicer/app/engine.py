@@ -37,6 +37,7 @@ class UploadedModel:
     file_name: str
     data: bytes
     modifier_for: str | None = None
+    assembly_for: str | None = None
 
 
 @dataclass
@@ -517,21 +518,38 @@ def _model_object_layout(model_files) -> list[tuple[object, int, list[tuple[obje
     if len(by_id) != len(files):
         raise ValueError("Model IDs must be unique")
     normal_files = [model for model in files if not getattr(model, "modifier_for", None)]
+    roots = [model for model in normal_files if not getattr(model, "assembly_for", None)]
     file_index = {str(model.file_id): index + 1 for index, model in enumerate(files)}
     next_assembly_id = len(files) + 1
     layout = []
-    for normal in normal_files:
-        modifiers = [model for model in files if str(getattr(model, "modifier_for", "")) == str(normal.file_id)]
-        object_id = next_assembly_id if modifiers else file_index[str(normal.file_id)]
-        if modifiers:
+    for root in roots:
+        members = [root, *[
+            model for model in normal_files
+            if str(getattr(model, "assembly_for", "")) == str(root.file_id)
+        ]]
+        parts = []
+        for member in members:
+            parts.append((member, file_index[str(member.file_id)], "normal_part"))
+            parts.extend(
+                (modifier, file_index[str(modifier.file_id)], "modifier_part")
+                for modifier in files
+                if str(getattr(modifier, "modifier_for", "")) == str(member.file_id)
+            )
+        object_id = next_assembly_id if len(parts) > 1 else file_index[str(root.file_id)]
+        if len(parts) > 1:
             next_assembly_id += 1
-        parts = [(normal, file_index[str(normal.file_id)], "normal_part")]
-        parts.extend((modifier, file_index[str(modifier.file_id)], "modifier_part") for modifier in modifiers)
-        layout.append((normal, object_id, parts))
+        layout.append((root, object_id, parts))
     for model in files:
         parent_id = getattr(model, "modifier_for", None)
         if parent_id and (str(parent_id) not in by_id or getattr(by_id[str(parent_id)], "modifier_for", None)):
             raise ValueError(f"Modifier {model.file_id} has an invalid parent object")
+        assembly_id = getattr(model, "assembly_for", None)
+        if assembly_id and (
+            str(assembly_id) not in by_id
+            or getattr(by_id[str(assembly_id)], "modifier_for", None)
+            or getattr(by_id[str(assembly_id)], "assembly_for", None)
+        ):
+            raise ValueError(f"Assembly part {model.file_id} has an invalid root object")
     return layout
 
 
@@ -553,7 +571,10 @@ def _build_3dmodel_xml(stl_bytes_list: list, per_object_transforms: list = None,
     objects_xml = []
     items_xml = []
     transform_strings = []
-    has_modifiers = bool(model_files and any(getattr(model, "modifier_for", None) for model in model_files))
+    has_grouped_parts = bool(model_files and any(
+        getattr(model, "modifier_for", None) or getattr(model, "assembly_for", None)
+        for model in model_files
+    ))
 
     for idx, (vertices, triangles) in enumerate(parsed):
         obj_id = idx + 1
@@ -652,7 +673,7 @@ def _build_3dmodel_xml(stl_bytes_list: list, per_object_transforms: list = None,
             f"{tx:.6f} {ty:.6f} {tz:.6f}"
         )
         transform_strings.append(transform_str)
-        if not has_modifiers:
+        if not has_grouped_parts:
             # p:UUID is required for OrcaSlicer to recognize this as a native project and
             # respect item transforms instead of auto-arranging
             uuid_str = f"00000000-0000-0000-0000-{obj_id:012d}"
@@ -662,7 +683,7 @@ def _build_3dmodel_xml(stl_bytes_list: list, per_object_transforms: list = None,
             )
             items_xml.append(item_str)
 
-    if has_modifiers:
+    if has_grouped_parts:
         files = list(model_files)
         file_index = {str(model.file_id): index for index, model in enumerate(files)}
         for normal, object_id, parts in _model_object_layout(files):
@@ -806,10 +827,15 @@ def _build_model_settings_xml(session, stl_files) -> str:
                 )
 
         part_xml = []
+        normal_part_count = sum(1 for _part, _part_id, subtype in parts if subtype == 'normal_part')
         for part, part_id, subtype in parts:
             part_name = escape(str(getattr(part, 'file_name', f'part{part_id}')))
             overrides = file_overrides.get(str(part.file_id), {})
-            config_sections = ('machine_config', 'filament_config') if subtype == 'normal_part' else ('process_config', 'machine_config', 'filament_config')
+            config_sections = (
+                ('process_config', 'machine_config', 'filament_config')
+                if subtype != 'normal_part' or normal_part_count > 1
+                else ('machine_config', 'filament_config')
+            )
             part_settings_meta = []
             for config_key in config_sections:
                 for opt_key, opt_val in overrides.get(config_key, {}).items():

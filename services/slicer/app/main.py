@@ -282,6 +282,7 @@ async def slice_models(
                 file_name=filename,
                 data=data,
                 modifier_for=str(metadata.get("modifierFor")) if metadata.get("modifierFor") else None,
+                assembly_for=str(metadata.get("assemblyFor")) if metadata.get("assemblyFor") else None,
             )
         )
 

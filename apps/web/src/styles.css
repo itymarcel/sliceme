@@ -288,11 +288,12 @@ select { -webkit-appearance: none; -moz-appearance: none; appearance: none; back
 .model-tool-section > div:first-child > span { display: grid; gap: 2px; }
 .model-tool-section small { color: #718497; font-size: 9px; font-weight: 500; line-height: 1.35; }
 .model-tool-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.model-tool-actions .button { width: 100%; }
+.model-tool-actions .button, .cut-controls .button { width: 100%; height: 30px; padding: 0 8px; border-radius: 6px; font-size: 10px; gap: 6px; }
 .cut-controls { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: end; gap: 7px; }
 .cut-controls label { display: grid; gap: 4px; color: #778a9d; font-size: 8px; font-weight: 700; text-transform: uppercase; }
-.cut-controls input, .cut-controls select { width: 100%; height: 30px; box-sizing: border-box; }
-.cut-controls .button { grid-column: 1 / -1; width: 100%; }
+.cut-controls input, .cut-controls select { width: 100%; height: 30px; box-sizing: border-box; padding: 4px 30px 4px 7px; border: 1px solid #283747; border-radius: 6px; outline: 0; background-color: #0a1016; color: #c9d7e4; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
+.cut-controls input:focus, .cut-controls select:focus { border-color: rgba(137,255,142,.55); }
+.cut-controls .button { grid-column: 1 / -1; }
 @media (max-width: 620px) { .model-tools-popover { position: fixed; top: 146px; right: 8px; left: 8px; width: auto; max-width: none; } }
 .gcode-editor header, .gcode-editor footer { display: flex; align-items: center; }
 .print-modal { width: min(440px, 100%); padding: 14px; padding-top: 0px; display: grid; grid-template-rows: auto auto auto; gap: 12px; background: #0d141c; box-shadow: 0 28px 90px rgba(0,0,0,.58); }

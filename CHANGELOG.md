@@ -9,6 +9,7 @@ Changes are grouped into one consolidated summary per calendar day.
 - Removed the redundant bespoke variable-layer editor because the existing height-range modifiers already provide that control. Converted Model tools from a full-screen modal into a button-anchored popover and restyled its actions with the standard SliceMe button variants.
 - Fixed Model tools closing immediately on trigger click, made the full object-tree row select its object, and added a hover explanation to the orange placement warning (outside the bed and/or true 3D overlap).
 - Added drag-to-stack placement: while moving a printable model, XY contact raises it onto the highest intersected model; moving clear returns it to the bed. Placement validation now accounts for Z, so correctly stacked touching parts are not reported as overlapping.
+- Corrected the Z-split popover controls to use compact SliceMe button and form-field styling. Fixed Orca exit code 156 for vertically stacked cut parts by preserving generated pieces as one printable multipart assembly while keeping them independently selectable and movable in the workspace; real unsplit and middle-split hollow-tube slices now both complete successfully.
 - Fixed startup on browsers or non-secure contexts without `crypto.randomUUID` by reusing the existing UUID fallback; added a regression test and verified the deployed app with `randomUUID` explicitly unavailable.
 
 ## 2026-08-31
