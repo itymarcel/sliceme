@@ -47,20 +47,51 @@ export function analyzePlacement(
       maxX: position.x + size.width / 2,
       minY: position.y - size.depth / 2,
       maxY: position.y + size.depth / 2,
+      minZ: position.z ?? 0,
+      maxZ: (position.z ?? 0) + size.height,
       height: size.height,
     };
-    if (box.minX < 0 || box.maxX > bed.x || box.minY < 0 || box.maxY > bed.y || box.height > bed.z) {
+    if (box.minX < 0 || box.maxX > bed.x || box.minY < 0 || box.maxY > bed.y || box.minZ < 0 || box.maxZ > bed.z) {
       issues[id] = [...(issues[id] ?? []), 'outside'];
     }
     return [box];
   });
   boxes.forEach((box, index) => boxes.slice(index + 1).forEach((other) => {
-    if (box.minX < other.maxX && box.maxX > other.minX && box.minY < other.maxY && box.maxY > other.minY) {
+    if (box.minX < other.maxX && box.maxX > other.minX
+      && box.minY < other.maxY && box.maxY > other.minY
+      && box.minZ < other.maxZ && box.maxZ > other.minZ) {
       issues[box.id] = [...(issues[box.id] ?? []), 'overlap'];
       issues[other.id] = [...(issues[other.id] ?? []), 'overlap'];
     }
   }));
   return issues;
+}
+
+export function stackedDragPosition(
+  movingId: string,
+  x: number,
+  y: number,
+  ids: string[],
+  positions: Record<string, Position>,
+  bounds: Record<string, ModelBounds>,
+  scales: Record<string, Scale> = {},
+  rotations: Record<string, Rotation> = {},
+): Position {
+  const movingBounds = bounds[movingId];
+  if (!movingBounds) return { x, y, z: 0 };
+  const movingSize = transformedFootprint(movingBounds, scales[movingId], rotations[movingId]);
+  const supportTop = ids.reduce((highest, id) => {
+    if (id === movingId || !bounds[id]) return highest;
+    const size = transformedFootprint(bounds[id], scales[id], rotations[id]);
+    const position = positions[id];
+    if (!position) return highest;
+    const intersects = x - movingSize.width / 2 < position.x + size.width / 2
+      && x + movingSize.width / 2 > position.x - size.width / 2
+      && y - movingSize.depth / 2 < position.y + size.depth / 2
+      && y + movingSize.depth / 2 > position.y - size.depth / 2;
+    return intersects ? Math.max(highest, (position.z ?? 0) + size.height) : highest;
+  }, 0);
+  return { x, y, z: supportTop };
 }
 
 export function arrangeOnBed(

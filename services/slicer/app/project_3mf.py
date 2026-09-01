@@ -35,6 +35,7 @@ class ImportedModel:
     stl: bytes
     position: dict[str, float]
     overrides: dict[str, dict] = field(default_factory=dict)
+    range_overrides: list[dict] = field(default_factory=list)
     modifier_for_index: int | None = None
 
 
@@ -207,6 +208,46 @@ def import_orca_project(data: bytes, defaults: dict[str, dict]) -> ImportedProje
                 except ET.ParseError:
                     pass
 
+        range_overrides_by_object: dict[int, list[dict]] = {}
+        if "Metadata/layer_config_ranges.xml" in package.namelist():
+            ranges_bytes = package.read("Metadata/layer_config_ranges.xml")
+            if len(ranges_bytes) > 2 * 1024 * 1024 or b"<!DOCTYPE" in ranges_bytes.upper():
+                raise ValueError("Unsafe or oversized layer range metadata")
+            try:
+                ranges_root = ET.fromstring(ranges_bytes)
+            except ET.ParseError as error:
+                raise ValueError("Invalid layer range metadata") from error
+            for object_node in ranges_root.findall("./object"):
+                try:
+                    logical_id = int(object_node.get("id", ""))
+                except ValueError as error:
+                    raise ValueError("Invalid layer range object ID") from error
+                parsed_ranges = []
+                for range_node in object_node.findall("./range"):
+                    try:
+                        min_z = float(range_node.get("min_z", ""))
+                        max_z = float(range_node.get("max_z", ""))
+                    except ValueError as error:
+                        raise ValueError("Invalid layer range boundary") from error
+                    if not math.isfinite(min_z) or not math.isfinite(max_z) or min_z < 0 or max_z <= min_z:
+                        raise ValueError("Invalid layer range boundary")
+                    raw_options = {
+                        option.get("opt_key", ""): (option.text or "")
+                        for option in range_node.findall("./option")
+                    }
+                    options = _object_overrides(raw_options, defaults)
+                    entry = {
+                        "range": {"min_z": min_z, "max_z": max_z},
+                        "machine_config": options.get("machine_config", {}),
+                        "process_config": options.get("process_config", {}),
+                        "filament_config": options.get("filament_config", {}),
+                    }
+                    if "layer_height" in entry["process_config"]:
+                        entry["purpose"] = "variable_layer"
+                    if any(entry[section] for section in ("machine_config", "process_config", "filament_config")):
+                        parsed_ranges.append(entry)
+                range_overrides_by_object[logical_id] = parsed_ranges
+
         resources = root.find(f"{CORE_NS}resources")
         build = root.find(f"{CORE_NS}build")
         build_items = list(build) if build is not None else []
@@ -270,6 +311,7 @@ def import_orca_project(data: bytes, defaults: dict[str, dict]) -> ImportedProje
             transform: tuple[float, ...] | list[tuple[float, ...]],
             name: str,
             overrides: dict[str, dict],
+            range_overrides: list[dict] | None = None,
             modifier_for_index: int | None = None,
             parent_min_z: float | None = None,
         ) -> float | None:
@@ -306,7 +348,14 @@ def import_orca_project(data: bytes, defaults: dict[str, dict]) -> ImportedProje
             position = {"x": center_x, "y": center_y}
             if parent_min_z is not None:
                 position["z"] = min_z - parent_min_z
-            imported.append(ImportedModel(safe_name, stl, position, overrides, modifier_for_index))
+            imported.append(ImportedModel(
+                name=safe_name,
+                stl=stl,
+                position=position,
+                overrides=overrides,
+                range_overrides=range_overrides or [],
+                modifier_for_index=modifier_for_index,
+            ))
             if len(imported) > MAX_IMPORTED_MODELS:
                 raise ValueError(f"3MF projects may import at most {MAX_IMPORTED_MODELS} models")
             return min_z
@@ -338,6 +387,7 @@ def import_orca_project(data: bytes, defaults: dict[str, dict]) -> ImportedProje
                     [components[source_id] for source_id in normal_source_ids],
                     (normal_parts[0].get("name") if normal_parts else None) or names.get(object_id, f"Imported model {index}"),
                     _object_overrides(normal_settings, defaults),
+                    range_overrides_by_object.get(index, []),
                 )
                 if len(imported) == parent_index or parent_min_z is None:
                     continue
@@ -346,8 +396,8 @@ def import_orca_project(data: bytes, defaults: dict[str, dict]) -> ImportedProje
                         modifier["id"], components[modifier["id"]],
                         modifier.get("name") or f"Modifier {len(imported) + 1}",
                         _object_overrides(modifier.get("settings", {}), defaults),
-                        parent_index,
-                        parent_min_z,
+                        modifier_for_index=parent_index,
+                        parent_min_z=parent_min_z,
                     )
                 continue
 
@@ -355,6 +405,7 @@ def import_orca_project(data: bytes, defaults: dict[str, dict]) -> ImportedProje
                 object_id, item_transform,
                 names.get(object_id, f"Imported model {index}"),
                 _object_overrides(metadata_entry.get("settings", {}), defaults),
+                range_overrides_by_object.get(index, []),
             )
 
         if not imported:

@@ -244,8 +244,9 @@ select { -webkit-appearance: none; -moz-appearance: none; appearance: none; back
 .transform-action:hover { border-color: rgba(137,255,142,.45); color: var(--accent); }
 .transform-action small { font-size: 7px; }
 .object-quick-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 4px; }
-.object-quick-actions button { min-height: 27px; padding: 0 6px; border: 1px solid #283747; border-radius: 6px; background: #101821; color: #8799aa; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 8px; cursor: pointer; }
-.object-quick-actions button:hover, .object-quick-actions button.active { color: var(--accent); border-color: rgba(137,255,142,.45); background: #17222d; }
+.object-quick-actions > button, .object-quick-actions > .model-tools-trigger > button { min-height: 27px; width: 100%; padding: 0 6px; border: 1px solid #283747; border-radius: 6px; background: #101821; color: #8799aa; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 8px; cursor: pointer; }
+.object-quick-actions > button:hover, .object-quick-actions > button.active, .object-quick-actions > .model-tools-trigger > button:hover, .object-quick-actions > .model-tools-trigger > button[aria-expanded='true'] { color: var(--accent); border-color: rgba(137,255,142,.45); background: #17222d; }
+.model-tools-trigger { position: relative; min-width: 0; }
 
 .gcode-preview { min-width: 0; min-height: 0; position: relative; border-left: 1px solid var(--line); background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
 .gcode-viewport { min-width: 0; min-height: 0; position: relative; flex: 1; overflow: hidden; }
@@ -277,6 +278,22 @@ select { -webkit-appearance: none; -moz-appearance: none; appearance: none; back
 .gcode-edit-button:hover { border-color: rgba(137,255,142,.45); color: var(--accent); }
 .gcode-editor-backdrop { position: fixed; inset: 0; z-index: 200; padding: 28px; background: rgba(4,7,10,.76); backdrop-filter: blur(7px); display: grid; place-items: center; }
 .gcode-editor { width: min(820px, 100%); height: min(620px, 88vh); padding: 12px; display: grid; grid-template-rows: auto minmax(0,1fr) auto; gap: 11px; background: #0d141c; box-shadow: 0 28px 90px rgba(0,0,0,.58); }
+.model-tools-popover { position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; width: 340px; max-width: calc(100vw - 28px); padding: 8px; display: grid; gap: 8px; background: rgba(13,20,28,.98); box-shadow: 0 20px 70px rgba(0,0,0,.52); }
+.model-tools-popover > header { min-height: 28px; padding: 0 3px 6px; border-bottom: 1px solid var(--line-soft); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.model-tools-popover > header strong { color: var(--text); font-size: 10px; }
+.model-tools-popover > header span { overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.model-tool-section { display: grid; gap: 8px; padding: 8px; border-radius: 7px; background: rgba(255,255,255,.018); }
+.model-tool-section > div:first-child { display: flex; align-items: flex-start; gap: 7px; color: #aebdca; }
+.model-tool-section > div:first-child > svg { flex: 0 0 auto; margin-top: 1px; color: var(--accent); }
+.model-tool-section > div:first-child > span { display: grid; gap: 2px; }
+.model-tool-section small { color: #718497; font-size: 9px; font-weight: 500; line-height: 1.35; }
+.model-tool-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.model-tool-actions .button { width: 100%; }
+.cut-controls { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: end; gap: 7px; }
+.cut-controls label { display: grid; gap: 4px; color: #778a9d; font-size: 8px; font-weight: 700; text-transform: uppercase; }
+.cut-controls input, .cut-controls select { width: 100%; height: 30px; box-sizing: border-box; }
+.cut-controls .button { grid-column: 1 / -1; width: 100%; }
+@media (max-width: 620px) { .model-tools-popover { position: fixed; top: 146px; right: 8px; left: 8px; width: auto; max-width: none; } }
 .gcode-editor header, .gcode-editor footer { display: flex; align-items: center; }
 .print-modal { width: min(440px, 100%); padding: 14px; padding-top: 0px; display: grid; grid-template-rows: auto auto auto; gap: 12px; background: #0d141c; box-shadow: 0 28px 90px rgba(0,0,0,.58); }
 .print-modal header { display: flex; align-items: center; justify-content: space-between; padding: 8px 2px 8px; border-bottom: 1px solid var(--line-soft); }

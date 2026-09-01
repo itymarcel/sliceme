@@ -89,6 +89,10 @@ const selected = (current: SelectedNode, candidate: SelectedNode) =>
   && (candidate.type !== 'range' || (current.type === 'range' && current.rangeIndex === candidate.rangeIndex));
 
 export function ObjectTree(props: Props) {
+  const selectFile = (fileId: string, additive: boolean) => {
+    if (props.onSelectFile) props.onSelectFile(fileId, additive);
+    else props.onSelect({ type: 'file', fileId });
+  };
   return (
     <section className="object-tree panel">
       <div className="panel-heading">
@@ -110,13 +114,13 @@ export function ObjectTree(props: Props) {
           return (
             <div className="tree-object" key={model.fileId}>
               <div className="tree-line">
-                <div className={`tree-row ${(props.selectedFileIds?.includes(model.fileId) || selected(props.selected, { type: 'file', fileId: model.fileId })) ? 'active' : ''}`}>
-                  <button className="tree-select-button" type="button" aria-label={`Select ${displayName}`} onClick={(event) => props.onSelectFile?.(model.fileId, event.ctrlKey || event.metaKey || event.shiftKey) ?? props.onSelect({ type: 'file', fileId: model.fileId })}>
+                <div className={`tree-row ${(props.selectedFileIds?.includes(model.fileId) || selected(props.selected, { type: 'file', fileId: model.fileId })) ? 'active' : ''}`} onClick={(event) => selectFile(model.fileId, event.ctrlKey || event.metaKey || event.shiftKey)}>
+                  <button className="tree-select-button" type="button" aria-label={`Select ${displayName}`} onClick={(event) => { event.stopPropagation(); selectFile(model.fileId, event.ctrlKey || event.metaKey || event.shiftKey); }}>
                     <Box size={15} />
                   </button>
-                  <ObjectName fileId={model.fileId} name={displayName} onRename={props.onRename} onSelect={() => { props.onSelectFile?.(model.fileId, false) ?? props.onSelect({ type: 'file', fileId: model.fileId }); }} />
+                  <ObjectName fileId={model.fileId} name={displayName} onRename={props.onRename} onSelect={() => selectFile(model.fileId, false)} />
                   {!!props.placementIssues?.[model.fileId]?.length && (
-                    <AlertTriangle size={14} className="placement-warning" role="status" aria-label={placementIssueLabel(displayName, props.placementIssues[model.fileId])} />
+                    <span className="placement-warning" role="status" aria-label={placementIssueLabel(displayName, props.placementIssues[model.fileId])} title={placementIssueLabel(displayName, props.placementIssues[model.fileId])}><AlertTriangle size={14} /></span>
                   )}
                 </div>
                 <button className="icon-button danger" title="Remove model" aria-label={`Remove ${displayName}`} onClick={() => props.onRemoveModel(model.fileId)}><Trash2 size={14} /></button>
@@ -125,8 +129,8 @@ export function ObjectTree(props: Props) {
                 const modifierName = props.modelNames?.[modifier.fileId] ?? modifier.fileName;
                 return (
                   <div className="tree-line tree-modifier" key={modifier.fileId}>
-                    <div className={`tree-row tree-child ${selected(props.selected, { type: 'file', fileId: modifier.fileId }) ? 'active' : ''}`}>
-                      <button className="tree-select-button" type="button" aria-label={`Select ${modifierName}`} onClick={() => props.onSelect({ type: 'file', fileId: modifier.fileId })}>
+                    <div className={`tree-row tree-child ${selected(props.selected, { type: 'file', fileId: modifier.fileId }) ? 'active' : ''}`} onClick={() => props.onSelect({ type: 'file', fileId: modifier.fileId })}>
+                      <button className="tree-select-button" type="button" aria-label={`Select ${modifierName}`} onClick={(event) => { event.stopPropagation(); props.onSelect({ type: 'file', fileId: modifier.fileId }); }}>
                         <CornerDownRight className="tree-indent-arrow" size={14} /><Box size={13} />
                       </button>
                       <span className="modifier-label">Modifier</span>

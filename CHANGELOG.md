@@ -2,6 +2,21 @@
 
 Changes are grouped into one consolidated summary per calendar day.
 
+## 2026-09-01
+
+- Hardened the new model-preparation release before deployment: preserved X/Y-tilted world transforms, retained common grounding across generated cut/split parts, remapped height ranges into each generated part, and triangulated hollow cut cross-sections as contours with holes.
+- Changed the browser page title to `[V] SLICEME [V]`.
+- Removed the redundant bespoke variable-layer editor because the existing height-range modifiers already provide that control. Converted Model tools from a full-screen modal into a button-anchored popover and restyled its actions with the standard SliceMe button variants.
+- Fixed Model tools closing immediately on trigger click, made the full object-tree row select its object, and added a hover explanation to the orange placement warning (outside the bed and/or true 3D overlap).
+- Added drag-to-stack placement: while moving a printable model, XY contact raises it onto the highest intersected model; moving clear returns it to the bed. Placement validation now accounts for Z, so correctly stacked touching parts are not reported as overlapping.
+- Fixed startup on browsers or non-secure contexts without `crypto.randomUUID` by reusing the existing UUID fallback; added a regression test and verified the deployed app with `randomUUID` explicitly unavailable.
+
+## 2026-08-31
+
+- Added desktop model preparation tools for selected printable objects: plane cut with both capped parts retained, disconnected-shell splitting, and mesh repair for degenerate/duplicate facets, inconsistent winding, normals, and simple planar holes. Destructive geometry work runs in a dedicated browser worker, emits valid binary STL, bakes transforms without changing world placement, remains undoable, and preserves/rebinds attached modifiers.
+- Strengthened the existing per-object height-range modifiers with validated non-overlapping ranges, workspace history and local persistence, native Orca `layer_config_ranges.xml` export, and 3MF import restoration.
+- Corrected Orca range-object IDs for parent objects with modifiers and added backend validation for finite boundaries, overlap, positive heights, and nozzle limits. Verified real Orca output at 100 constant-height layers versus 125 variable-height layers, including the parent-with-modifier path.
+
 ## 2026-08-28
 
 - Added privacy-conscious PostgreSQL-backed usage sessions: visible-tab active-time tracking with start, heartbeat, and page-exit updates, plus a token-protected session listing endpoint. Added generic usage events for slice-triggered/succeeded/failed counts and failure reasons, a summary in the admin page, and local storage for the admin token.

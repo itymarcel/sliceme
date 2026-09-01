@@ -1,6 +1,6 @@
 import { strFromU8, unzipSync } from 'fflate';
 
-import type { ConfigBundle, GcodeEnhancement, GcodeResult, PrintPreset, PrinterPreset, SlicerRecommendation, SliceManifest, SlicerModel } from '../types';
+import type { ConfigBundle, GcodeEnhancement, GcodeResult, PrintPreset, PrinterPreset, RangeOverride, SlicerRecommendation, SliceManifest, SlicerModel } from '../types';
 import { recordUsageEvent } from '../hooks/useUsageSession';
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? '';
@@ -117,6 +117,7 @@ export type ImportedProject = {
     file: File;
     position: { x: number; y: number; z?: number };
     overrides: Partial<ConfigBundle>;
+    rangeOverrides: RangeOverride[];
     modifierForIndex: number | null;
   }>;
   warnings: string[];
@@ -144,9 +145,15 @@ function parseImportedManifest(value: unknown) {
       throw new Error('Imported project response contains invalid model metadata');
     }
     const overrides = model.overrides === undefined ? {} : model.overrides;
+    const rangeOverrides = model.rangeOverrides === undefined ? [] : model.rangeOverrides;
     const modifierForIndex = model.modifierForIndex === undefined ? null : model.modifierForIndex;
+    const validRangeOverrides = Array.isArray(rangeOverrides) && rangeOverrides.every((range) => isRecord(range)
+      && isRecord(range.range) && typeof range.range.min_z === 'number' && Number.isFinite(range.range.min_z)
+      && typeof range.range.max_z === 'number' && Number.isFinite(range.range.max_z)
+      && isRecord(range.machine_config) && isRecord(range.process_config) && isRecord(range.filament_config));
     if (!isRecord(overrides)
       || Object.entries(overrides).some(([section, settings]) => !['machine_config', 'process_config', 'filament_config'].includes(section) || !isRecord(settings))
+      || !validRangeOverrides
       || (modifierForIndex !== null && (!Number.isInteger(modifierForIndex) || (modifierForIndex as number) < 0 || (modifierForIndex as number) >= index))) {
       throw new Error('Imported project response contains invalid model metadata');
     }
@@ -155,6 +162,7 @@ function parseImportedManifest(value: unknown) {
       name: model.name,
       position: { x: model.position.x, y: model.position.y, ...(typeof model.position.z === 'number' ? { z: model.position.z } : {}) },
       overrides: overrides as Partial<ConfigBundle>,
+      rangeOverrides: rangeOverrides as RangeOverride[],
       modifierForIndex: modifierForIndex as number | null,
     };
   });
@@ -183,6 +191,7 @@ export async function requestProjectImport(project: File, signal?: AbortSignal):
         file: new File([bytes], model.name, { type: 'model/stl' }),
         position: model.position,
         overrides: model.overrides,
+        rangeOverrides: model.rangeOverrides,
         modifierForIndex: model.modifierForIndex,
       };
     }),

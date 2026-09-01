@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Euler, Vector3 } from 'three';
 
-import { analyzePlacement, arrangeOnBed, duplicateDisplayName, flatSurfaceCandidates, largestFaceDownRotation, surfaceDownRotation } from './objectTools';
+import { analyzePlacement, arrangeOnBed, duplicateDisplayName, flatSurfaceCandidates, largestFaceDownRotation, stackedDragPosition, surfaceDownRotation } from './objectTools';
 
 describe('object placement tools', () => {
   it('detects scaled objects outside the bed and overlapping objects', () => {
@@ -17,6 +17,31 @@ describe('object placement tools', () => {
     expect(issues.a).toContain('outside');
     expect(issues.a).toContain('overlap');
     expect(issues.b).toContain('overlap');
+  });
+
+  it('stacks a dragged model on the highest intersected model and returns it to the bed when clear', () => {
+    const bounds = {
+      moving: { x: 10, y: 10, z: 5 },
+      lower: { x: 20, y: 20, z: 10 },
+      upper: { x: 10, y: 10, z: 10 },
+    };
+    const positions = {
+      moving: { x: 60, y: 60 },
+      lower: { x: 20, y: 20, z: 0 },
+      upper: { x: 20, y: 20, z: 10 },
+    };
+
+    expect(stackedDragPosition('moving', 20, 20, ['moving', 'lower', 'upper'], positions, bounds)).toEqual({ x: 20, y: 20, z: 20 });
+    expect(stackedDragPosition('moving', 60, 60, ['moving', 'lower', 'upper'], positions, bounds)).toEqual({ x: 60, y: 60, z: 0 });
+  });
+
+  it('allows vertically stacked objects to share an XY footprint without an overlap warning', () => {
+    const bounds = { a: { x: 10, y: 10, z: 10 }, b: { x: 10, y: 10, z: 10 } };
+    const bed = { x: 100, y: 100, z: 20 };
+
+    expect(analyzePlacement(['a', 'b'], { a: { x: 20, y: 20, z: 0 }, b: { x: 20, y: 20, z: 10 } }, bounds, {}, {}, bed)).toEqual({});
+    expect(analyzePlacement(['a', 'b'], { a: { x: 20, y: 20, z: 0 }, b: { x: 20, y: 20, z: 9 } }, bounds, {}, {}, bed).b).toContain('overlap');
+    expect(analyzePlacement(['a', 'b'], { a: { x: 20, y: 20, z: 0 }, b: { x: 20, y: 20, z: 11 } }, bounds, {}, {}, bed).b).toContain('outside');
   });
 
   it('arranges model footprints on the bed without overlap', () => {

@@ -13,11 +13,13 @@ import { HeaderMoreMenu } from './components/HeaderMoreMenu';
 import { MobileActionsMenu } from './components/MobileActionsMenu';
 import { PrintToPrinterModal } from './components/PrintToPrinterModal';
 import { ProjectNotice } from './components/ProjectNotice';
+import { ModelToolsPopover } from './components/ModelToolsPopover';
 import { SupportLink } from './components/ProjectLinks';
 import { useSlicerWorkspace } from './hooks/useSlicerWorkspace';
 import { useUsageSession } from './hooks/useUsageSession';
 import { addMeasurementPoint, type MeasurementPoint } from './lib/measurement';
 import { isEditableShortcutTarget } from './lib/historyShortcuts';
+import { stackedDragPosition } from './lib/objectTools';
 
 export function SlicerWorkspace() {
   const workspace = useSlicerWorkspace();
@@ -31,6 +33,7 @@ export function SlicerWorkspace() {
   const [expandedViewer, setExpandedViewer] = useState<'model' | 'gcode' | null>(null);
   const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
   const [printModalOpen, setPrintModalOpen] = useState(false);
+  const [modelToolsOpen, setModelToolsOpen] = useState(false);
   const measurementActive = workspace.ui.measurementActive;
   const setMeasurementActive = (value: boolean | ((current: boolean) => boolean)) => workspace.setUi((current) => ({
     ...current,
@@ -56,7 +59,8 @@ export function SlicerWorkspace() {
 
   useEffect(() => {
     if (surfaceSelectionTarget && surfaceSelectionTarget !== selectedFileId) setSurfaceSelectionTarget(null);
-  }, [selectedFileId, surfaceSelectionTarget]);
+    setModelToolsOpen(false);
+  }, [selectedFileId]);
 
   useEffect(() => {
     if (!surfaceSelectionTarget) return;
@@ -157,7 +161,14 @@ export function SlicerWorkspace() {
         <main className={`work-area ${workspace.gcode ? 'with-gcode' : ''} ${expandedViewer ? `expanded-${expandedViewer}` : ''}`}>
           <section className="model-stage">
             {workspace.models.length ? (
-              <ModelViewport ref={viewport} stlFiles={workspace.models} buildVolume={workspace.buildVolume} selectedFileId={selectedFileId} selectedFileIds={workspace.selectedFileIds} filePositions={workspace.positions} fileRotations={workspace.rotations} fileScales={workspace.scales} activeRange={activeRange} onSelectFile={workspace.selectFile} onSelectScene={workspace.selectScene} onDragStart={workspace.beginTransformChange} onPositionChange={(fileId, x, y) => workspace.setPositions((current) => ({ ...current, [fileId]: { x, y } }), false)} onGeometryBounds={workspace.setModelGeometryBounds} measurementActive={measurementActive} measurementPoints={measurementPoints} onMeasurementPoint={(point) => setMeasurementPoints((current) => addMeasurementPoint(current, point))} surfaceSelectionTarget={surfaceSelectionTarget} onSurfaceSelected={(fileId, rotation) => { workspace.setRotations((current) => ({ ...current, [fileId]: rotation })); setSurfaceSelectionTarget(null); }} xray={workspace.ui.xrayModel} />
+              <ModelViewport ref={viewport} stlFiles={workspace.models} buildVolume={workspace.buildVolume} selectedFileId={selectedFileId} selectedFileIds={workspace.selectedFileIds} filePositions={workspace.positions} fileRotations={workspace.rotations} fileScales={workspace.scales} activeRange={activeRange} onSelectFile={workspace.selectFile} onSelectScene={workspace.selectScene} onDragStart={workspace.beginTransformChange} onPositionChange={(fileId, x, y) => workspace.setPositions((current) => ({
+                ...current,
+                [fileId]: stackedDragPosition(
+                  fileId, x, y,
+                  workspace.models.filter((model) => !model.modifierFor).map((model) => model.fileId),
+                  current, workspace.modelBounds, workspace.scales, workspace.rotations,
+                ),
+              }), false)} onGeometryBounds={workspace.setModelGeometryBounds} measurementActive={measurementActive} measurementPoints={measurementPoints} onMeasurementPoint={(point) => setMeasurementPoints((current) => addMeasurementPoint(current, point))} surfaceSelectionTarget={surfaceSelectionTarget} onSurfaceSelected={(fileId, rotation) => { workspace.setRotations((current) => ({ ...current, [fileId]: rotation })); setSurfaceSelectionTarget(null); }} xray={workspace.ui.xrayModel} />
             ) : (
               <button className="empty-state" onClick={openFilePicker}><span><Box size={28} /></span><strong>Drop a model here</strong><p>Open an STL or STEP file to begin slicing.</p><em>Choose files</em></button>
             )}
@@ -189,6 +200,24 @@ export function SlicerWorkspace() {
                 onMirror={workspace.mirrorSelected}
                 onDuplicate={workspace.duplicateSelected}
                 onCenter={workspace.centerSelected}
+                onModelTools={selectedModel.modifierFor ? undefined : () => setModelToolsOpen((open) => !open)}
+                modelToolsOpen={modelToolsOpen}
+                modelToolsPopover={modelToolsOpen && !selectedModel.modifierFor && workspace.modelBounds[selectedFileId] && (() => {
+                  const dimensions = workspace.modelBounds[selectedFileId];
+                  return <ModelToolsPopover
+                    modelName={workspace.modelNames[selectedFileId] || selectedModel.fileName.replace(/\.[^.]+$/, '')}
+                    bounds={{ min: { x: -dimensions.x / 2, y: -dimensions.y / 2, z: 0 }, max: { x: dimensions.x / 2, y: dimensions.y / 2, z: dimensions.z } }}
+                    busy={workspace.modelToolBusy}
+                    onClose={() => setModelToolsOpen(false)}
+                    onRepair={() => workspace.performModelOperation(selectedFileId, { kind: 'repair' })}
+                    onSplit={() => workspace.performModelOperation(selectedFileId, { kind: 'split-shells' })}
+                    onCut={(axis, offset) => workspace.performModelOperation(selectedFileId, {
+                      kind: 'plane-cut',
+                      axis,
+                      offset: axis === 'z' ? offset - dimensions.z / 2 : offset,
+                    })}
+                  />;
+                })()}
                 surfaceSelectionActive={surfaceSelectionTarget === selectedFileId}
                 onSelectSurface={() => {
                   setMeasurementActive(false);

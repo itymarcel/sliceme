@@ -1,6 +1,6 @@
-import { AlignCenter, Copy, FlipHorizontal2, FlipVertical2, MousePointer2, Move3D, Rotate3D, RotateCw, Scaling } from 'lucide-react';
+import { AlignCenter, Copy, FlipHorizontal2, FlipVertical2, MousePointer2, Move3D, Rotate3D, RotateCw, Scaling, Wrench } from 'lucide-react';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import type { Position, Rotation, Scale } from '../types';
 
@@ -15,6 +15,9 @@ type Props = {
   onDuplicate?: () => void;
   onCenter?: () => void;
   onSelectSurface?: () => void;
+  onModelTools?: () => void;
+  modelToolsOpen?: boolean;
+  modelToolsPopover?: ReactNode;
   surfaceSelectionActive?: boolean;
 };
 
@@ -23,7 +26,7 @@ const number = (value: string) => (Number.isFinite(Number(value)) ? Number(value
 
 export function TransformPanel({
   position, rotation, scale = { x: 1, y: 1, z: 1 }, onPosition, onRotation,
-  onScale, onMirror, onDuplicate, onCenter, onSelectSurface, surfaceSelectionActive = false,
+  onScale, onMirror, onDuplicate, onCenter, onSelectSurface, onModelTools, modelToolsOpen = false, modelToolsPopover, surfaceSelectionActive = false,
 }: Props) {
   const [focused, setFocused] = useState<string | null>(null);
   return (
@@ -113,10 +116,14 @@ export function TransformPanel({
           {onCenter && <button className="transform-action" type="button" aria-label="Center object" title="Center object" onClick={onCenter}><AlignCenter size={13} /></button>}
         </div>
       )}
-      {(onDuplicate || onSelectSurface) && (
+      {(onDuplicate || onSelectSurface || onModelTools) && (
         <div className="object-quick-actions">
           {onDuplicate && <button type="button" aria-label="Duplicate object" onClick={onDuplicate}><Copy size={13} /> Duplicate</button>}
           {onSelectSurface && <button type="button" className={surfaceSelectionActive ? 'active' : undefined} aria-label={surfaceSelectionActive ? 'Cancel flat surface selection' : 'Select flat surface'} aria-pressed={surfaceSelectionActive} onClick={onSelectSurface}><MousePointer2 size={13} /> {surfaceSelectionActive ? 'Cancel' : 'Select flat'}</button>}
+          {onModelTools && <div className="model-tools-trigger">
+            <button type="button" aria-label="Open model tools" aria-expanded={modelToolsOpen} onClick={(event) => { event.stopPropagation(); onModelTools(); }}><Wrench size={13} /> Model tools</button>
+            {modelToolsPopover}
+          </div>}
         </div>
       )}
     </div>

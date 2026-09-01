@@ -13,7 +13,7 @@ describe('object tree tools', () => {
   it('supports additive selection, renaming, and placement warnings', () => {
     const onSelectFile = vi.fn();
     const onRename = vi.fn();
-    render(<ObjectTree
+    const { container } = render(<ObjectTree
       models={[model]} ranges={{}} selected={{ type: 'file', fileId: 'a' }} selectedFileIds={['a']}
       modelNames={{ a: 'Part' }} placementIssues={{ a: ['outside', 'overlap'] }}
       onSelect={vi.fn()} onSelectFile={onSelectFile} onRename={onRename}
@@ -23,15 +23,21 @@ describe('object tree tools', () => {
     expect(screen.getByText('Objects')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Select Part' }), { ctrlKey: true });
     expect(onSelectFile).toHaveBeenCalledWith('a', true);
+    fireEvent.click(screen.getByRole('button', { name: 'Rename object' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Object name' }), { target: { value: 'Renamed' } });
     fireEvent.blur(screen.getByRole('textbox', { name: 'Object name' }));
     expect(onRename).toHaveBeenCalledWith('a', 'Renamed');
     onRename.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Rename object' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Object name' }), { target: { value: '   ' } });
     fireEvent.blur(screen.getByRole('textbox', { name: 'Object name' }));
-    expect((screen.getByRole('textbox', { name: 'Object name' }) as HTMLInputElement).value).toBe('Part');
+    expect(screen.getByText('Part')).toBeTruthy();
     expect(onRename).not.toHaveBeenCalled();
     expect(screen.getByRole('status').getAttribute('aria-label')).toBe('Part is outside the bed and overlaps another object');
+    expect(screen.getByRole('status').getAttribute('title')).toBe('Part is outside the bed and overlaps another object');
+    onSelectFile.mockClear();
+    fireEvent.click(container.querySelector('.tree-object .tree-row')!);
+    expect(onSelectFile).toHaveBeenCalledWith('a', false);
   });
 
   it('nests modifier meshes under their parent and can add another modifier', () => {
@@ -43,7 +49,7 @@ describe('object tree tools', () => {
       onRemoveModel={vi.fn()} onAddRange={vi.fn()} onRemoveRange={vi.fn()}
     />);
 
-    expect(screen.getByDisplayValue('Dense zone')).toBeTruthy();
+    expect(screen.getByText('Dense zone')).toBeTruthy();
     expect(screen.getAllByText('Modifier')).toHaveLength(2);
     fireEvent.click(screen.getByRole('button', { name: 'Add modifier to Part' }));
     expect(onAddModifier).toHaveBeenCalledWith('a');

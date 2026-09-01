@@ -366,6 +366,7 @@ async def import_project(project: UploadFile = File(...)):
                 "name": model.name,
                 "position": model.position,
                 "overrides": model.overrides,
+                "rangeOverrides": model.range_overrides,
                 "modifierForIndex": model.modifier_for_index,
             })
         package.writestr("manifest.json", json.dumps({"config": imported.config, "models": manifest_models, "warnings": imported.warnings}))

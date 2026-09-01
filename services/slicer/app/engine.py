@@ -191,6 +191,13 @@ def _validate_export_layer_heights(session, project_config: dict) -> None:
         machine = bundle.get('machine_config', {})
         if 'layer_height' in process:
             checks.append((f'Object {file_id}', process['layer_height'], machine.get('nozzle_diameter', project_nozzle)))
+    for file_id, ranges in (session.range_overrides or {}).items():
+        object_machine = (session.file_overrides or {}).get(str(file_id), {}).get('machine_config', {})
+        object_nozzle = object_machine.get('nozzle_diameter', project_nozzle)
+        for idx, range_override in enumerate(ranges):
+            process = range_override.get('process_config', {}) if isinstance(range_override, dict) else {}
+            if 'layer_height' in process:
+                checks.append((f'Object {file_id} range {idx}', process['layer_height'], object_nozzle))
     for scope, raw_height, raw_nozzle in checks:
         if raw_height is None or raw_nozzle is None:
             continue
@@ -216,6 +223,7 @@ def validate_range_overrides(range_overrides: dict):
         if not isinstance(ranges, list):
             raise ValueError(f"range_overrides[{file_id}] must be a list")
 
+        layer_height_intervals = []
         for idx, range_override in enumerate(ranges):
             if not isinstance(range_override, dict):
                 raise ValueError(f"range_overrides[{file_id}][{idx}] must be an object")
@@ -233,6 +241,31 @@ def validate_range_overrides(range_overrides: dict):
                             f"{config_key}.{opt_key} is not supported in range overrides. "
                             f"Set it in the session-level config instead."
                         )
+
+            process = range_override.get('process_config', {})
+            if 'layer_height' not in process:
+                continue
+            try:
+                min_z = float(range_override.get('range', {}).get('min_z'))
+                max_z = float(range_override.get('range', {}).get('max_z'))
+                layer_height = float(process['layer_height'])
+            except (TypeError, ValueError) as error:
+                raise ValueError(f"range_overrides[{file_id}][{idx}] layer-height values must be finite numbers") from error
+            if not all(math.isfinite(value) for value in (min_z, max_z, layer_height)):
+                raise ValueError(f"range_overrides[{file_id}][{idx}] layer-height values must be finite numbers")
+            if min_z < 0 or max_z <= min_z:
+                raise ValueError(f"range_overrides[{file_id}][{idx}] must satisfy 0 <= min_z < max_z")
+            if layer_height <= 0:
+                raise ValueError(f"range_overrides[{file_id}][{idx}] layer height must be positive")
+            layer_height_intervals.append((min_z, max_z, idx))
+
+        layer_height_intervals.sort()
+        for previous, current in zip(layer_height_intervals, layer_height_intervals[1:]):
+            if current[0] < previous[1]:
+                raise ValueError(
+                    f"range_overrides[{file_id}] variable layer-height ranges must not overlap "
+                    f"(indices {previous[2]} and {current[2]})"
+                )
 
 
 def _transform_to_matrix(transform, z_lift: float = 0.0) -> list:
@@ -680,10 +713,13 @@ def _build_range_overrides_xml(session, stl_files) -> str:
     Build layer_config_ranges.xml from session.range_overrides.
 
     OrcaSlicer format: root is <objects>, options use text content (not value= attribute).
-    Object IDs match the 1-based indices used in 3dmodel.model.
+    Object IDs are 1-based logical printable-object ordinals; assembly resource IDs differ when modifiers exist.
     Returns None if there are no overrides.
     """
-    file_id_to_idx = {str(normal.file_id): object_id for normal, object_id, _parts in _model_object_layout(stl_files)}
+    file_id_to_idx = {
+        str(normal.file_id): logical_id
+        for logical_id, (normal, _resource_id, _parts) in enumerate(_model_object_layout(stl_files), 1)
+    }
     range_overrides = session.range_overrides or {}
 
     objects_xml = []
@@ -1911,6 +1947,7 @@ def build_3mf(session) -> bytes:
     path and produces worse output.
     """
     stl_files = list(session.stl_files.all())
+    validate_range_overrides(session.range_overrides or {})
     project_config = load_project_config(session)
     _validate_export_layer_heights(session, project_config)
 

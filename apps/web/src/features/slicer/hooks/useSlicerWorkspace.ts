@@ -13,7 +13,11 @@ import {
 import { defaultWorkspaceUi } from '../lib/workspaceUi';
 import { machineConfigForPreset, machineConfigWithBuildDimension, printConfigForPreset, PRINTER_PRESET_CONFIG_KEY } from '../lib/printerPresets';
 import { createWorkspaceHistory, recordWorkspaceChange as recordHistoryChange, redoWorkspaceChange, undoWorkspaceChange, type WorkspaceHistorySnapshot } from '../lib/workspaceHistory';
-import { analyzePlacement, arrangeOnBed, duplicateDisplayName, type ModelBounds } from '../lib/objectTools';
+import { analyzePlacement, arrangeOnBed, duplicateDisplayName, transformedFootprint, type ModelBounds } from '../lib/objectTools';
+import { parseGeometry } from '../lib/geometryParserClient';
+import { centerSourceGeometry, finalizeGeneratedGeometry, geometryToStlFile } from '../lib/meshOperations';
+import { runMeshOperation, type MeshOperation } from '../lib/meshOperationsClient';
+import { remapRangesToGeneratedPart } from '../lib/rangeOverrides';
 import type {
   BuildVolume,
   ConfigBundle,
@@ -120,6 +124,7 @@ export function useSlicerWorkspace() {
   const [enhancing, setEnhancing] = useState<GcodeEnhancement | null>(null);
   const [prefilling, setPrefilling] = useState(false);
   const [projectBusy, setProjectBusy] = useState<'importing' | 'exporting' | null>(null);
+  const [modelToolBusy, setModelToolBusy] = useState(false);
   const [projectNotice, setProjectNotice] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<number>(Date.now());
   const [persistenceReady, setPersistenceReady] = useState(false);
@@ -373,6 +378,120 @@ export function useSlicerWorkspace() {
     setStatus('idle');
   }, [buildVolume, positions, recordWorkspaceChange]);
 
+  const performModelOperation = useCallback(async (fileId: string, operation: MeshOperation) => {
+    const source = models.find((model) => model.fileId === fileId);
+    if (!source || source.modifierFor || modelToolBusy) return;
+    setModelToolBusy(true);
+    setError(null);
+    try {
+      const sourceGeometry = centerSourceGeometry(await parseGeometry(await source.file.arrayBuffer(), source.fileName, { optimizeForPreview: false }));
+      const result = await runMeshOperation(sourceGeometry, operation);
+      if (operation.kind === 'plane-cut' && result.geometries.length !== 2) throw new Error('The cut plane did not produce two valid parts.');
+      if (operation.kind === 'split-shells' && result.geometries.length < 2) {
+        setProjectNotice('The selected model contains one connected shell. No changes were made.');
+        return;
+      }
+      const modifiers = models.filter((model) => model.modifierFor === fileId);
+      const generatedCount = result.geometries.length * (1 + modifiers.length);
+      const remainingCount = models.length - 1 - modifiers.length;
+      if (remainingCount + generatedCount > 12) throw new Error('This operation would exceed the 12-model project limit. Remove models or modifiers first.');
+
+      const transform = {
+        position: positions[fileId] ?? { x: buildVolume.x / 2, y: buildVolume.y / 2 },
+        rotation: rotations[fileId] ?? { x: 0, y: 0, z: 0 },
+        scale: scales[fileId] ?? { x: 1, y: 1, z: 1 },
+      };
+      const sourceName = modelNames[fileId] || source.fileName.replace(/\.[^.]+$/, '');
+      const sourceWorldBottom = finalizeGeneratedGeometry(sourceGeometry, transform).position.z;
+      const generatedRoots = result.geometries.map((geometry, index) => {
+        const finalized = finalizeGeneratedGeometry(geometry, transform, sourceGeometry);
+        finalized.geometry.computeBoundingBox();
+        const partHeight = finalized.geometry.boundingBox
+          ? finalized.geometry.boundingBox.max.z - finalized.geometry.boundingBox.min.z
+          : 0;
+        const zOffset = finalized.position.z - sourceWorldBottom;
+        const suffix = operation.kind === 'repair' ? '' : operation.kind === 'plane-cut' ? ` part ${index + 1}` : ` shell ${index + 1}`;
+        const displayName = `${sourceName}${suffix}`;
+        const file = geometryToStlFile(finalized.geometry, `${displayName}.stl`);
+        const nextId = createClientId();
+        const objectUrl = URL.createObjectURL(file);
+        const model: SlicerModel = { fileId: nextId, fileName: file.name, fileSize: file.size, objectUrl, file };
+        modelUrls.current.add(objectUrl);
+        modelRegistry.current.set(nextId, model);
+        return { model, displayName, position: finalized.position, zOffset, partHeight };
+      });
+
+      const generatedModels: SlicerModel[] = [];
+      const generatedPositions: Record<string, Position> = {};
+      const generatedRotations: Record<string, Rotation> = {};
+      const generatedScales: Record<string, Scale> = {};
+      const generatedNames: Record<string, string> = {};
+      const generatedFileOverrides: Record<string, Partial<ConfigBundle>> = {};
+      const generatedRanges: Record<string, RangeOverride[]> = {};
+      const generatedStarts: Record<string, Position> = {};
+      generatedRoots.forEach(({ model, displayName, position, zOffset, partHeight }) => {
+        generatedModels.push(model);
+        generatedPositions[model.fileId] = position;
+        generatedRotations[model.fileId] = { x: 0, y: 0, z: 0 };
+        generatedScales[model.fileId] = { x: 1, y: 1, z: 1 };
+        generatedNames[model.fileId] = displayName;
+        generatedFileOverrides[model.fileId] = structuredClone(fileOverrides[fileId] ?? {});
+        generatedRanges[model.fileId] = remapRangesToGeneratedPart(rangeOverrides[fileId] ?? [], zOffset, partHeight);
+        if (startPositions[fileId]) generatedStarts[model.fileId] = { ...startPositions[fileId] };
+        modifiers.forEach((modifier) => {
+          const modifierId = createClientId();
+          const clone: SlicerModel = { ...modifier, fileId: modifierId, modifierFor: model.fileId };
+          modelRegistry.current.set(modifierId, clone);
+          generatedModels.push(clone);
+          generatedPositions[modifierId] = { ...(positions[modifier.fileId] ?? position) };
+          generatedRotations[modifierId] = { ...(rotations[modifier.fileId] ?? { x: 0, y: 0, z: 0 }) };
+          generatedScales[modifierId] = { ...(scales[modifier.fileId] ?? { x: 1, y: 1, z: 1 }) };
+          generatedNames[modifierId] = modelNames[modifier.fileId] || modifier.fileName.replace(/\.[^.]+$/, '');
+          generatedFileOverrides[modifierId] = structuredClone(fileOverrides[modifier.fileId] ?? {});
+          generatedRanges[modifierId] = structuredClone(rangeOverrides[modifier.fileId] ?? []);
+          if (startPositions[modifier.fileId]) generatedStarts[modifierId] = { ...startPositions[modifier.fileId] };
+        });
+      });
+
+      const removedIds = new Set([fileId, ...modifiers.map((modifier) => modifier.fileId)]);
+      const sourceIndex = models.findIndex((model) => model.fileId === fileId);
+      const withoutSource = models.filter((model) => !removedIds.has(model.fileId));
+      const insertionIndex = models.slice(0, sourceIndex).filter((model) => !removedIds.has(model.fileId)).length;
+      const nextModels = [...withoutSource.slice(0, insertionIndex), ...generatedModels, ...withoutSource.slice(insertionIndex)];
+      const replaceMetadata = <T,>(current: Record<string, T>, generated: Record<string, T>) => {
+        const next = { ...current };
+        removedIds.forEach((id) => delete next[id]);
+        return { ...next, ...generated };
+      };
+
+      recordWorkspaceChange();
+      setModels(nextModels);
+      setPositions((current) => replaceMetadata(current, generatedPositions));
+      setRotations((current) => replaceMetadata(current, generatedRotations));
+      setScales((current) => replaceMetadata(current, generatedScales));
+      setModelNames((current) => replaceMetadata(current, generatedNames));
+      setFileOverrides((current) => replaceMetadata(current, generatedFileOverrides));
+      setRangeOverrides((current) => replaceMetadata(current, generatedRanges));
+      setStartPositions((current) => replaceMetadata(current, generatedStarts));
+      setModelBounds((current) => replaceMetadata(current, {}));
+      const selectedRootIds = generatedRoots.map(({ model }) => model.fileId);
+      setSelectedFileIds(selectedRootIds);
+      setSelectedNode({ type: 'file', fileId: selectedRootIds[0] });
+      replaceGcode(null);
+      setStatus('idle');
+      const report = operation.kind === 'repair'
+        ? `Repaired mesh: ${result.report.removedDegenerateTriangles ?? 0} degenerate, ${result.report.removedDuplicateTriangles ?? 0} duplicate triangles removed; ${result.report.filledHoles ?? 0} planar holes filled.`
+        : operation.kind === 'split-shells'
+          ? `Split model into ${result.geometries.length} connected shells.`
+          : 'Cut model into two closed parts.';
+      setProjectNotice(report);
+    } catch (operationError) {
+      setError(operationError instanceof Error ? operationError.message : 'Model operation failed');
+    } finally {
+      setModelToolBusy(false);
+    }
+  }, [buildVolume, fileOverrides, modelNames, modelToolBusy, models, positions, rangeOverrides, recordWorkspaceChange, replaceGcode, rotations, scales, startPositions]);
+
   const sliceManifest = useCallback((): SliceManifest => ({
     models: models.map((model) => ({ id: model.fileId, name: modelNames[model.fileId] || model.fileName, ...(model.modifierFor ? { modifierFor: model.modifierFor } : {}) })),
     config,
@@ -402,7 +521,7 @@ export function useSlicerWorkspace() {
       const nextModels: SlicerModel[] = [];
       const importedIds = imported.models.map(() => createClientId());
       try {
-        imported.models.forEach(({ file, position, overrides, modifierForIndex }, index) => {
+        imported.models.forEach(({ file, position, overrides, rangeOverrides: importedRanges, modifierForIndex }, index) => {
           const fileId = importedIds[index];
           const modifierFor = modifierForIndex === null ? undefined : importedIds[modifierForIndex];
           const objectUrl = URL.createObjectURL(file);
@@ -410,7 +529,7 @@ export function useSlicerWorkspace() {
           nextRotations[fileId] = { x: 0, y: 0, z: 0 };
           nextScales[fileId] = { x: 1, y: 1, z: 1 };
           nextNames[fileId] = file.name.replace(/\.[^.]+$/, '');
-          nextRanges[fileId] = [];
+          nextRanges[fileId] = importedRanges;
           if (Object.keys(overrides).length) nextOverrides[fileId] = overrides;
           nextModels.push({ fileId, fileName: file.name, fileSize: file.size, objectUrl, file, ...(modifierFor ? { modifierFor } : {}) });
         });
@@ -853,9 +972,9 @@ export function useSlicerWorkspace() {
   }, [replaceGcode, reportPersistenceError]);
 
   return {
-    models, config, printerPresets, printPresets, fileOverrides, rangeOverrides, positions, rotations, scales, modelNames, selectedFileIds, placementIssues, selectedNode, gcode,
-    status, error, defaultsLoading, buildVolume, startPositions, enhancing, prefilling, projectBusy, projectNotice, lastUpdated, ui, setUi,
-    setSelectedNode, selectFile, selectScene, selectNode, addModels, removeModel, renameModel, duplicateSelected, autoArrange, centerSelected, mirrorSelected, setModelGeometryBounds, setSetting, applyPrinterPreset, applyPrintPreset, addRange, removeRange,
+    models, config, printerPresets, printPresets, fileOverrides, rangeOverrides, positions, rotations, scales, modelNames, modelBounds, selectedFileIds, placementIssues, selectedNode, gcode,
+    status, error, defaultsLoading, buildVolume, startPositions, enhancing, prefilling, projectBusy, projectNotice, modelToolBusy, lastUpdated, ui, setUi,
+    setSelectedNode, selectFile, selectScene, selectNode, addModels, removeModel, renameModel, duplicateSelected, autoArrange, centerSelected, mirrorSelected, setModelGeometryBounds, performModelOperation, setSetting, applyPrinterPreset, applyPrintPreset, addRange, removeRange,
     setRangeBoundary, setPositions: setPositionsWithHistory, setRotations: setRotationsWithHistory, setScales: setScalesWithHistory, beginTransformChange, slice, cancelSlice, enhanceGcode, prefillSettings,
     clearAiFieldHighlight, updateGcodeSource, dismissError, showNotice: (message: string) => setProjectNotice(message), dismissProjectNotice: () => setProjectNotice(null), importProject, exportProject, clear,
     undo, redo, canUndo: history.past.length > 0, canRedo: history.future.length > 0,

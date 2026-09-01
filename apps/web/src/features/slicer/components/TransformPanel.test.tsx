@@ -8,6 +8,21 @@ import { TransformPanel } from './TransformPanel';
 afterEach(cleanup);
 
 describe('transform controls', () => {
+  it('keeps model-tool trigger clicks from immediately closing the attached popover', () => {
+    const onParentClick = vi.fn();
+    const onModelTools = vi.fn();
+    render(<div onClick={onParentClick}><TransformPanel
+      position={{ x: 0, y: 0 }} rotation={{ x: 0, y: 0, z: 0 }}
+      onPosition={vi.fn()} onRotation={vi.fn()} onModelTools={onModelTools}
+      modelToolsOpen modelToolsPopover={<div>Attached tools</div>}
+    /></div>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open model tools' }));
+
+    expect(onModelTools).toHaveBeenCalledOnce();
+    expect(onParentClick).not.toHaveBeenCalled();
+    expect(screen.getByText('Attached tools')).toBeTruthy();
+  });
   it('keeps every axis editable without adjacent information buttons and without position/rotation text labels', () => {
     const { container } = render(<TransformPanel position={{ x: 0, y: 0 }} rotation={{ x: 0, y: 0, z: 0 }} onPosition={vi.fn()} onRotation={vi.fn()} />);
 

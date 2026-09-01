@@ -9,7 +9,7 @@ const styles = readFileSync(fileURLToPath(new URL('../../styles.css', import.met
 describe('slice button icon and mobile undo/redo disabled state', () => {
   it('uses the Lucide Slice icon on the Slice button instead of scissors', () => {
     expect(workspace).not.toContain('Scissors');
-    expect(workspace).toContain("import { Box, Download, Eraser, FileUp, LoaderCircle, OctagonX, Redo2, ShieldCheck, SlidersHorizontal, Slice, Undo2, X } from 'lucide-react';");
+    expect(workspace).toMatch(/import \{[^}]*\bSlice\b[^}]*\} from 'lucide-react';/);
     const sliceButtons = workspace.match(/Slice size=\{\d+\} \/> Slice<\/button>/g) ?? [];
     expect(sliceButtons.length).toBeGreaterThanOrEqual(2);
   });

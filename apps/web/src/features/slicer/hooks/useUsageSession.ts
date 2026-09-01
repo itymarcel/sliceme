@@ -1,12 +1,14 @@
 import { useEffect, useRef } from 'react';
 
+import { createClientId } from '../lib/createClientId';
+
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? '';
 const SESSION_KEY = 'sliceme.usage-session-id';
 
 export function getUsageSessionId(): string {
   const existing = sessionStorage.getItem(SESSION_KEY);
   if (existing) return existing;
-  const created = crypto.randomUUID();
+  const created = createClientId();
   sessionStorage.setItem(SESSION_KEY, created);
   return created;
 }

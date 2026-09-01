@@ -72,6 +72,40 @@ class EngineTest(unittest.TestCase):
         modifier_values = {item.get("key"): item.get("value") for item in parts[1].findall("./metadata")}
         self.assertEqual(modifier_values["sparse_infill_density"], "80%")
 
+    def test_range_height_uses_logical_object_id_with_modifier(self):
+        job = SliceJob(
+            models=[
+                UploadedModel("model-1", "part.stl", triangle_stl()),
+                UploadedModel("modifier-1", "modifier.stl", triangle_stl(), modifier_for="model-1"),
+            ],
+            config=default_config(),
+            transforms={},
+            range_overrides={"model-1": [{
+                "purpose": "variable_layer",
+                "range": {"min_z": 1, "max_z": 5},
+                "machine_config": {},
+                "process_config": {"layer_height": "0.1"},
+                "filament_config": {},
+            }]},
+        )
+
+        archive = build_3mf(job)
+        with zipfile.ZipFile(io.BytesIO(archive)) as package:
+            ranges = ET.fromstring(package.read("Metadata/layer_config_ranges.xml"))
+
+        self.assertEqual(ranges.find("./object").get("id"), "1")
+        self.assertEqual(ranges.find("./object/range/option[@opt_key='layer_height']").text, "0.1")
+
+    def test_rejects_overlapping_variable_layer_ranges(self):
+        job = self.job()
+        job.range_overrides = {"model-1": [
+            {"range": {"min_z": 0, "max_z": 4}, "process_config": {"layer_height": "0.2"}, "machine_config": {}, "filament_config": {}},
+            {"range": {"min_z": 3, "max_z": 6}, "process_config": {"layer_height": "0.1"}, "machine_config": {}, "filament_config": {}},
+        ]}
+
+        with self.assertRaisesRegex(ValueError, "must not overlap"):
+            build_3mf(job)
+
     def test_scale_and_mirror_are_embedded_in_build_transform(self):
         job = self.job()
         job.transforms["model-1"]["scale"] = {"x": -2, "y": 1.5, "z": 1}

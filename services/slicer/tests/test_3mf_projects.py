@@ -89,6 +89,28 @@ class OrcaProjectImportTest(unittest.TestCase):
         self.assertEqual(imported.models[0].overrides["filament_config"]["filament_type"], "PETG")
         self.assertEqual(imported.models[1].overrides["process_config"]["sparse_infill_density"], "80%")
 
+    def test_imports_variable_layer_height_ranges(self):
+        source = zipfile.ZipFile(io.BytesIO(project_archive()))
+        output = io.BytesIO()
+        with source, zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as package:
+            for info in source.infolist():
+                package.writestr(info.filename, source.read(info.filename))
+            package.writestr("Metadata/layer_config_ranges.xml", '''<objects><object id="1">
+              <range min_z="2" max_z="8"><option opt_key="layer_height">0.12</option></range>
+            </object></objects>''')
+
+        imported = import_orca_project(output.getvalue(), {
+            "machine_config": {}, "process_config": {"layer_height": "0.2"}, "filament_config": {},
+        })
+
+        self.assertEqual(imported.models[0].range_overrides, [{
+            "purpose": "variable_layer",
+            "range": {"min_z": 2.0, "max_z": 8.0},
+            "machine_config": {},
+            "process_config": {"layer_height": "0.12"},
+            "filament_config": {},
+        }])
+
     def test_imports_mesh_name_position_and_settings(self):
         defaults = {
             "machine_config": {"nozzle_diameter": "0.4"},
