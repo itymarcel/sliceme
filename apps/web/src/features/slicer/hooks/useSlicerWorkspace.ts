@@ -18,6 +18,7 @@ import { parseGeometry } from '../lib/geometryParserClient';
 import { centerSourceGeometry, finalizeGeneratedGeometry, geometryToStlFile } from '../lib/meshOperations';
 import { runMeshOperation, type MeshOperation } from '../lib/meshOperationsClient';
 import { remapRangesToGeneratedPart } from '../lib/rangeOverrides';
+import { exportedAssemblyFor } from '../lib/multipartExport';
 import type {
   BuildVolume,
   ConfigBundle,
@@ -504,12 +505,15 @@ export function useSlicerWorkspace() {
   }, [buildVolume, fileOverrides, modelNames, modelToolBusy, models, positions, rangeOverrides, recordWorkspaceChange, replaceGcode, rotations, scales, startPositions]);
 
   const sliceManifest = useCallback((): SliceManifest => ({
-    models: models.map((model) => ({
-      id: model.fileId,
-      name: modelNames[model.fileId] || model.fileName,
-      ...(model.modifierFor ? { modifierFor: model.modifierFor } : {}),
-      ...(model.assemblyFor ? { assemblyFor: model.assemblyFor } : {}),
-    })),
+    models: models.map((model) => {
+      const assemblyFor = exportedAssemblyFor(model, models, positions);
+      return {
+        id: model.fileId,
+        name: modelNames[model.fileId] || model.fileName,
+        ...(model.modifierFor ? { modifierFor: model.modifierFor } : {}),
+        ...(assemblyFor ? { assemblyFor } : {}),
+      };
+    }),
     config,
     fileOverrides,
     rangeOverrides,

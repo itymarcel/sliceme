@@ -511,7 +511,7 @@ def _parse_binary_stl(stl_bytes: bytes) -> tuple:
     return vertices, triangles
 
 
-def _model_object_layout(model_files) -> list[tuple[object, int, list[tuple[object, int, str]]]]:
+def _model_object_layout(model_files) -> list[tuple[UploadedModel, int, list[tuple[UploadedModel, int, str]]]]:
     """Map printable models and modifier meshes to Orca object/part IDs."""
     files = list(model_files)
     by_id = {str(model.file_id): model for model in files}
@@ -729,9 +729,40 @@ def _build_3dmodel_xml(stl_bytes_list: list, per_object_transforms: list = None,
     )
 
 
-def _build_range_overrides_xml(session, stl_files) -> str:
+def _multipart_layer_height_ranges(session, stl_files, stl_bytes_list, bed_center) -> dict:
+    """Translate multipart object layer heights into Orca world-Z ranges."""
+    if not stl_bytes_list:
+        return {}
+    files = list(stl_files)
+    file_index = {str(model.file_id): index for index, model in enumerate(files)}
+    derived = {}
+    for root, _resource_id, parts in _model_object_layout(files):
+        normal_parts = [part for part, _part_id, subtype in parts if subtype == 'normal_part']
+        if len(normal_parts) <= 1:
+            continue
+        for part in normal_parts:
+            process = (session.file_overrides or {}).get(str(part.file_id), {}).get('process_config', {})
+            if 'layer_height' not in process:
+                continue
+            index = file_index[str(part.file_id)]
+            vertices, _triangles = _parse_binary_stl(stl_bytes_list[index])
+            transform = _build_affine_from_item_transform(
+                (session.transforms or {}).get(str(part.file_id)), vertices, bed_center,
+            )
+            m02, m12, m22, tz = transform[2], transform[5], transform[8], transform[11]
+            world_z = [m02 * x + m12 * y + m22 * z + tz for x, y, z in vertices]
+            derived.setdefault(str(root.file_id), []).append({
+                'range': {'min_z': min(world_z), 'max_z': max(world_z)},
+                'process_config': {'layer_height': process['layer_height']},
+                'machine_config': {},
+                'filament_config': {},
+            })
+    return derived
+
+
+def _build_range_overrides_xml(session, stl_files, stl_bytes_list=None, bed_center=(0.0, 0.0)) -> str:
     """
-    Build layer_config_ranges.xml from session.range_overrides.
+    Build layer_config_ranges.xml from explicit ranges and multipart object layer heights.
 
     OrcaSlicer format: root is <objects>, options use text content (not value= attribute).
     Object IDs are 1-based logical printable-object ordinals; assembly resource IDs differ when modifiers exist.
@@ -741,7 +772,14 @@ def _build_range_overrides_xml(session, stl_files) -> str:
         str(normal.file_id): logical_id
         for logical_id, (normal, _resource_id, _parts) in enumerate(_model_object_layout(stl_files), 1)
     }
-    range_overrides = session.range_overrides or {}
+    range_overrides = {
+        str(file_id): list(ranges)
+        for file_id, ranges in (session.range_overrides or {}).items()
+    }
+    for root_id, ranges in _multipart_layer_height_ranges(
+        session, stl_files, stl_bytes_list, bed_center,
+    ).items():
+        range_overrides.setdefault(root_id, []).extend(ranges)
 
     objects_xml = []
     for file_id_str, ranges in range_overrides.items():
@@ -818,8 +856,11 @@ def _build_model_settings_xml(session, stl_files) -> str:
     for normal, object_id, parts in _model_object_layout(stl_files):
         name = escape(str(getattr(normal, 'file_name', f'object{object_id}')))
         normal_overrides = file_overrides.get(str(normal.file_id), {})
+        normal_part_count = sum(1 for _part, _part_id, subtype in parts if subtype == 'normal_part')
         object_settings_meta = []
         for opt_key, opt_val in normal_overrides.get('process_config', {}).items():
+            if normal_part_count > 1 and opt_key == 'layer_height':
+                continue
             normalized_val = _normalize_orca_value(opt_val)
             if normalized_val is not None:
                 object_settings_meta.append(
@@ -827,7 +868,6 @@ def _build_model_settings_xml(session, stl_files) -> str:
                 )
 
         part_xml = []
-        normal_part_count = sum(1 for _part, _part_id, subtype in parts if subtype == 'normal_part')
         for part, part_id, subtype in parts:
             part_name = escape(str(getattr(part, 'file_name', f'part{part_id}')))
             overrides = file_overrides.get(str(part.file_id), {})
@@ -839,6 +879,8 @@ def _build_model_settings_xml(session, stl_files) -> str:
             part_settings_meta = []
             for config_key in config_sections:
                 for opt_key, opt_val in overrides.get(config_key, {}).items():
+                    if normal_part_count > 1 and subtype == 'normal_part' and opt_key == 'layer_height':
+                        continue
                     normalized_val = _normalize_orca_value(opt_val)
                     if normalized_val is not None:
                         part_settings_meta.append(
@@ -2011,7 +2053,9 @@ def build_3mf(session) -> bytes:
         # and to recognise the file as a native project (required for transform respect)
         zf.writestr('Metadata/model_settings.config', _build_model_settings_xml(session, stl_files))
         # Range modifiers (e.g. variable layer height) — only written when present
-        range_xml = _build_range_overrides_xml(session, stl_files)
+        range_xml = _build_range_overrides_xml(
+            session, stl_files, stl_bytes_list=stl_bytes_list, bed_center=bed_center,
+        )
         if range_xml:
             zf.writestr('Metadata/layer_config_ranges.xml', range_xml)
         custom_gcode_xml = _build_custom_gcode_per_layer_xml(session)

@@ -23,6 +23,23 @@ def triangle_stl() -> bytes:
     return header + struct.pack("<I", 1) + triangle
 
 
+def box_stl(min_z: float, max_z: float) -> bytes:
+    vertices = [
+        (0, 0, min_z), (20, 0, min_z), (20, 20, min_z), (0, 20, min_z),
+        (0, 0, max_z), (20, 0, max_z), (20, 20, max_z), (0, 20, max_z),
+    ]
+    faces = [
+        (0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7),
+        (0, 1, 5), (0, 5, 4), (1, 2, 6), (1, 6, 5),
+        (2, 3, 7), (2, 7, 6), (3, 0, 4), (3, 4, 7),
+    ]
+    payload = bytearray(b"standalone-box".ljust(80, b"\0"))
+    payload.extend(struct.pack("<I", len(faces)))
+    for a, b, c in faces:
+        payload.extend(struct.pack("<12fH", 0, 0, 0, *vertices[a], *vertices[b], *vertices[c], 0))
+    return bytes(payload)
+
+
 class EngineTest(unittest.TestCase):
     def job(self) -> SliceJob:
         return SliceJob(
@@ -96,6 +113,39 @@ class EngineTest(unittest.TestCase):
             [part.get("subtype") for part in settings_root.findall("./object/part")],
             ["normal_part", "normal_part"],
         )
+
+    def test_converts_multipart_layer_height_overrides_to_world_z_ranges(self):
+        config = default_config()
+        config["process_config"]["layer_height"] = "0.8"
+        config["machine_config"]["nozzle_diameter"] = ["1.0"]
+        job = SliceJob(
+            models=[
+                UploadedModel("lower", "lower.stl", box_stl(0, 10)),
+                UploadedModel("upper", "upper.stl", box_stl(0, 10), assembly_for="lower"),
+            ],
+            config=config,
+            file_overrides={"upper": {"process_config": {"layer_height": "0.1"}}},
+            transforms={
+                "lower": {"position": {"x": 100, "y": 100, "z": 0}, "rotation": {"x": 0, "y": 0, "z": 0}},
+                "upper": {"position": {"x": 100, "y": 100, "z": 10}, "rotation": {"x": 0, "y": 0, "z": 0}},
+            },
+        )
+
+        archive = build_3mf(job)
+        with zipfile.ZipFile(io.BytesIO(archive)) as package:
+            ranges = ET.fromstring(package.read("Metadata/layer_config_ranges.xml"))
+            settings = ET.fromstring(package.read("Metadata/model_settings.config"))
+
+        layer_range = ranges.find("./object/range/option[@opt_key='layer_height']/..")
+        if layer_range is None:
+            self.fail("multipart layer-height range is missing")
+        layer_option = layer_range.find("./option[@opt_key='layer_height']")
+        if layer_option is None:
+            self.fail("multipart layer-height option is missing")
+        self.assertEqual((float(layer_range.get("min_z")), float(layer_range.get("max_z"))), (10.0, 20.0))
+        self.assertEqual(layer_option.text, "0.1")
+        part_layer_heights = settings.findall("./object/part/metadata[@key='layer_height']")
+        self.assertEqual(part_layer_heights, [])
 
     def test_range_height_uses_logical_object_id_with_modifier(self):
         job = SliceJob(
