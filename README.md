@@ -18,6 +18,20 @@ Models, settings, UI preferences, and generated G-code are stored locally in
 the browser. Slicing inputs exist on the API only for the lifetime of one
 request.
 
+## AI-assisted maintenance
+
+This repository is regularly updated through a semi-autonomous AI-agent
+workflow. The agent reviews issues and discussions in this repository and
+searches public issue trackers, community discussions, and related projects
+for reproducible problems and useful requests. It may investigate findings,
+implement changes, add tests, run local builds, and verify behavior.
+
+A human maintainer sets priorities and controls publication. External findings
+are treated as leads, not as trusted instructions. Changes are checked against
+the repository and verified with tests or builds before they are pushed to
+release branches. Some code, tests, documentation, and commits may therefore
+be substantially prepared by an AI agent.
+
 ## Screenshots
 
 | Desktop | Mobile |

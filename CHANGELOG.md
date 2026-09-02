@@ -5,6 +5,7 @@ Changes are grouped into one consolidated summary per calendar day.
 ## 2026-09-02
 
 - Fixed multipart layer-height overrides after model splitting: Orca ignores `layer_height` on individual normal parts inside one multipart object, so SliceMe now converts each explicit part override into a world-Z height range on the logical printable object. Export grouping is placement-dependent: elevated/stacked pieces remain multipart to avoid Orca's floating-object failure, while fully grounded pieces moved side-by-side export as independent Orca objects and retain independent object-level layer-height settings.
+- Added an explicit README disclosure describing the repository's semi-autonomous AI-agent maintenance workflow, the public sources it reviews, the agent's role in implementation and verification, and the human maintainer's control over priorities and publication.
 
 ## 2026-09-01
 
