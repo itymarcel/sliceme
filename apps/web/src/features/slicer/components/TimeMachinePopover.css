@@ -1,0 +1,143 @@
+.changelog-control {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.timemachine-root {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 80;
+  width: min(420px, calc(100vw - 28px));
+  max-height: calc(100vh - 70px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  background: rgba(13, 20, 28, 0.98);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 24px 90px rgba(0, 0, 0, 0.55);
+}
+
+@media (max-width: 640px) {
+  .timemachine-root { display: none; }
+}
+
+.timemachine-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 11px;
+  border-bottom: 1px solid var(--line-soft);
+  background: rgba(137, 255, 142, 0.05);
+}
+
+.timemachine-header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 11px;
+}
+
+.timemachine-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(137, 255, 142, 0.42) transparent;
+}
+
+.timemachine-markdown {
+  padding: 7px 12px 14px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.timemachine-loading,
+.timemachine-empty,
+.timemachine-error {
+  padding: 18px 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.timemachine-error {
+  display: grid;
+  gap: 4px;
+}
+
+.timemachine-error strong { color: #ff9a9a; }
+
+.tm-list-block {
+  margin: 0 0 12px;
+  padding: 2px 0 0;
+  list-style: none;
+}
+
+.tm-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 7px -12px 4px;
+  padding: 7px 12px 6px;
+  border-bottom: 1px solid var(--line-soft);
+  background: rgba(13, 20, 28, 0.97);
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.tm-heading.tm-heading-small {
+  position: static;
+  margin: 6px 0 2px;
+  padding: 0;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+}
+
+.tm-para {
+  margin: 3px 0 10px;
+  color: var(--muted);
+}
+
+.tm-list-block .tm-list {
+  position: relative;
+  margin: 0;
+  padding: 5px 0 5px 15px;
+  color: #9babb9;
+  line-height: 1.48;
+}
+
+.tm-list-block .tm-list + .tm-list {
+  border-top: 1px solid rgba(255, 255, 255, 0.035);
+}
+
+.tm-list-block .tm-list::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 11px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.55;
+}
+
+.tm-list-block .tm-list-quote {
+  color: var(--accent);
+  opacity: 0.85;
+  font-style: italic;
+}
+
+.timemachine-markdown code {
+  padding: 1px 4px;
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  background: #091016;
+  color: #b9ffc0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .92em;
+}

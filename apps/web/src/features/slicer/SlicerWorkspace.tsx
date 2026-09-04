@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Download, Eraser, FileUp, LoaderCircle, OctagonX, Redo2, ShieldCheck, SlidersHorizontal, Slice, Undo2, X, Printer } from 'lucide-react';
+import { Box, Clock, Download, Eraser, FileUp, LoaderCircle, OctagonX, Redo2, ShieldCheck, SlidersHorizontal, Slice, Undo2, X, Printer } from 'lucide-react';
 
 import { GcodePreview } from './components/GcodePreview';
 import { AiPrefillPanel } from './components/AiPrefillPanel';
@@ -14,6 +14,8 @@ import { MobileActionsMenu } from './components/MobileActionsMenu';
 import { PrintToPrinterModal } from './components/PrintToPrinterModal';
 import { ProjectNotice } from './components/ProjectNotice';
 import { ModelToolsPopover } from './components/ModelToolsPopover';
+import { TimeMachinePopover } from './components/TimeMachinePopover';
+import './components/TimeMachinePopover.css';
 import { SupportLink } from './components/ProjectLinks';
 import { useSlicerWorkspace } from './hooks/useSlicerWorkspace';
 import { useUsageSession } from './hooks/useUsageSession';
@@ -32,6 +34,7 @@ export function SlicerWorkspace() {
   const [dragging, setDragging] = useState(false);
   const [expandedViewer, setExpandedViewer] = useState<'model' | 'gcode' | null>(null);
   const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
+  const [changelogOpen, setChangelogOpen] = useState(false);
   const [printModalOpen, setPrintModalOpen] = useState(false);
   const [modelToolsOpen, setModelToolsOpen] = useState(false);
   const measurementActive = workspace.ui.measurementActive;
@@ -116,7 +119,21 @@ export function SlicerWorkspace() {
       }} />
       <input ref={projectInput} hidden type="file" accept=".3mf" onChange={(event) => { const project = event.target.files?.[0]; if (project) void workspace.importProject(project); event.target.value = ''; }} />
       <header className="app-header">
-        <div className="header-left"><div className="privacy-note"><ShieldCheck size={14} /> Session saved locally in browser storage</div><SupportLink /><span className="version-label" aria-live="polite">Version: {new Date(workspace.lastUpdated).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span></div>
+        <div className="header-left"><div className="privacy-note"><ShieldCheck size={14} /> Session saved locally in browser storage</div><SupportLink /><span className="version-label" aria-live="polite">Version: {new Date(workspace.lastUpdated).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+          <div className="changelog-control desktop-only">
+            <button
+              className="icon-button"
+              type="button"
+              aria-label="Changelog"
+              aria-expanded={changelogOpen}
+              title="Changelog"
+              onClick={() => setChangelogOpen((current) => !current)}
+            >
+              <Clock size={16} />
+            </button>
+            <TimeMachinePopover open={changelogOpen} onClose={() => setChangelogOpen(false)} />
+          </div>
+        </div>
         <div className="header-history" aria-label="Edit history">
           <button className="icon-button" type="button" aria-label="Undo" title="Undo (Ctrl/Cmd+Z)" disabled={!workspace.canUndo} onClick={workspace.undo}><Undo2 size={16} /></button>
           <button className="icon-button" type="button" aria-label="Redo" title="Redo (Ctrl/Cmd+Y)" disabled={!workspace.canRedo} onClick={workspace.redo}><Redo2 size={16} /></button>
