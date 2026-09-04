@@ -2,6 +2,8 @@
 
 Contributions are welcome: bug fixes, printer and material support, documentation, tests, accessibility improvements, and focused new features.
 
+By participating, follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Report security-sensitive problems privately as described in [SECURITY.md](SECURITY.md), and review the current priorities in [ROADMAP.md](ROADMAP.md).
+
 ## Before you start
 
 - Search existing issues and pull requests to avoid duplicate work.

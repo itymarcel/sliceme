@@ -13,7 +13,8 @@ describe('ProjectLinks', () => {
 
     const destinations = [
       ['Support SliceMe on Buy Me a Coffee', 'https://buymeacoffee.com/slicemeweb'],
-      ['SliceMe on GitHub', 'https://github.com/itymarcel/sliceme'],
+      ['View SliceMe source', 'https://github.com/itymarcel/sliceme'],
+      ['Report a SliceMe issue', 'https://github.com/itymarcel/sliceme/issues/new/choose'],
       ['Custom Orca on GitHub', 'https://github.com/itymarcel/custom-orca'],
     ] as const;
 

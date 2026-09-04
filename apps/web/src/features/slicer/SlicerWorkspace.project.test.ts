@@ -19,6 +19,9 @@ describe('workspace header controls', () => {
     expect(moreMenu).not.toContain('Buy Me a Coffee');
     expect(workspace).toContain('<SupportLink />');
     expect(workspace).toContain('Session saved locally in browser storage');
+    expect(workspace).toContain('Early beta');
+    expect(workspace).not.toContain('className="version-label"');
+    expect(workspace).toContain('className="changelog-tooltip"');
     expect(workspace).toContain('workspace.importProject');
     expect(workspace).toContain('workspace.exportProject');
   });

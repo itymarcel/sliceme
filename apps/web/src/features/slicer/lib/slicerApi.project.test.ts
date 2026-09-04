@@ -2,7 +2,7 @@
 import { unzipSync, strToU8, zipSync } from 'fflate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { requestProjectExport, requestProjectImport, summarizeSliceFailure } from './slicerApi';
+import { classifySliceFailure, requestProjectExport, requestProjectImport, summarizeSliceFailure } from './slicerApi';
 import type { SliceManifest, SlicerModel } from '../types';
 
 const config = { machine_config: { nozzle_diameter: '0.8' }, process_config: {}, filament_config: {} };
@@ -19,6 +19,13 @@ afterEach(() => vi.unstubAllGlobals());
 describe('Orca 3MF project API', () => {
   it('extracts the concise Orca validation reason from verbose slice output', () => {
     expect(summarizeSliceFailure('OrcaSlicer exited with code 205: [error] got error when validate: Too large line width Too large line width')).toBe('Too large line width');
+  });
+
+  it('normalizes telemetry failures without retaining model filenames or server error text', () => {
+    const failure = classifySliceFailure('OrcaSlicer exited with code 205: failed to process /tmp/job/private-client-name.stl');
+
+    expect(failure).toBe('slicer_exit_205');
+    expect(failure).not.toContain('private-client-name.stl');
   });
 
   it('imports extracted models and settings from the API package', async () => {

@@ -36,7 +36,8 @@ describe('MobileActionsMenu', () => {
     expect(screen.queryByRole('button', { name: 'Redo' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Slice' })).toBeNull();
     expect(screen.getByRole('link', { name: 'Support SliceMe on Buy Me a Coffee' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'SliceMe on GitHub' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'View SliceMe source' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Report a SliceMe issue' })).toBeTruthy();
   });
 
   it('runs an action, closes, and restores focus after Escape', () => {

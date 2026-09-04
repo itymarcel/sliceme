@@ -1,0 +1,52 @@
+name: Print validation
+description: Share a successful or unsuccessful real-print result
+title: "[Validation]: "
+body:
+  - type: input
+    id: printer
+    attributes:
+      label: Printer and SliceMe profile
+    validations:
+      required: true
+  - type: input
+    id: material
+    attributes:
+      label: Material and nozzle
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model
+      description: Public model URL or a generic description if it cannot be shared.
+    validations:
+      required: true
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Outcome
+      options:
+        - Successful and comparable to my usual slicer
+        - Printed with minor differences
+        - Preview/G-code issue; not printed
+        - Physical print failed
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Result and comparison
+      description: Include the usual slicer/version and any visible difference.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Photos or sanitized evidence
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety
+      options:
+        - label: I reviewed the generated G-code before sending it to the printer.
+          required: true

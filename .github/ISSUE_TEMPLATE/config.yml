@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/itymarcel/sliceme/security/advisories/new
+    about: Report vulnerabilities privately. Do not publish exploit details in an issue.
+  - name: Try SliceMe
+    url: https://sliceme.up.railway.app/
+    about: Open the hosted early beta.

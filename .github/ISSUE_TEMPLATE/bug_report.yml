@@ -1,0 +1,62 @@
+name: Bug report
+description: Report a reproducible SliceMe problem
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include private models, API keys, printer credentials, or other secrets."
+  - type: input
+    id: version
+    attributes:
+      label: SliceMe version/date
+      description: Shown beside the changelog button.
+      placeholder: "04/09/26"
+    validations:
+      required: true
+  - type: input
+    id: printer
+    attributes:
+      label: Printer and selected profile
+      placeholder: "Bambu Lab A1 / BBL · Bambu Lab A1 0.4 nozzle"
+    validations:
+      required: true
+  - type: input
+    id: material
+    attributes:
+      label: Material and nozzle
+      placeholder: "PLA, 0.4 mm"
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: "1. Add…\n2. Change…\n3. Slice…"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: Say whether it appears in the workspace, preview, G-code, or physical print.
+    validations:
+      required: true
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Shareable evidence
+      description: Screenshots, console errors, sanitized G-code excerpts, or a minimal non-private model/project.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I reviewed the generated G-code before printing.
+          required: true
+        - label: I removed secrets and private model data.
+          required: true

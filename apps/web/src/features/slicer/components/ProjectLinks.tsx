@@ -1,4 +1,4 @@
-import { CodeXml, Coffee } from 'lucide-react';
+import { Bug, CodeXml, Coffee } from 'lucide-react';
 
 const externalLinkProps = {
   target: '_blank',
@@ -15,9 +15,13 @@ export function SupportLink() {
 export function GitHubLinks() {
   return (
     <nav className="project-links" aria-label="Project links">
-      <a className="project-link" aria-label="SliceMe on GitHub" href="https://github.com/itymarcel/sliceme" {...externalLinkProps}>
+      <a className="project-link" aria-label="View SliceMe source" href="https://github.com/itymarcel/sliceme" {...externalLinkProps}>
         <CodeXml size={14} />
-        <span>SliceMe on GitHub</span>
+        <span>View SliceMe source</span>
+      </a>
+      <a className="project-link" aria-label="Report a SliceMe issue" href="https://github.com/itymarcel/sliceme/issues/new/choose" {...externalLinkProps}>
+        <Bug size={14} />
+        <span>Report an issue</span>
       </a>
       <a className="project-link" aria-label="Custom Orca on GitHub" href="https://github.com/itymarcel/custom-orca" {...externalLinkProps}>
         <CodeXml size={14} />

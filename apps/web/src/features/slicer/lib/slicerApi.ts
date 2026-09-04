@@ -24,6 +24,11 @@ export function summarizeSliceFailure(raw: string): string {
   return (firstHalf && firstHalf === secondHalf ? firstHalf : candidate).slice(0, 500) || 'Unknown slice error';
 }
 
+export function classifySliceFailure(raw: string): string {
+  const exitCode = raw.match(/OrcaSlicer exited with code (\d+)/i)?.[1];
+  return exitCode ? `slicer_exit_${exitCode}` : 'slice_error';
+}
+
 export async function loadDefaultConfig(signal?: AbortSignal): Promise<ConfigBundle> {
   const response = await fetch(`${apiBase}/api/default-config`, { signal });
   if (!response.ok) throw new Error(await readError(response));
@@ -87,7 +92,7 @@ export async function requestSlice(
     recordUsageEvent('slice_succeeded', true);
     return { blob, fileName, url: URL.createObjectURL(blob), enhancements: [] };
   } catch (error) {
-    recordUsageEvent('slice_failed', false, summarizeSliceFailure(error instanceof Error ? error.message : 'Unknown slice error'));
+    recordUsageEvent('slice_failed', false, classifySliceFailure(error instanceof Error ? error.message : 'Unknown slice error'));
     throw error;
   }
 }

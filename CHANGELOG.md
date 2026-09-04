@@ -5,6 +5,7 @@ Changes are grouped into one consolidated summary per calendar day.
 ## 2026-09-04
 
 - Added a navbar changelog popover that opens directly beneath its clock button, stays within the viewport, scrolls long release history, and formats dated entries and inline code more clearly. The browser fetches the deployed `/changelog.md` file on demand rather than embedding changelog content in the application bundle.
+- Prepared the public early-beta launch package: prominent live/source/feedback links, honest privacy and roadmap documents, community and release copy, structured issue templates, social-sharing/search metadata, favicon/manifest/robots/sitemap assets, privacy-safe normalized telemetry failure categories, and visible early-beta labels on desktop and mobile. Restored the concise local-session navbar wording, subdued the early-beta badge, and moved the version into a custom tooltip on the compact changelog control.
 
 ## 2026-09-02
 

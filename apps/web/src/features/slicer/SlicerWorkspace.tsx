@@ -119,18 +119,19 @@ export function SlicerWorkspace() {
       }} />
       <input ref={projectInput} hidden type="file" accept=".3mf" onChange={(event) => { const project = event.target.files?.[0]; if (project) void workspace.importProject(project); event.target.value = ''; }} />
       <header className="app-header">
-        <div className="header-left"><div className="privacy-note"><ShieldCheck size={14} /> Session saved locally in browser storage</div><SupportLink /><span className="version-label" aria-live="polite">Version: {new Date(workspace.lastUpdated).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+        <div className="header-left"><div className="privacy-note"><ShieldCheck size={14} /> Session saved locally in browser storage</div><SupportLink /><span className="beta-badge">Early beta</span>
           <div className="changelog-control desktop-only">
             <button
               className="icon-button"
               type="button"
               aria-label="Changelog"
+              aria-describedby="changelog-version-tooltip"
               aria-expanded={changelogOpen}
-              title="Changelog"
               onClick={() => setChangelogOpen((current) => !current)}
             >
-              <Clock size={16} />
+              <Clock size={12} />
             </button>
+            <span id="changelog-version-tooltip" className="changelog-tooltip" role="tooltip">Version {new Date(workspace.lastUpdated).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
             <TimeMachinePopover open={changelogOpen} onClose={() => setChangelogOpen(false)} />
           </div>
         </div>

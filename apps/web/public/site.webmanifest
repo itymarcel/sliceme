@@ -1,0 +1,17 @@
+{
+  "name": "SliceMe",
+  "short_name": "SliceMe",
+  "description": "Free, open-source OrcaSlicer-powered browser workspace for preparing models and generating G-code.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090d12",
+  "theme_color": "#090d12",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

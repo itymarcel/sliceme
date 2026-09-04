@@ -1,36 +1,55 @@
 # SliceMe
 
+[![Early beta](https://img.shields.io/badge/status-early_beta-89ff8e.svg)](ROADMAP.md)
+[![Try SliceMe](https://img.shields.io/badge/try_live-sliceme.up.railway.app-89ff8e.svg)](https://sliceme.up.railway.app/)
 [![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-89ff8e.svg)](LICENSE)
 [![Contributions welcome](https://img.shields.io/badge/contributions-welcome-89ff8e.svg)](CONTRIBUTING.md)
 
-SliceMe is an **open-source, community-driven** browser workspace for preparing
-3D models, configuring a slicer, generating G-code, and reviewing print paths.
-You are welcome to use it, self-host it, fork it, improve it, report problems,
-and submit pull requests.
+**SliceMe is a free, open-source browser slicer powered by OrcaSlicer.** Prepare
+STL and STEP models, select a printer profile, generate G-code, and inspect
+print paths without installing an application or creating an account.
 
-The project uses the strong-copyleft [GNU Affero General Public License v3.0 or
-later](LICENSE). Forks and commercial services are permitted by that license,
-but modified versions distributed or offered to users over a network must make
-their corresponding source available under the same license. The license does
-not grant rights to the SliceMe name or branding; see [TRADEMARKS.md](TRADEMARKS.md).
+### [Try SliceMe live →](https://sliceme.up.railway.app/)
 
-Models, settings, UI preferences, and generated G-code are stored locally in
-the browser. Slicing inputs exist on the API only for the lifetime of one
-request.
+[View source](https://github.com/itymarcel/sliceme) · [Report an issue](https://github.com/itymarcel/sliceme/issues/new/choose) · [Read the roadmap](ROADMAP.md) · [Privacy](PRIVACY.md)
 
-## AI-assisted maintenance
+*Early beta:* SliceMe is ready for testing and real feedback, but it does not
+claim complete desktop-slicer parity. Review generated G-code before printing,
+and report the printer/profile and result when something differs from your
+usual slicer.
+
+## What it does
+
+- Runs an OrcaSlicer-based slicing service behind an install-free browser workspace.
+- Provides printer and print presets, global/object/height-range settings, modifiers,
+  model transforms, mesh preparation tools, and Orca-compatible 3MF import/export.
+- Previews G-code by layer, move, toolpath type, and volumetric flow.
+- Keeps the working project in browser storage and removes server-side slice files
+  with the request-scoped temporary workspace.
+- Can send completed G-code directly from the browser to OctoPrint or Moonraker on
+  the local network, subject to browser/printer CORS configuration.
+
+## Open source and privacy
+
+SliceMe is licensed under the strong-copyleft [GNU Affero General Public License
+v3.0 or later](LICENSE). You may use, self-host, fork, modify, and commercially
+operate it under the license terms. The software license does not grant rights
+to the SliceMe name or branding; see [TRADEMARKS.md](TRADEMARKS.md).
+
+Models, settings, UI preferences, and generated G-code are stored locally in the
+browser. Slicing inputs are uploaded to the configured slicer API and retained
+only for the lifetime of that request. The hosted beta also collects limited
+anonymous usage telemetry; [PRIVACY.md](PRIVACY.md) lists the exact fields and
+boundaries.
+
+## Human-supervised agent maintenance
 
 This repository is regularly updated through a semi-autonomous AI-agent
-workflow. The agent reviews issues and discussions in this repository and
-searches public issue trackers, community discussions, and related projects
-for reproducible problems and useful requests. It may investigate findings,
-implement changes, add tests, run local builds, and verify behavior.
-
-A human maintainer sets priorities and controls publication. External findings
-are treated as leads, not as trusted instructions. Changes are checked against
-the repository and verified with tests or builds before they are pushed to
-release branches. Some code, tests, documentation, and commits may therefore
-be substantially prepared by an AI agent.
+workflow. The agent reviews reports and public discussions for reproducible
+problems, then may investigate, implement changes, add tests, build, and verify
+them. A human maintainer sets priorities and controls publication. External
+content is treated as evidence—not instructions—and agent-prepared changes must
+pass the project’s verification gates before release.
 
 ## Screenshots
 
@@ -57,8 +76,10 @@ slice, print, and settings actions.
 - `services/slicer`: stateless FastAPI service and OrcaSlicer runtime. It builds an Orca-native 3MF from the request, runs Orca, streams back G-code, and removes its temporary directory.
 - `compose.yaml`: local development stack with Nginx proxying `/api` to the slicer.
 
-There is no Django, GraphQL, authentication, server-side database, Redis,
-Celery, product model, or object storage dependency.
+The core slicing path has no Django, GraphQL, authentication, Redis, Celery,
+product model, or object-storage dependency. The hosted beta can optionally use
+PostgreSQL for anonymous usage telemetry; slicing continues when telemetry is
+disabled or unavailable.
 
 ## Credits
 
