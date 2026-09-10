@@ -590,45 +590,8 @@ def _build_3dmodel_xml(stl_bytes_list: list, per_object_transforms: list = None,
         bx, by = bed_center
 
         if isinstance(raw_transform, dict):
-            pos = raw_transform.get('position', {})
-            rot = raw_transform.get('rotation', {})
-            scale = raw_transform.get('scale', {})
-
-            desired_x = float(pos.get('x', 0.0))
-            desired_y = float(pos.get('y', 0.0))
-            user_z    = float(pos.get('z', 0.0))
-            sx_scale = float(scale.get('x', 1.0))
-            sy_scale = float(scale.get('y', 1.0))
-            sz_scale = float(scale.get('z', 1.0))
-            if any(not math.isfinite(value) or value == 0 for value in (sx_scale, sy_scale, sz_scale)):
-                raise ValueError("Object scale must contain finite non-zero values")
-
-            # Frontend is Three.js (Y-up). OrcaSlicer is Z-up.
-            # rx negated: Three.js rx=+90° inverts OrcaSlicer Z (world_z=-vy). rx=-90° gives world_z=+vy ✓
-            # rz negated: Three.js and OrcaSlicer Z-rotation go in opposite directions.
-            rx = -math.radians(float(rot.get('x', 0.0)))
-            ry =  math.radians(float(rot.get('y', 0.0)))
-            rz = -math.radians(float(rot.get('z', 0.0)))
-            cx_r, sx_r = math.cos(rx), math.sin(rx)
-            cy_r, sy_r = math.cos(ry), math.sin(ry)
-            cz_r, sz_r = math.cos(rz), math.sin(rz)
-            m00 = (cz_r*cy_r) * sx_scale;  m01 = (cz_r*sy_r*sx_r - sz_r*cx_r) * sx_scale;  m02 = (cz_r*sy_r*cx_r + sz_r*sx_r) * sx_scale
-            m10 = (sz_r*cy_r) * sy_scale;  m11 = (sz_r*sy_r*sx_r + cz_r*cx_r) * sy_scale;  m12 = (sz_r*sy_r*cx_r - cz_r*sx_r) * sy_scale
-            m20 = (-sy_r) * sz_scale;      m21 = (cy_r*sx_r) * sz_scale;                    m22 = (cy_r*cx_r) * sz_scale
-
-            tx = desired_x - (m00*mesh_cx + m10*mesh_cy + m20*mesh_cz)
-            ty = desired_y - (m01*mesh_cx + m11*mesh_cy + m21*mesh_cz)
-            min_wz = min(m02*v[0] + m12*v[1] + m22*v[2] for v in vertices)
-            tz = user_z - min_wz
-
-            logger.info(
-                f"_build_3dmodel_xml: obj={obj_id} "
-                f"pos_frontend=({pos.get('x')},{pos.get('y')}) "
-                f"rot_deg=({rot.get('x')},{rot.get('y')},{rot.get('z')}) "
-                f"mesh_centroid=({mesh_cx:.2f},{mesh_cy:.2f},{mesh_cz:.2f}) "
-                f"desired_bed=({desired_x:.2f},{desired_y:.2f}) "
-                f"translation=({tx:.3f},{ty:.3f},{tz:.3f})"
-            )
+            # One affine contract for normal export and direct-mesh slicing.
+            m00, m01, m02, m10, m11, m12, m20, m21, m22, tx, ty, tz = _build_affine_from_item_transform(raw_transform, vertices, bed_center)
 
         elif isinstance(raw_transform, list) and len(raw_transform) == 12:
             m00, m01, m02, m10, m11, m12, m20, m21, m22, tx, ty, tz = raw_transform
@@ -1046,8 +1009,12 @@ def _build_affine_from_item_transform(raw_transform, vertices: list, bed_center:
         sy_scale = float(scale.get('y', 1.0))
         sz_scale = float(scale.get('z', 1.0))
 
+        if any(not math.isfinite(value) or value == 0 for value in (sx_scale, sy_scale, sz_scale)):
+            raise ValueError('Object scale must contain finite non-zero values')
         rx = -math.radians(float(rot.get('x', 0.0)))
-        ry = math.radians(float(rot.get('y', 0.0)))
+        # Three.js XYZ Euler in a Z-up scene: negate all three in this
+        # transposed matrix convention, including Y (previously reversed).
+        ry = -math.radians(float(rot.get('y', 0.0)))
         rz = -math.radians(float(rot.get('z', 0.0)))
         cx_r, sx_r = math.cos(rx), math.sin(rx)
         cy_r, sy_r = math.cos(ry), math.sin(ry)

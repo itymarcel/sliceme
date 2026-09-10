@@ -21,11 +21,14 @@ import { useSlicerWorkspace } from './hooks/useSlicerWorkspace';
 import { useUsageSession } from './hooks/useUsageSession';
 import { addMeasurementPoint, type MeasurementPoint } from './lib/measurement';
 import { isEditableShortcutTarget } from './lib/historyShortcuts';
+import { useModelChecks } from './hooks/useModelChecks';
+import { ModelChecksPanel } from './components/ModelChecksPanel';
 import { stackedDragPosition } from './lib/objectTools';
 
 export function SlicerWorkspace() {
   const workspace = useSlicerWorkspace();
   useUsageSession();
+  const checks = useModelChecks(workspace.models, workspace.positions, workspace.rotations, workspace.scales, workspace.buildVolume, workspace.config, workspace.fileOverrides);
   const fileInput = useRef<HTMLInputElement>(null);
   const modifierInput = useRef<HTMLInputElement>(null);
   const modifierTarget = useRef<string | null>(null);
@@ -179,7 +182,7 @@ export function SlicerWorkspace() {
         <main className={`work-area ${workspace.gcode ? 'with-gcode' : ''} ${expandedViewer ? `expanded-${expandedViewer}` : ''}`}>
           <section className="model-stage">
             {workspace.models.length ? (
-              <ModelViewport ref={viewport} stlFiles={workspace.models} buildVolume={workspace.buildVolume} selectedFileId={selectedFileId} selectedFileIds={workspace.selectedFileIds} filePositions={workspace.positions} fileRotations={workspace.rotations} fileScales={workspace.scales} activeRange={activeRange} onSelectFile={workspace.selectFile} onSelectScene={workspace.selectScene} onDragStart={workspace.beginTransformChange} onPositionChange={(fileId, x, y) => workspace.setPositions((current) => ({
+              <ModelViewport diagnostic={checks.active} onCheckGeometry={checks.register} ref={viewport} stlFiles={workspace.models} buildVolume={workspace.buildVolume} selectedFileId={selectedFileId} selectedFileIds={workspace.selectedFileIds} filePositions={workspace.positions} fileRotations={workspace.rotations} fileScales={workspace.scales} activeRange={activeRange} onSelectFile={workspace.selectFile} onSelectScene={workspace.selectScene} onDragStart={workspace.beginTransformChange} onPositionChange={(fileId, x, y) => workspace.setPositions((current) => ({
                 ...current,
                 [fileId]: stackedDragPosition(
                   fileId, x, y,
@@ -192,6 +195,15 @@ export function SlicerWorkspace() {
             )}
             {workspace.models.length > 0 && <div className="axis-legend" aria-label="Viewport axes"><span className="axis-x">X</span><span className="axis-y">Y</span><span className="axis-z">Z</span></div>}
             {workspace.models.length > 0 && <CameraPresetControls expanded={expandedViewer === 'model'} viewerLabel="model" xray={workspace.ui.xrayModel} onToggleXray={() => workspace.setUi((current) => ({ ...current, xrayModel: !current.xrayModel }))} onToggleExpanded={() => setExpandedViewer((current) => current === 'model' ? null : 'model')} onTop={() => viewport.current?.setCameraPreset('top')} onFront={() => viewport.current?.setCameraPreset('front')} onRight={() => viewport.current?.setCameraPreset('right')} onCenter={() => viewport.current?.setCameraPreset('center')} />}
+            {workspace.models.length>0 && <ModelChecksPanel models={workspace.models} reports={checks.reports} selectedFileId={selectedFileId} active={checks.active} onHighlight={checks.setActive} onAction={(id,action)=>{
+              workspace.selectFile(id,false);
+              if(action==='repair') void workspace.performModelOperation(id,{kind:'repair'});
+              if(action==='choose-base'){setMeasurementActive(false);setMeasurementPoints([]);setSurfaceSelectionTarget(id);checks.setActive(null);}
+              if(action==='review-supports'||action==='review-line-width'){
+                workspace.setUi(current=>({...current,settingsSection:'process_config',settingsQuery:action==='review-supports'?'support':'line width'}));
+                if(window.innerWidth<=640)setMobileSettingsOpen(true);
+              }
+            }}/>}
             <div className="model-edit-controls">
               <MeasurementPanel active={measurementActive} disabled={workspace.models.length === 0} points={measurementPoints} onToggle={() => {
                 if (measurementActive) setMeasurementPoints([]);

@@ -1,3 +1,4 @@
+import { modelWorldMatrix } from './modelTransform';
 import {
   BufferAttribute,
   BufferGeometry,
@@ -20,28 +21,7 @@ type RepairReport = {
   flippedTriangles: number;
 };
 
-const EPSILON = 1e-6;
-const vertexKey = (point: Vector3) => `${Math.round(point.x / EPSILON)},${Math.round(point.y / EPSILON)},${Math.round(point.z / EPSILON)}`;
-const edgeKey = (a: Vector3, b: Vector3) => {
-  const ka = vertexKey(a);
-  const kb = vertexKey(b);
-  return ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
-};
-
-const trianglesFromGeometry = (geometry: BufferGeometry): Triangle[] => {
-  const position = geometry.getAttribute('position');
-  if (!position) throw new Error('Mesh has no position data.');
-  const index = geometry.index;
-  const count = index ? index.count : position.count;
-  if (count % 3 !== 0) throw new Error('Mesh triangle data is incomplete.');
-  const point = (offset: number) => {
-    const vertexIndex = index ? index.getX(offset) : offset;
-    return new Vector3(position.getX(vertexIndex), position.getY(vertexIndex), position.getZ(vertexIndex));
-  };
-  const triangles: Triangle[] = [];
-  for (let offset = 0; offset < count; offset += 3) triangles.push([point(offset), point(offset + 1), point(offset + 2)]);
-  return triangles;
-};
+import { EPSILON, vertexKey, edgeKey, trianglesFromGeometry } from './meshTopology';
 
 const geometryFromTriangles = (triangles: Triangle[]) => {
   const positions = new Float32Array(triangles.length * 9);
@@ -421,18 +401,7 @@ export function finalizeGeneratedGeometry(geometry: BufferGeometry, transform: G
   position: { x: number; y: number; z: number };
 } {
   const world = geometry.clone();
-  const radians = (degrees: number) => degrees * Math.PI / 180;
-  const quaternion = new Quaternion().setFromEuler(new Euler(radians(transform.rotation.x), radians(transform.rotation.y), radians(transform.rotation.z), 'XYZ'));
-  const scale = new Vector3(transform.scale.x, transform.scale.y, transform.scale.z);
-  groundingGeometry.computeBoundingBox();
-  if (!groundingGeometry.boundingBox) throw new Error('Source mesh has no measurable bounds.');
-  const rotationScale = new Matrix4().compose(new Vector3(), quaternion, scale);
-  const sourceBounds = groundingGeometry.boundingBox.clone().applyMatrix4(rotationScale);
-  const matrix = new Matrix4().compose(
-    new Vector3(transform.position.x, transform.position.y, (transform.position.z ?? 0) - sourceBounds.min.z),
-    quaternion,
-    scale,
-  );
+  const matrix = modelWorldMatrix(groundingGeometry, transform);
   world.applyMatrix4(matrix);
   if (matrix.determinant() < 0) {
     const positions = world.getAttribute('position');

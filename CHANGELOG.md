@@ -2,6 +2,11 @@
 
 Changes are grouped into one consolidated summary per calendar day.
 
+## 2026-09-10
+
+- Added local, worker-based Model checks for build-volume fit, bed contact, mesh integrity, geometric overhangs, and conservative nozzle-relative feature estimates. Findings highlight affected geometry and link to explicit repair, base-surface, and settings actions without silently changing models or settings. Estimates are advisory, exclude modifier meshes and height-range settings, and do not guarantee printability.
+- Unified exact-vertex grounding across model preview, diagnostics, and generated parts, and corrected Y-rotation export parity between preview and slicing.
+
 ## 2026-09-04
 
 - Added a navbar changelog popover that opens directly beneath its clock button, stays within the viewport, scrolls long release history, and formats dated entries and inline code more clearly. The browser fetches the deployed `/changelog.md` file on demand rather than embedding changelog content in the application bundle.
