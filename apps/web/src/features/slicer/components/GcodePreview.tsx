@@ -5,10 +5,12 @@ import { Axis3d, BroomSparkles, Check, Code2, Cuboid, Droplets, Layers3, LoaderC
 import { CameraPresetControls } from './CameraPresetControls';
 import { GcodeSourceEditor, type GcodeSourceEditorHandle } from './GcodeSourceEditor';
 import { ToolpathControls } from './ToolpathControls';
+import { PostSliceChecksPanel } from './PostSliceChecksPanel';
 import { init, type WebGLPreview } from '../lib/gcode-preview/gcode-preview';
 import type { GCodeCommand, Layer } from '../lib/gcode-preview/gcode-parser';
-import type { BuildVolume, GcodeEnhancement, GcodePreviewUiState, GcodeResult } from '../types';
+import type { BuildVolume, ConfigSection, GcodeEnhancement, GcodePreviewUiState, GcodeResult } from '../types';
 import { isToolpathVisible, toolpathColor, toolpathTypesFromLayers } from '../lib/toolpathVisibility';
+import { analyzePostSlice, type PostSliceModelBounds, type PostSliceReport } from '../lib/postSliceAnalysis';
 
 type CameraPreset = 'top' | 'front' | 'right' | 'fit';
 type PrinterPosition = { x: number; y: number; z: number };
@@ -199,12 +201,16 @@ function ToolbarToggle({ checked, icon, label, onChange, disabled = false }: {
   );
 }
 
-export function GcodePreview({ result, buildVolume, enhancing, onEnhance, onSourceChange, ui, onUiChange, expanded, onToggleExpanded }: {
+export function GcodePreview({ result, buildVolume, modelBounds, filamentDiameter, lineWidth, enhancing, onEnhance, onSourceChange, onReviewSettings, ui, onUiChange, expanded, onToggleExpanded }: {
   result: GcodeResult;
   buildVolume: BuildVolume;
+  modelBounds: PostSliceModelBounds | null;
+  filamentDiameter: number;
+  lineWidth: number;
   enhancing: GcodeEnhancement | null;
   onEnhance: (operation: GcodeEnhancement) => void;
   onSourceChange: (source: string) => void;
+  onReviewSettings: (section: ConfigSection, query: string) => void;
   ui: GcodePreviewUiState;
   onUiChange: (ui: GcodePreviewUiState) => void;
   expanded: boolean;
@@ -230,6 +236,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, onSour
   const [loading, setLoading] = useState(true);
   const [enhanceOpen, setEnhanceOpen] = useState(false);
   const [toolpathTypes, setToolpathTypes] = useState<string[]>([]);
+  const [postSliceReport, setPostSliceReport] = useState<PostSliceReport | null>(null);
   const [statsCollapsed, setStatsCollapsed] = useState(false);
   const isMobile = typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 640px)').matches;
 
@@ -425,6 +432,7 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, onSour
 
   useEffect(() => {
     let cancelled = false;
+    setPostSliceReport(null);
     result.blob.text().then((text) => {
       if (!cancelled) {
         setSource(text);
@@ -502,6 +510,18 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, onSour
       if (previewRef.current === preview) previewRef.current = undefined;
     };
   }, [applyGridVisibility, buildVolume.x, buildVolume.y, buildVolume.z, disposeEditMarkers, disposeToolhead, source]);
+
+  useEffect(() => {
+    const preview = previewRef.current;
+    if (!preview || !source) return;
+    setPostSliceReport(analyzePostSlice({
+      preamble: preview.parser.preamble,
+      layers: preview.parser.layers,
+      modelBounds,
+      filamentDiameter,
+      lineWidth,
+    }));
+  }, [filamentDiameter, lineWidth, modelBounds?.max.x, modelBounds?.max.y, modelBounds?.max.z, modelBounds?.min.x, modelBounds?.min.y, modelBounds?.min.z, source]);
 
   useEffect(() => {
     const preview = previewRef.current;
@@ -638,6 +658,18 @@ export function GcodePreview({ result, buildVolume, enhancing, onEnhance, onSour
         </div>
 
         <CameraPresetControls expanded={expanded} viewerLabel="G-code" onToggleExpanded={onToggleExpanded} onTop={() => setCameraPreset('top')} onFront={() => setCameraPreset('front')} onRight={() => setCameraPreset('right')} onCenter={() => setCameraPreset('fit')} />
+
+        {postSliceReport && !editMode && <PostSliceChecksPanel
+          report={postSliceReport}
+          onSelectLayer={selectLayer}
+          onAction={(action) => {
+            if (action === 'review-retraction') onReviewSettings('machine_config', 'retraction');
+            else if (action === 'review-cooling') onReviewSettings('filament_config', 'slow-down layer time');
+            else if (action === 'review-supports') onReviewSettings('process_config', 'support');
+            else if (action === 'review-adhesion') onReviewSettings('process_config', 'brim');
+            else onReviewSettings('process_config', 'speed');
+          }}
+        />}
 
         {layerCount > 0 && (
           <div className="gcode-scrubbers">

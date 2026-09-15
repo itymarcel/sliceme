@@ -37,6 +37,16 @@ const fields: Record<ConfigSection, Group[]> = {
       { key: 'machine_max_acceleration_extruding', label: 'Maximum acceleration', type: 'number' },
       { key: 'default_acceleration', label: 'Default acceleration', type: 'number' },
     ] },
+    { label: 'Retraction', fields: [
+      { key: 'retraction_length', label: 'Retraction length', type: 'number', step: 0.1, min: 0 },
+      { key: 'retraction_speed', label: 'Retraction speed', type: 'number', min: 0 },
+      { key: 'deretraction_speed', label: 'De-retraction speed', type: 'number', min: 0 },
+      { key: 'retraction_minimum_travel', label: 'Minimum travel', type: 'number', step: 0.1, min: 0 },
+      { key: 'retract_when_changing_layer', label: 'Retract on layer change', type: 'checkbox' },
+      { key: 'wipe', label: 'Wipe while retracting', type: 'checkbox' },
+      { key: 'wipe_distance', label: 'Wipe distance', type: 'number', step: 0.1, min: 0 },
+      { key: 'retract_before_wipe', label: 'Retract before wipe', type: 'number', min: 0, max: 100 },
+    ] },
     { label: 'Machine G-code', fields: [
       { key: 'machine_start_gcode', label: 'Start G-code', type: 'text' },
       { key: 'machine_end_gcode', label: 'End G-code', type: 'text' },
@@ -133,7 +143,6 @@ const fields: Record<ConfigSection, Group[]> = {
       { key: 'raft_layers', label: 'Raft layers', type: 'number' },
     ] },
     { label: 'Surface finish', fields: [
-      { key: 'retraction_length', label: 'Retraction length', type: 'number' },
       { key: 'z_hop', label: 'Z hop', type: 'number' },
       { key: 'ironing_type', label: 'Ironing', type: 'select', options: ['no ironing', 'top', 'topmost', 'solid'].map((value) => ({ label: value, value })) },
       { key: 'elefant_foot_compensation', label: 'Elephant-foot compensation', type: 'number', step: 0.01 },

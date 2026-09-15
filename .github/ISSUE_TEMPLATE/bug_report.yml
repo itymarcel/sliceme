@@ -11,7 +11,7 @@ body:
     attributes:
       label: SliceMe version/date
       description: Shown beside the changelog button.
-      placeholder: "04/09/26"
+      placeholder: "For example: Version 15/09/26"
     validations:
       required: true
   - type: input

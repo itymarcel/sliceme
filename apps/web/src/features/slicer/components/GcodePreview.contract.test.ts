@@ -33,6 +33,14 @@ describe('G-code toolbar presentation', () => {
     expect(styles).not.toMatch(/:hover[^\{]*\{[^}]*transform:\s*translateY\(\s*-\d/s);
   });
 
+  it('reuses the parsed preview layers for deterministic post-slice checks', () => {
+    expect(component).toContain('analyzePostSlice({');
+    expect(component).toContain('preamble: preview.parser.preamble');
+    expect(component).toContain('layers: preview.parser.layers');
+    expect(component).toContain('<PostSliceChecksPanel');
+    expect(component).not.toContain('new Parser');
+  });
+
   it('keeps source-line selection independent from preview extent and clear of view controls', () => {
     const syncToLine = component.match(/const syncToLine[\s\S]*?\n\s*useEffect\(\(\) =>/)?.[0] ?? '';
     expect(syncToLine).not.toContain('onUiChange');

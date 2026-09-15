@@ -14,6 +14,14 @@ const config: ConfigBundle = {
     printable_area: ['0x0', '250x0', '250x210', '0x210'],
     printable_height: '210',
     nozzle_diameter: ['0.6'],
+    retraction_length: ['0.8'],
+    retraction_speed: ['30'],
+    deretraction_speed: ['30'],
+    retraction_minimum_travel: ['1'],
+    retract_when_changing_layer: ['1'],
+    wipe: ['1'],
+    wipe_distance: ['1'],
+    retract_before_wipe: ['70%'],
   },
   filament_config: {},
   process_config: { skirt_loops: '0' },
@@ -93,6 +101,22 @@ describe('G-code setting editor', () => {
     expect(screen.getByRole('spinbutton', { name: 'Build height' }).getAttribute('value')).toBe('210');
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Bed width' }), { target: { value: '300' } });
     expect(panelProps.onChange).toHaveBeenLastCalledWith('machine_config', 'printable_width', '300');
+  });
+
+  it('exposes effective machine retraction controls instead of a process-scope duplicate', () => {
+    const panelProps = props();
+    render(<SlicerSettingsPanel {...panelProps} query="retraction" />);
+    const length = screen.getByRole('spinbutton', { name: 'Retraction length' }) as HTMLInputElement;
+    expect(length.value).toBe('0.8');
+    expect(screen.getByRole('spinbutton', { name: 'Retraction speed' })).toBeTruthy();
+    expect(screen.getByRole('spinbutton', { name: 'De-retraction speed' })).toBeTruthy();
+    expect(screen.getByRole('spinbutton', { name: 'Minimum travel' })).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Retract on layer change' })).toBeTruthy();
+    fireEvent.change(length, { target: { value: '1.2' } });
+    expect(panelProps.onChange).toHaveBeenCalledWith('machine_config', 'retraction_length', '1.2');
+    cleanup();
+    render(<SlicerSettingsPanel {...props()} section="process_config" query="retraction" />);
+    expect(screen.queryByRole('spinbutton', { name: 'Retraction length' })).toBeNull();
   });
 
   it('opens parameter help on click and closes it outside or with Escape', async () => {

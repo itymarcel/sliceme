@@ -2,8 +2,14 @@
 
 Changes are grouped into one consolidated summary per calendar day.
 
+## 2026-09-15
+
+- Updated the open-source beta launch kit, release notes, README, roadmap, and issue intake to reflect deterministic pre-slice and post-slice checks, effective retraction settings, current publication state, advisory limitations, and the exact release sequence from verified candidate through Railway and GitHub publication.
+
 ## 2026-09-10
 
+- Added deterministic post-slice checks that reuse the parsed G-code toolpath to flag conservative indicators for unsupported path islands, Orca-tagged long bridges, short layers, high support share, tall/narrow bounds, abrupt flow or speed transitions, frequent retractions, model/output extent differences, and sparse first layers. Findings show measured reasons and link to the relevant preview layer or settings without claiming printability.
+- Aligned the G-code result overlays to one 8 px spacing rhythm, moved Post-slice checks above the camera controls, exposed the effective machine retraction controls, and corrected every post-slice action to open a relevant field group—especially Machine → Retraction for frequent retractions and Filament → Cooling for short layers.
 - Added local, worker-based Model checks for build-volume fit, bed contact, mesh integrity, geometric overhangs, and conservative nozzle-relative feature estimates. Findings highlight affected geometry and link to explicit repair, base-surface, and settings actions without silently changing models or settings. Estimates are advisory, exclude modifier meshes and height-range settings, and do not guarantee printability.
 - Unified exact-vertex grounding across model preview, diagnostics, and generated parts, and corrected Y-rotation export parity between preview and slicing.
 

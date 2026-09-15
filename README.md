@@ -24,6 +24,7 @@ usual slicer.
 - Provides printer and print presets, global/object/height-range settings, modifiers,
   model transforms, mesh preparation tools, and Orca-compatible 3MF import/export.
 - Previews G-code by layer, move, toolpath type, and volumetric flow.
+- Runs local, deterministic Model checks before slicing and parsed-toolpath Post-slice checks afterward. Findings show measured evidence and limitations, navigate to relevant layers or exposed settings, and never claim guaranteed printability or silently change settings.
 - Keeps the working project in browser storage and removes server-side slice files
   with the request-scoped temporary workspace.
 - Can send completed G-code directly from the browser to OctoPrint or Moonraker on

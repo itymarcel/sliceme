@@ -23,7 +23,13 @@ import { addMeasurementPoint, type MeasurementPoint } from './lib/measurement';
 import { isEditableShortcutTarget } from './lib/historyShortcuts';
 import { useModelChecks } from './hooks/useModelChecks';
 import { ModelChecksPanel } from './components/ModelChecksPanel';
-import { stackedDragPosition } from './lib/objectTools';
+import { stackedDragPosition, transformedFootprint } from './lib/objectTools';
+
+const numericSetting = (value: unknown, fallback: number) => {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  const parsed = Number.parseFloat(String(candidate ?? ''));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
 
 export function SlicerWorkspace() {
   const workspace = useSlicerWorkspace();
@@ -53,6 +59,26 @@ export function SlicerWorkspace() {
     : null;
   const selectedModel = useMemo(() => workspace.models.find((model) => model.fileId === selectedFileId), [selectedFileId, workspace.models]);
   const modelIds = useMemo(() => workspace.models.map((model) => model.fileId).join(','), [workspace.models]);
+  const postSliceModelBounds = useMemo(() => {
+    const boxes = workspace.models.filter((model) => !model.modifierFor).flatMap((model) => {
+      const bounds = workspace.modelBounds[model.fileId];
+      if (!bounds) return [];
+      const size = transformedFootprint(bounds, workspace.scales[model.fileId], workspace.rotations[model.fileId]);
+      const position = workspace.positions[model.fileId] ?? { x: workspace.buildVolume.x / 2, y: workspace.buildVolume.y / 2, z: 0 };
+      return [{
+        min: { x: position.x - size.width / 2, y: position.y - size.depth / 2, z: position.z ?? 0 },
+        max: { x: position.x + size.width / 2, y: position.y + size.depth / 2, z: (position.z ?? 0) + size.height },
+      }];
+    });
+    if (!boxes.length) return null;
+    return boxes.slice(1).reduce((combined, box) => ({
+      min: { x: Math.min(combined.min.x, box.min.x), y: Math.min(combined.min.y, box.min.y), z: Math.min(combined.min.z, box.min.z) },
+      max: { x: Math.max(combined.max.x, box.max.x), y: Math.max(combined.max.y, box.max.y), z: Math.max(combined.max.z, box.max.z) },
+    }), boxes[0]);
+  }, [workspace.buildVolume.x, workspace.buildVolume.y, workspace.modelBounds, workspace.models, workspace.positions, workspace.rotations, workspace.scales]);
+  const filamentDiameter = numericSetting(workspace.config.filament_config.filament_diameter, 1.75);
+  const nozzleDiameter = numericSetting(workspace.config.machine_config.nozzle_diameter, 0.4);
+  const lineWidth = numericSetting(workspace.config.process_config.line_width, nozzleDiameter);
 
 
   useEffect(() => {
@@ -258,7 +284,7 @@ export function SlicerWorkspace() {
             </div>
             {workspace.status === 'slicing' && <div className="slicing-overlay"><LoaderCircle size={28} className="spin" /><strong>Slicer engine is working</strong><span>This request remains temporary.</span></div>}
           </section>
-          {workspace.gcode && <GcodePreview result={workspace.gcode} buildVolume={workspace.buildVolume} enhancing={workspace.enhancing} onEnhance={workspace.enhanceGcode} onSourceChange={workspace.updateGcodeSource} ui={workspace.ui.gcodePreview} onUiChange={(gcodePreview) => workspace.setUi((current) => ({ ...current, gcodePreview }))} expanded={expandedViewer === 'gcode'} onToggleExpanded={() => setExpandedViewer((current) => current === 'gcode' ? null : 'gcode')} />}
+          {workspace.gcode && <GcodePreview result={workspace.gcode} buildVolume={workspace.buildVolume} modelBounds={postSliceModelBounds} filamentDiameter={filamentDiameter} lineWidth={lineWidth} enhancing={workspace.enhancing} onEnhance={workspace.enhanceGcode} onSourceChange={workspace.updateGcodeSource} onReviewSettings={(settingsSection, settingsQuery) => { if (settingsSection === 'machine_config') workspace.selectScene(); workspace.setUi((current) => ({ ...current, settingsSection, settingsQuery })); if (window.innerWidth <= 640) setMobileSettingsOpen(true); }} ui={workspace.ui.gcodePreview} onUiChange={(gcodePreview) => workspace.setUi((current) => ({ ...current, gcodePreview }))} expanded={expandedViewer === 'gcode'} onToggleExpanded={() => setExpandedViewer((current) => current === 'gcode' ? null : 'gcode')} />}
         </main>
       </div>
 
