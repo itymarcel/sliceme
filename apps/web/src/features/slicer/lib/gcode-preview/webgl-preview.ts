@@ -14,6 +14,7 @@ import {
   LineSegments,
   Mesh,
   MeshPhongMaterial,
+  Object3D,
   PerspectiveCamera,
   PointLight,
   REVISION,
@@ -30,6 +31,8 @@ import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { GridHelper } from './gridHelper';
 import { LineBox } from './lineBox';
 import { LineTubeGeometry } from './LineTubeGeometry';
+import { SegmentBatch } from './batchCollector';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { LinePoint } from './LinePoint';
 
 export type DevModeOptions = {
@@ -157,6 +160,10 @@ export class WebGLPreview {
   private animationFrameId?: number;
   private renderLayerIndex = 0;
   private _tubeLine?: LineTubeGeometry;
+  private extrusionBatch = new SegmentBatch();
+  private travelBatch = new SegmentBatch();
+  private travelBatchColor = new Color('#fb7185');
+  private tubeGeometries: LineTubeGeometry[] = [];
   private _tubeLastE = 0;
   private _eRelative = false; // false = M82 absolute (default), true = M83 relative
   private _needsRender = true;
@@ -446,6 +453,7 @@ export class WebGLPreview {
   }
 
   private initScene() {
+    this.resetBatches();
     while (this.scene.children.length > 0) {
       this.scene.remove(this.scene.children[0]);
     }
@@ -513,6 +521,7 @@ export class WebGLPreview {
     }
 
     this.finalizeTubes();
+    this.flushBatches();
 
     this.scene.add(this.group);
     this.renderer.render(this.scene, this.camera);
@@ -551,6 +560,7 @@ export class WebGLPreview {
     }
 
     this.finalizeTubes();
+    this.flushBatches();
 
     this.scene.add(this.group);
   }
@@ -716,7 +726,7 @@ export class WebGLPreview {
     }
 
     if (includeTravel && this.renderTravel) {
-      this.addLine(layer.travel, this._travelColor.getHex());
+      this.addLine(layer.travel, this._travelColor.getHex(), 'travel');
     }
   }
 
@@ -881,20 +891,14 @@ export class WebGLPreview {
   }
 
   /** @internal */
-  addLine(vertices: number[], color: number): void {
-    if (typeof this.lineWidth === 'number' && this.lineWidth > 0) {
-      this.addThickLine(vertices, color);
+  addLine(vertices: number[], color: number, kind: 'extrusion' | 'travel' = 'extrusion'): void {
+    if (!vertices.length) return;
+    if (kind === 'travel') {
+      this.travelBatchColor = new Color(color);
+      this.travelBatch.addSegments(vertices, this.travelBatchColor);
       return;
     }
-
-    const geometry = new BufferGeometry();
-    geometry.setAttribute('position', new Float32BufferAttribute(vertices, 3));
-    this.disposables.push(geometry);
-    const material = new LineBasicMaterial({ color: color });
-    this.disposables.push(material);
-    const lineSegments = new LineSegments(geometry, material);
-
-    this.group?.add(lineSegments);
+    this.extrusionBatch.addSegments(vertices, new Color(color));
   }
 
   private finalizeTubes(): void {
@@ -905,32 +909,77 @@ export class WebGLPreview {
       return;
     }
     this._tubeLine.finish();
-    const material = new MeshPhongMaterial({ vertexColors: true, shininess: 75, specular: 0x555555 });
-    this.disposables.push(material);
-    this.disposables.push(this._tubeLine);
-    const mesh = new Mesh(this._tubeLine, material);
-    this.group?.add(mesh);
+    this.tubeGeometries.push(this._tubeLine);
     this._tubeLine = undefined;
   }
 
-  /** @internal */
-  addThickLine(vertices: number[], color: number): void {
-    if (!vertices.length || !this.lineWidth) return;
+  private resetBatches(): void {
+    this.extrusionBatch.clear();
+    this.travelBatch.clear();
+    this.tubeGeometries = [];
+  }
 
-    const geometry = new LineSegmentsGeometry();
-    this.disposables.push(geometry);
+  /**
+   * Converts everything accumulated since the last flush into one draw object per material:
+   * one extrusion line object (per-vertex colors), one travel line object (uniform color),
+   * and one merged tube mesh. Replaces the previous per-layer, per-type object creation.
+   */
+  private flushBatches(): void {
+    const group = this.group;
+    const width = typeof this.lineWidth === 'number' && this.lineWidth > 0 ? this.lineWidth : 0;
 
-    const matLine = new LineMaterial({
-      color: color,
-      linewidth: this.lineWidth,
-      resolution: new Vector2(this.canvas.width, this.canvas.height)
-    });
-    this.disposables.push(matLine);
+    if (group && !this.extrusionBatch.isEmpty) {
+      group.add(this.buildLineObject(this.extrusionBatch.positions, this.extrusionBatch.colors, width, true, 0xffffff));
+    }
+    if (group && !this.travelBatch.isEmpty) {
+      group.add(this.buildLineObject(this.travelBatch.positions, undefined, width, false, this.travelBatchColor.getHex()));
+    }
+    if (group && this.tubeGeometries.length) {
+      const material = new MeshPhongMaterial({ vertexColors: true, shininess: 75, specular: 0x555555 });
+      this.disposables.push(material);
+      const merged = mergeGeometries(this.tubeGeometries, false);
+      if (merged) {
+        this.disposables.push(merged);
+        this.tubeGeometries.forEach((geometry) => geometry.dispose());
+        group.add(new Mesh(merged, material));
+      } else {
+        this.tubeGeometries.forEach((geometry) => {
+          this.disposables.push(geometry);
+          group.add(new Mesh(geometry, material));
+        });
+      }
+    }
 
-    geometry.setPositions(vertices);
-    const line = new LineSegments2(geometry, matLine);
+    this.resetBatches();
+  }
 
-    this.group?.add(line);
+  private buildLineObject(
+    positions: number[],
+    colors: number[] | undefined,
+    width: number,
+    perVertex: boolean,
+    color: number,
+  ): Object3D {
+    if (width > 0) {
+      const geometry = new LineSegmentsGeometry();
+      geometry.setPositions(positions);
+      if (colors) geometry.setColors(colors);
+      const material = new LineMaterial({
+        color,
+        linewidth: width,
+        vertexColors: perVertex,
+        resolution: new Vector2(this.canvas.width, this.canvas.height),
+      });
+      this.disposables.push(geometry, material);
+      return new LineSegments2(geometry, material);
+    }
+
+    const geometry = new BufferGeometry();
+    geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+    if (colors) geometry.setAttribute('color', new Float32BufferAttribute(colors, 3));
+    const material = new LineBasicMaterial({ color, vertexColors: perVertex });
+    this.disposables.push(geometry, material);
+    return new LineSegments(geometry, material);
   }
 
   dispose(): void {

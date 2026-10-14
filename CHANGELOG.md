@@ -2,6 +2,11 @@
 
 Changes are grouped into one consolidated summary per calendar day.
 
+## 2026-10-14
+
+- Fixed cleared override fields: emptying an object or range setting now removes its override so it inherits the parent value again. Older saved workspaces that stored empty-string overrides are treated as unset when slicing.
+- Added batched segment collection for G-code preview rendering, so extrusion and travel moves are merged per material instead of drawn as separate objects per layer.
+
 ## 2026-09-15
 
 - Updated the open-source beta launch kit, release notes, README, roadmap, and issue intake to reflect deterministic pre-slice and post-slice checks, effective retraction settings, current publication state, advisory limitations, and the exact release sequence from verified candidate through Railway and GitHub publication.

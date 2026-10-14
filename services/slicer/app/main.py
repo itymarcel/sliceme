@@ -121,6 +121,18 @@ def _parse_manifest(raw_manifest: str, files: list[UploadFile]) -> SliceJob:
     if not files or len(files) > MAX_MODELS:
         raise HTTPException(status_code=422, detail=f"Upload between 1 and {MAX_MODELS} models")
 
+    # Cleared override fields arrive as "" from older saved workspaces; treat them as unset.
+    def _drop_empty(value):
+        if isinstance(value, dict):
+            return {k: _drop_empty(v) for k, v in value.items() if not (isinstance(v, str) and v == "")}
+        if isinstance(value, list):
+            return [_drop_empty(v) for v in value]
+        return value
+
+    for key in ("fileOverrides", "rangeOverrides"):
+        if isinstance(manifest.get(key), dict):
+            manifest[key] = _drop_empty(manifest[key])
+
     object_fields = ("config", "fileOverrides", "rangeOverrides", "transforms", "startPositions")
     if any(not isinstance(manifest.get(key, {}), dict) for key in object_fields):
         raise HTTPException(status_code=422, detail="Config, overrides, transforms, and positions must be objects")

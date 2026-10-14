@@ -59,6 +59,16 @@ const spiralModeSettings = {
 
 const isEnabled = (value: unknown) => value === true || value === 1 || value === '1' || value === 'true';
 
+// Clearing a field on an object/range removes its own override key so it falls
+// back to the parent value (object -> global, range -> object -> global).
+function removeOverrideKey(current: Record<string, Partial<ConfigBundle>>, fileId: string, section: ConfigSection, key: string) {
+  const bundle = current[fileId];
+  if (!bundle?.[section]) return current;
+  const nextSection = { ...bundle[section] };
+  delete nextSection[key];
+  return { ...current, [fileId]: { ...bundle, [section]: nextSection } };
+}
+
 function withSettingRelations(section: ConfigSection, settings: Record<string, unknown>, key: string, value: unknown) {
   const next = { ...settings, [key]: value };
   if (section === 'process_config' && key === 'spiral_mode' && isEnabled(value)) {
@@ -744,6 +754,22 @@ export function useSlicerWorkspace() {
 
   const setSetting = useCallback((section: ConfigSection, key: string, value: unknown) => {
     recordWorkspaceChange();
+    if (value === undefined && selectedNode.type !== 'scene') {
+      if (selectedNode.type === 'file') {
+        setFileOverrides((current) => removeOverrideKey(current, selectedNode.fileId, section, key));
+      } else {
+        setRangeOverrides((current) => {
+          const ranges = [...(current[selectedNode.fileId] ?? [])];
+          const range = ranges[selectedNode.rangeIndex];
+          if (!range) return current;
+          const nextSection = { ...range[section] };
+          delete nextSection[key];
+          ranges[selectedNode.rangeIndex] = { ...range, [section]: nextSection };
+          return { ...current, [selectedNode.fileId]: ranges };
+        });
+      }
+      return;
+    }
     // OrcaSlicer defines whole-print spiral mode at process scope. Keep the
     // control useful while an object is selected, but store it globally and
     // make every existing object/range compatible with vase mode.

@@ -202,6 +202,8 @@ function FieldControl({ field, section, props, onEditGcode }: { field: Field; se
   const aiRecommended = props.selectedNode.type === 'scene' && props.highlightedFields[section]?.includes(field.key);
   const update = (raw: string | boolean) => {
     props.onFieldInteract(section, field.key);
+    // Emptying an override field reverts it to the inherited parent value.
+    if (raw === '' && props.selectedNode.type !== 'scene') { props.onChange(section, field.key, undefined); return; }
     if (field.type === 'checkbox') props.onChange(section, field.key, raw ? '1' : '0');
     else if (field.type === 'number' && typeof scalarValue === 'string' && scalarValue.trim().endsWith('%')) props.onChange(section, field.key, `${raw}%`);
     else props.onChange(section, field.key, raw);
