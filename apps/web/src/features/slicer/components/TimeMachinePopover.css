@@ -77,6 +77,18 @@
   font-size: 11px;
 }
 
+.timemachine-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.timemachine-updated {
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
 .timemachine-body {
   min-height: 0;
   overflow-y: auto;

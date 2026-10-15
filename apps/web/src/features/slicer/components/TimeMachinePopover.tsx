@@ -56,6 +56,8 @@ export function TimeMachinePopover({ open, onClose }: Props) {
 
   if (!open) return null;
 
+  const lastUpdated = markdown ? latestChangelogDate(markdown) : null;
+
   let bodyContent: React.ReactNode;
   if (loading) {
     bodyContent = <div className="timemachine-loading" aria-live="polite">Loading changelog…</div>;
@@ -80,7 +82,10 @@ export function TimeMachinePopover({ open, onClose }: Props) {
   return (
     <div className="timemachine-root" role="dialog" aria-label="Changelog" ref={root}>
       <header className="timemachine-header">
-        <h2>Changelog</h2>
+        <div className="timemachine-title">
+          <h2>Changelog</h2>
+          {lastUpdated && <span className="timemachine-updated">Updated {lastUpdated}</span>}
+        </div>
         <button className="icon-button" type="button" aria-label="Close changelog" onClick={onClose}>
           <X size={14} />
         </button>
@@ -88,6 +93,11 @@ export function TimeMachinePopover({ open, onClose }: Props) {
       <div className="timemachine-body">{bodyContent}</div>
     </div>
   );
+}
+
+function latestChangelogDate(md: string): string | null {
+  const match = md.match(/^## (\d{4}-\d{2}-\d{2})\s*$/m);
+  return match ? match[1] : null;
 }
 
 function renderMarkdown(md: string): string {

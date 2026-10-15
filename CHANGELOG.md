@@ -2,6 +2,11 @@
 
 Changes are grouped into one consolidated summary per calendar day.
 
+## 2026-10-15
+
+- Added the last-updated date (taken from the newest changelog section) to the changelog popover header.
+- Fixed the served changelog being stale: the popover reads `apps/web/public/changelog.md`, a separate copy that was not updated with the 2026-10-14 entries. The public copy is now synced from the root CHANGELOG.md.
+
 ## 2026-10-14
 
 - Fixed cleared override fields: emptying an object or range setting now removes its override so it inherits the parent value again. Older saved workspaces that stored empty-string overrides are treated as unset when slicing.
