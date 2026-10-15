@@ -6,6 +6,7 @@ Changes are grouped into one consolidated summary per calendar day.
 
 - Added the last-updated date (taken from the newest changelog section) to the changelog popover header.
 - Fixed the served changelog being stale: the popover reads `apps/web/public/changelog.md`, a separate copy that was not updated with the 2026-10-14 entries. The public copy is now synced from the root CHANGELOG.md.
+- Fixed the changelog popover showing a stale cached copy: the fetch now revalidates `/changelog.md` on every open (`cache: 'no-cache'`), since nginx sends no Cache-Control for it.
 
 ## 2026-10-14
 
