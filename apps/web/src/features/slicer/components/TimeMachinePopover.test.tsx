@@ -89,7 +89,7 @@ describe('TimeMachinePopover', () => {
     await waitFor(() => {
       expect(screen.getByText('Loading changelog…')).toBeTruthy();
     });
-    expect(fetchMock).toHaveBeenCalledWith('/changelog.md');
+    expect(fetchMock).toHaveBeenCalledWith('/changelog.md', { cache: 'no-cache' });
 
     await act(async () => {
       resolve({
@@ -180,7 +180,7 @@ describe('TimeMachinePopover', () => {
     render(<TimeMachinePopover open={true} onClose={vi.fn()} />);
 
     await act(async () => {
-      expect(fetchMock).toHaveBeenCalledWith('/changelog.md');
+      expect(fetchMock).toHaveBeenCalledWith('/changelog.md', { cache: 'no-cache' });
       resolve({
         ok: true,
         status: 200,

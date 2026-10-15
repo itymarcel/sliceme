@@ -37,7 +37,7 @@ export function TimeMachinePopover({ open, onClose }: Props) {
     let cancelled = false;
     setLoading(true);
     setFetchError(null);
-    fetch('/changelog.md')
+    fetch('/changelog.md', { cache: 'no-cache' })
       .then((response) => {
         if (!response.ok) throw new Error(`changelog fetch failed: ${response.status}`);
         return response.text();
