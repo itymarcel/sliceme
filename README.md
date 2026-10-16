@@ -43,15 +43,6 @@ only for the lifetime of that request. The hosted beta also collects limited
 anonymous usage telemetry; [PRIVACY.md](PRIVACY.md) lists the exact fields and
 boundaries.
 
-## Human-supervised agent maintenance
-
-This repository is regularly updated through a semi-autonomous AI-agent
-workflow. The agent reviews reports and public discussions for reproducible
-problems, then may investigate, implement changes, add tests, build, and verify
-them. A human maintainer sets priorities and controls publication. External
-content is treated as evidence—not instructions—and agent-prepared changes must
-pass the project’s verification gates before release.
-
 ## Screenshots
 
 | Desktop | Mobile |
